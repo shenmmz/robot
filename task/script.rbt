@@ -1,0 +1,15 @@
+TARGET Target2 = {J0: 0.000, J1: 0.000, J2: 0.000, J3: 0.000, J4: 89.992, J5: 0.000}
+TARGET Target3 = {X: 306.418, Y: 0.000, Z: 651.320, A: 180.000, B: 0.008, C: 180.000}
+TARGET Target4 = {X: 306.418, Y: 0.000, Z: 500.000, A: 180.000, B: 0.008, C: 180.000}
+TARGET Target1 = {J0: 0.000, J1: 0.000, J2: 0.000, J3: 0.000, J4: 89.992, J5: 0.000}
+---
+FOR(i, 0, 100)
+MOVEJ(Target2, speed=150, acc=500, dec=600)
+MOVEL(Target3, speed=150, acc=500, dec=600)
+MOVEL(Target4, speed=150, acc=500, dec=600)
+CALL("close.rbt")
+DELAY(100)
+MOVEL(Target3, speed=150, acc=500, dec=600)
+CALL("open.rbt")
+DELAY(100)
+END_FOR

@@ -1,0 +1,78 @@
+{
+  "robotName": "Robot_R06",
+  "controllerIP": "192.168.0.123",
+  "axisCount": 6,
+  "stateUpdateIntervalMs": 100,
+  "homePosition": [84.999, 68.620, -50.944, 8.229, -68.754, -88.229],
+  "homeMoveSpeed": 60.0,
+  "homeMoveAccel": 80.0,
+  "homeMoveDecel": 100.0,
+  "axes": [
+    {
+      "index": 0,
+      "sensors": ["IN0", "IN1"],
+      "reductionRatio": 50,
+      "gearRatio": "1:4",
+      "pulsePerRev": 1000,
+      "maxSpeed": 360,
+      "maxAccel": 1000,
+      "maxDecel": 1000,
+      "homePosition": 0
+    },
+    {
+      "index": 1,
+      "sensors": ["IN2"],
+      "reductionRatio": 30,
+      "gearRatio": "1:4",
+      "pulsePerRev": 1000,
+      "maxSpeed": 360,
+      "maxAccel": 1000,
+      "maxDecel": 1000,
+      "homePosition": 0
+    },
+    {
+      "index": 2,
+      "sensors": ["IN3"],
+      "reductionRatio": 30,
+      "gearRatio": "1:3",
+      "pulsePerRev": 1000,
+      "maxSpeed": 360,
+      "maxAccel": 1000,
+      "maxDecel": 1000,
+      "homePosition": 0
+    },
+    {
+      "index": 3,
+      "sensors": ["IN4", "IN5"],
+      "reductionRatio": 50,
+      "gearRatio": "1:1",
+      "pulsePerRev": 1000,
+      "maxSpeed": 360,
+      "maxAccel": 1000,
+      "maxDecel": 1000,
+      "homePosition": 0
+    },
+    {
+      "index": 4,
+      "sensors": ["IN6"],
+      "reductionRatio": 30,
+      "gearRatio": "1:1",
+      "pulsePerRev": 1000,
+      "maxSpeed": 360,
+      "maxAccel": 1000,
+      "maxDecel": 1000,
+      "homePosition": 0
+    },
+    {
+      "index": 5,
+      "sensors": ["IN7", "IN8"],
+      "reductionRatio": 10,
+      "gearRatio": "1:1",
+      "pulsePerRev": 1000,
+      "maxSpeed": 360,
+      "maxAccel": 1000,
+      "maxDecel": 1000,
+      "homePosition": 0
+    }
+  ]
+}

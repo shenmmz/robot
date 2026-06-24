@@ -1,0 +1,30 @@
+TARGET Target7 = {J0: 0.000, J1: 0.000, J2: 0.000, J3: 90.000, J4: 0.000, J5: 90.000}
+TARGET Target8 = {J0: 0.000, J1: 0.000, J2: 0.000, J3: -90.000, J4: 0.000, J5: -90.000}
+TARGET Target6 = {J0: 0.000, J1: 0.000, J2: 0.000, J3: 0.000, J4: 0.000, J5: 0.000}
+TARGET Target1 = {J0: 0.000, J1: 0.000, J2: 0.000, J3: 0.000, J4: 89.992, J5: 0.000}
+TARGET Target2 = {X: 306.418, Y: 0.000, Z: 400.000, A: 180.000, B: 0.008, C: 180.000}
+TARGET Target3 = {X: 306.418, Y: -100.000, Z: 400.000, A: 180.000, B: 0.008, C: 180.000}
+TARGET Target4 = {X: 306.418, Y: -100.000, Z: 200.000, A: 180.000, B: 0.008, C: 180.000}
+---
+WHILE TRUE
+MOVEJ(Target1, speed=100, acc=200, dec=300)
+READ_POS()
+MOVEJOFF(-20,0,0,0,0,0)
+READ_POS()
+MOVEL(Target2, speed=100, acc=200, dec=300)
+READ_POS()
+MOVELOFF(0,0,100,0,0,0)
+READ_POS()
+MOVEL(Target3, speed=100, acc=200, dec=300)
+READ_POS()
+MOVEL(Target4, speed=100, acc=200, dec=300)
+READ_POS()
+MOVEJ(Target1, speed=100, acc=200, dec=300)
+READ_POS()
+MOVEJ(Target6, speed=100, acc=200, dec=300)
+READ_POS()
+MOVEJ(Target7, speed=25, acc=50, dec=60)
+READ_POS()
+MOVEJ(Target8, speed=25, acc=50, dec=60)
+READ_POS()
+END_WHILE
