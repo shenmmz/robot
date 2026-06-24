@@ -137,5 +137,6 @@ private:
     QString bytesToHex(const QByteArray& data) const;
     QString decimalToHex(const QString& decimalStr) const;
     static quint16 calcModbusCRC16(const QByteArray& data);
+    void showPointAdjustDialog(bool isJoint);
 };
 #endif // MAINWINDOW_H
