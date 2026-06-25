@@ -1744,25 +1744,104 @@ void MainWindow::initManualProgUI()
         group->setLayout(gridLay);
     };
 
-    restructureJogGroup(ui->jogJointGroup, true);
-    restructureJogGroup(ui->jogCartGroup, false);
+    // ==================== 合并点动组：关节 / 笛卡尔切换 ====================
 
-    // ==================== 点位调整按钮：弹窗模式（类似舵机设置） ====================
-    connect(ui->btnApplyJoint, &QPushButton::clicked, this, [this] { showPointAdjustDialog(true); });
-    connect(ui->btnApplyCart, &QPushButton::clicked, this, [this] { showPointAdjustDialog(false); });
-
-    // 调试模式控制点动可用性
-    auto setJogEnabled = [this](bool enabled) {
-        for (QGroupBox* g : {ui->jogJointGroup, ui->jogCartGroup}) {
-            for (QDoubleSpinBox* sp : g->findChildren<QDoubleSpinBox*>())
-                sp->setReadOnly(!enabled);
-        }
+    auto compactLabel = [](QLabel* lbl) {
+        lbl->setMinimumSize(20, 0);
+        lbl->setMaximumWidth(32);
+        lbl->setAlignment(Qt::AlignCenter);
+        lbl->setStyleSheet(QStringLiteral("color:#999;font-size:12px;font-weight:bold;border:none;background:transparent;"));
     };
-    setJogEnabled(ui->chkDebugMode->isChecked());
-    connect(ui->chkDebugMode, &QCheckBox::toggled, this, setJogEnabled);
+    auto compactSpin = [](QDoubleSpinBox* sp) {
+        sp->setFixedHeight(26);
+        sp->setMinimumWidth(50);
+        sp->setMaximumWidth(68);
+        sp->setButtonSymbols(QAbstractSpinBox::NoButtons);
+        sp->setStyleSheet(QStringLiteral(
+            "QDoubleSpinBox{border:none;background:transparent;"
+            "font-family:Consolas,'Microsoft YaHei UI';font-size:12px;"
+            "color:#1565c0;font-weight:bold;padding:2px 4px;}"));
+    };
 
+    // 从旧 GroupBox 提取控件并构建 3×2 页面
+    auto buildJogPage = [&](QGroupBox* srcGroup,
+                            const QStringList& labelNames,
+                            const QStringList& spinNames,
+                            const QString& btnName,
+                            const QStringList& prefixes) -> QWidget*
+    {
+        QMap<QString, QLabel*> labelMap;
+        QMap<QString, QDoubleSpinBox*> spinMap;
+        for (QLabel* w : srcGroup->findChildren<QLabel*>()) {
+            if (labelNames.contains(w->objectName())) labelMap[w->objectName()] = w;
+        }
+        for (QDoubleSpinBox* w : srcGroup->findChildren<QDoubleSpinBox*>()) {
+            if (spinNames.contains(w->objectName())) spinMap[w->objectName()] = w;
+        }
+        QPushButton* applyBtn = srcGroup->findChild<QPushButton*>(btnName);
 
-    // 左侧栏: 手动调试 + 关节点动 + 笛卡尔点动 上下排列
+        // 清空旧布局并隐藏
+        QLayout* oldLay = srcGroup->layout();
+        if (oldLay) {
+            std::function<void(QLayout*)> clearRec = [&](QLayout* l) {
+                while (l->count() > 0) {
+                    QLayoutItem* item = l->takeAt(0);
+                    if (item->layout()) clearRec(item->layout());
+                    delete item;
+                }
+            };
+            clearRec(oldLay);
+            delete oldLay;
+        }
+        srcGroup->hide();
+
+        // 构建页面
+        QWidget* page = new QWidget();
+        QGridLayout* gridLay = new QGridLayout(page);
+        gridLay->setSpacing(8);
+        gridLay->setContentsMargins(0, 6, 0, 6);
+        gridLay->setColumnStretch(0, 1);
+        gridLay->setColumnStretch(1, 1);
+
+        for (int i = 0; i < spinNames.size(); ++i) {
+            QDoubleSpinBox* sp = spinMap.value(spinNames[i]);
+            if (!sp) continue;
+
+            // 隐藏旧 label（不再使用，名称通过 prefix 内嵌到 SpinBox 中）
+            QLabel* lbl = labelMap.value(labelNames[i]);
+            if (lbl) lbl->hide();
+
+            sp->setParent(page);
+            sp->setFixedHeight(30);
+            sp->setMinimumWidth(60);
+            sp->setMaximumWidth(90);
+            sp->setButtonSymbols(QAbstractSpinBox::NoButtons);
+            sp->setPrefix(prefixes[i] + QStringLiteral(" ："));
+            sp->setStyleSheet(QStringLiteral(
+                "QDoubleSpinBox{font-family:Consolas,'Microsoft YaHei UI';font-size:13px;"
+                "padding:2px 4px;border:1px solid #d0d5dd;border-radius:5px;"
+                "background:#fafbfc;color:#1565c0;font-weight:bold;}"));
+            sp->setAlignment(Qt::AlignCenter);
+
+            gridLay->addWidget(sp, i / 2, i % 2);
+        }
+
+        if (applyBtn) {
+            applyBtn->setParent(page);
+            applyBtn->setFixedHeight(40);
+            applyBtn->setStyleSheet(
+                QStringLiteral(
+                    "QPushButton{background:#1565c0;color:#fff;border:1px solid #0d47a1;"
+                    "border-radius:5px;font-weight:bold;font-size:14px;padding:6px 12px;}"
+                    "QPushButton:hover{background:#0d47a1;}"
+                    "QPushButton:pressed{background:#0a3d8a;}"));
+            gridLay->addWidget(applyBtn, (labelNames.size() + 1) / 2, 0, 1, 2, Qt::AlignCenter);
+        }
+
+        return page;
+    };
+
+    // 左侧栏: 手动调试 + 点动控制(合并)
     QWidget* leftPanel = new QWidget();
     QVBoxLayout* leftLay = new QVBoxLayout(leftPanel);
     leftLay->setContentsMargins(0, 0, 4, 0);
@@ -1777,54 +1856,117 @@ void MainWindow::initManualProgUI()
     }
     delete jogHItem;
 
-    leftLay->addWidget(ui->jogDebugGroup);   // 手动调试
-    leftLay->addWidget(ui->jogJointGroup);   // 关节点动
-    leftLay->addWidget(ui->jogCartGroup);    // 笛卡尔点动
+    // 构建两个页面
+    QWidget* jointPage = buildJogPage(ui->jogJointGroup,
+        {"label_3","label_4","label_5","label_6","label_7","label_8"},
+        {"spinManualJ0","spinManualJ1","spinManualJ2","spinManualJ3","spinManualJ4","spinManualJ5"},
+        QStringLiteral("btnApplyJoint"),
+        {"J0","J1","J2","J3","J4","J5"});
+
+    QWidget* cartPage = buildJogPage(ui->jogCartGroup,
+        {"label_9","label_10","label_11","label_12","label_13","label_14"},
+        {"spinManualX","spinManualRx","spinManualY","spinManualRy","spinManualZ","spinManualRz"},
+        QStringLiteral("btnApplyCart"),
+        {"X","A","Y","B","Z","C"});
+
+    // 点位调整按钮连接
+    QPushButton* btnApplyJoint = jointPage->findChild<QPushButton*>(QStringLiteral("btnApplyJoint"));
+    QPushButton* btnApplyCart  = cartPage->findChild<QPushButton*>(QStringLiteral("btnApplyCart"));
+    if (btnApplyJoint)
+        connect(btnApplyJoint, &QPushButton::clicked, this, [this] { showPointAdjustDialog(true); });
+    if (btnApplyCart)
+        connect(btnApplyCart, &QPushButton::clicked, this, [this] { showPointAdjustDialog(false); });
+
+    // 合并容器
+    QFrame* jogMergedGroup = new QFrame(leftPanel);
+    jogMergedGroup->setStyleSheet(
+        QStringLiteral(
+            "QFrame{background:#ffffff;border:1px solid #d0d5dd;border-radius:18px;}"));
+    jogMergedGroup->setFrameShape(QFrame::StyledPanel);
+
+    QVBoxLayout* jogMainLay = new QVBoxLayout(jogMergedGroup);
+    jogMainLay->setSpacing(10);
+    jogMainLay->setContentsMargins(12, 14, 12, 20);
+
+    QLabel* jogTitle = new QLabel(QStringLiteral("点动控制"), jogMergedGroup);
+    jogTitle->setStyleSheet(
+        QStringLiteral("color:#1a1a2e;font-weight:bold;font-size:13px;border:none;background:transparent;"));
+    jogMainLay->addWidget(jogTitle);
+
+    QTabBar* jogTabBar = new QTabBar(jogMergedGroup);
+    jogTabBar->addTab(QStringLiteral("关节"));
+    jogTabBar->addTab(QStringLiteral("笛卡尔"));
+    jogTabBar->setStyleSheet(
+        QStringLiteral(
+            "QTabBar::tab{font-size:13px;font-weight:bold;padding:4px 16px;"
+            "background:#f5f5f5;border:1px solid #d0d5dd;border-bottom:none;"
+            "border-radius:4px 4px 0 0;margin-right:2px;}"
+            "QTabBar::tab:selected{background:#fff;color:#1565c0;}"
+            "QTabBar::tab:!selected{color:#888;}"));
+    jogMainLay->addWidget(jogTabBar);
+
+    QStackedWidget* jogStack = new QStackedWidget(jogMergedGroup);
+    jogStack->addWidget(jointPage);
+    jogStack->addWidget(cartPage);
+    jogMainLay->addWidget(jogStack);
+
+    connect(jogTabBar, &QTabBar::currentChanged, jogStack, &QStackedWidget::setCurrentIndex);
+
+    // 调试模式控制点动可用性
+    auto setJogEnabled = [this, jogStack](bool enabled) {
+        for (int p = 0; p < jogStack->count(); ++p) {
+            for (QDoubleSpinBox* sp : jogStack->widget(p)->findChildren<QDoubleSpinBox*>())
+                sp->setReadOnly(!enabled);
+        }
+        QString labelColor = enabled ? QStringLiteral("#000") : QStringLiteral("#666");
+        QString labelSS = QStringLiteral("color:%1;font-size:12px;border:none;background:transparent;").arg(labelColor);
+        for (QLabel* lb : {ui->label_15, ui->label_16, ui->label_17, ui->label_18})
+            lb->setStyleSheet(labelSS);
+    };
+    setJogEnabled(ui->chkDebugMode->isChecked());
+    connect(ui->chkDebugMode, &QCheckBox::toggled, this, setJogEnabled);
+
+    leftLay->addWidget(ui->jogDebugGroup);      // 手动调试
+    leftLay->addWidget(jogMergedGroup);          // 点动控制(关节/笛卡尔)
 
     // 舵机板块：3×2 网格布局
     // 控制全部在"舵机设置"弹窗内完成
-    QGroupBox* servoGroup = new QGroupBox(QStringLiteral("舵机"), leftPanel);
+    QFrame* servoGroup = new QFrame(leftPanel);
     servoGroup->setStyleSheet(
         QStringLiteral(
-            "QGroupBox{background:#ffffff;border:1px solid #d0d5dd;border-radius:18px;"
-            "margin-top:30px;padding:12px 8px 12px 8px;font-weight:bold;font-size:12px;color:#1a1a2e;}"
-            "QGroupBox::title{subcontrol-origin:margin;left:12px;padding:0 4px;}"
-        ));
-    QVBoxLayout* servoLay = new QVBoxLayout();
-    servoLay->setSpacing(6);
-    servoLay->setContentsMargins(0, 6, 0, 6);
+            "QFrame{background:#ffffff;border:1px solid #d0d5dd;border-radius:18px;}"));
+    servoGroup->setFrameShape(QFrame::StyledPanel);
+
+    QVBoxLayout* servoLay = new QVBoxLayout(servoGroup);
+    servoLay->setSpacing(10);
+    servoLay->setContentsMargins(12, 14, 12, 20);
+
+    QLabel* servoTitle = new QLabel(QStringLiteral("舵机"), servoGroup);
+    servoTitle->setStyleSheet(
+        QStringLiteral("color:#1a1a2e;font-weight:bold;font-size:13px;border:none;background:transparent;"));
+    servoLay->addWidget(servoTitle);
 
     // 3×2 QGridLayout
     QGridLayout* servoGrid = new QGridLayout();
-    servoGrid->setSpacing(6);
+    servoGrid->setSpacing(8);
     servoGrid->setContentsMargins(0, 0, 0, 0);
 
     m_servoAngleLabels.clear();
     for (int i = 0; i < 6; ++i) {
-        QHBoxLayout* row = new QHBoxLayout();
-        row->setSpacing(2);
-        row->setContentsMargins(0, 0, 0, 0);
-
-        QLabel* lbl = new QLabel(QStringLiteral("CH%1").arg(i));
-        lbl->setStyleSheet(
-            QStringLiteral("color:#888;font-size:12px;font-weight:bold;"));
-
-        QLabel* angleLbl = new QLabel(QStringLiteral("90.0°"));
+        QLabel* angleLbl = new QLabel(QStringLiteral("CH%1 ：90.0°").arg(i));
         angleLbl->setAlignment(Qt::AlignCenter);
-        angleLbl->setFixedHeight(22);
-        angleLbl->setMinimumWidth(50);
-        angleLbl->setMaximumWidth(68);
+        angleLbl->setFixedHeight(30);
+        angleLbl->setMinimumWidth(60);
+        angleLbl->setMaximumWidth(90);
         angleLbl->setStyleSheet(
             QStringLiteral(
-                "QLabel{font-family:Consolas,'Microsoft YaHei UI';font-size:11px;"
+                "QLabel{font-family:Consolas,'Microsoft YaHei UI';font-size:13px;"
                 "color:#1565c0;font-weight:bold;background:#fafbfc;"
-                "border:1px solid #d0d5dd;border-radius:3px;padding:1px 2px;}"
+                "border:1px solid #d0d5dd;border-radius:5px;padding:2px 4px;}"
             ));
         m_servoAngleLabels.append(angleLbl);
 
-        row->addWidget(lbl);
-        row->addWidget(angleLbl);
-        servoGrid->addLayout(row, i / 2, i % 2);
+        servoGrid->addWidget(angleLbl, i / 2, i % 2);
     }
 
     servoLay->addLayout(servoGrid);
@@ -1837,7 +1979,7 @@ void MainWindow::initManualProgUI()
                 [this](int channel, float angle) {
                     if (channel < 0 || channel >= m_servoAngleLabels.size()) return;
                     m_servoAngleLabels[channel]->setText(
-                        QString("%1°").arg(angle, 0, 'f', 1));
+                        QString("CH%1 ：%2°").arg(channel).arg(angle, 0, 'f', 1));
                 });
         }
     }

@@ -91,6 +91,61 @@ install(TARGETS Robot_R06
     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
 )
 
+# ============================================================
+# 编译时将 SDK 的 DLL/LIB 文件拷贝到构建输出目录
+# ============================================================
+set(SDK_LIB_DIR ${CMAKE_SOURCE_DIR}/library)
+set(SDK_FILES
+    zauxdll.dll
+    zmotion.dll
+    zauxdll.lib
+    zmotion.lib
+)
+
+foreach(SDK_FILE ${SDK_FILES})
+    set(SRC_FILE ${SDK_LIB_DIR}/${SDK_FILE})
+    if(EXISTS ${SRC_FILE})
+        add_custom_command(TARGET Robot_R06 POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                "${SRC_FILE}"
+                "$<TARGET_FILE_DIR:Robot_R06>/${SDK_FILE}"
+            COMMENT "Copying ${SDK_FILE} to build output directory"
+        )
+    else()
+        message(WARNING "SDK file not found: ${SRC_FILE}")
+    endif()
+endforeach()
+
 if(QT_VERSION_MAJOR EQUAL 6)
     qt_finalize_executable(Robot_R06)
+endif()
+
+# ============================================================
+# 构建后自动部署 Qt 运行时依赖（仅 Windows + Qt6）
+# 每次编译后自动执行 windeployqt 并创建 qt.conf
+# ============================================================
+if(WIN32 AND QT_VERSION_MAJOR EQUAL 6)
+    get_filename_component(_qt6_cmake_dir "${Qt6_DIR}" DIRECTORY)
+    get_filename_component(_qt6_lib_dir "${_qt6_cmake_dir}" DIRECTORY)
+    get_filename_component(_qt6_prefix "${_qt6_lib_dir}" DIRECTORY)
+    set(_windeployqt "${_qt6_prefix}/bin/windeployqt.exe")
+
+    if(EXISTS "${_windeployqt}")
+        file(WRITE "${CMAKE_BINARY_DIR}/deploy_qt.cmake"
+"execute_process(COMMAND \"${_windeployqt}\" \"\${TARGET_FILE}\" --no-translations RESULT_VARIABLE _ret)
+if(NOT _ret EQUAL 0)
+    message(WARNING \"windeployqt failed with exit code \${_ret}\")
+endif()
+file(WRITE \"\${TARGET_DIR}/qt.conf\" \"[Paths]\\nPlugins = .\\n\")
+")
+        add_custom_command(TARGET Robot_R06 POST_BUILD
+            COMMAND ${CMAKE_COMMAND}
+                -DTARGET_FILE="$<TARGET_FILE:Robot_R06>"
+                -DTARGET_DIR="$<TARGET_FILE_DIR:Robot_R06>"
+                -P "${CMAKE_BINARY_DIR}/deploy_qt.cmake"
+            COMMENT "Deploying Qt runtime (windeployqt + qt.conf)"
+        )
+    else()
+        message(WARNING "windeployqt not found: ${_windeployqt}")
+    endif()
 endif()

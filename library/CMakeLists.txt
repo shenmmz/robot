@@ -18,3 +18,4 @@ target_sources(zmotion_sdk INTERFACE
     zauxdll2.h
     zmotion.h
 )
+
