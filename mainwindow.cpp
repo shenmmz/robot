@@ -1557,17 +1557,20 @@ void MainWindow::initManualProgUI()
     if (debugVLay) {
         while (debugVLay->count() > 1) delete debugVLay->takeAt(1);
 
-        debugVLay->setContentsMargins(0, 2, 0, 2);  // 与点动组统一边距
-        debugVLay->setSpacing(2);  // 与点动组统一行间距
+        // 2×2 网格: 步长/速度上排，加速度/减速度下排
+        debugVLay->setContentsMargins(0, 6, 0, 6);
+        debugVLay->setSpacing(6);
 
-        // 紧凑: [调试模式] 一行，下方4个参数纵向排列
         ui->chkDebugMode->setText(QStringLiteral("调试模式"));
         ui->chkDebugMode->setStyleSheet(
             QStringLiteral("QCheckBox{color:#333;font-size:11px;spacing:3px;font-weight:bold;}"));
 
-        // 标签和 SpinBox 紧凑化，使用与点动组相同的 QHBoxLayout 逐行结构保证对齐
+        // 清空旧项（保留 chkDebugMode）
+        while (debugVLay->count() > 1) delete debugVLay->takeAt(1);
+
+        // 标签和 SpinBox 紧凑化
         auto compactLabel = [](QLabel* lbl) {
-            lbl->setMinimumSize(20, 0);  // 与 J0 标签同宽
+            lbl->setMinimumSize(20, 0);
             lbl->setMaximumWidth(40);
             lbl->setAlignment(Qt::AlignLeft | Qt::AlignVCenter);
             lbl->setStyleSheet(QStringLiteral("color:#888;font-size:11px;font-weight:bold;border:none;background:transparent;"));
@@ -1587,7 +1590,6 @@ void MainWindow::initManualProgUI()
         ui->label_17->setText(QStringLiteral("加速度"));
         ui->label_18->setText(QStringLiteral("减速度"));
 
-        // 去掉 UI 文件中预设的 suffix
         ui->debugStep->setSuffix(QString());
         ui->debugSpeed->setSuffix(QString());
         ui->debugAccel->setSuffix(QString());
@@ -1598,28 +1600,35 @@ void MainWindow::initManualProgUI()
         compactSpin(ui->debugAccel);
         compactSpin(ui->debugDecel);
 
-        // 每行: label | SpinBox，与点动组 QHBoxLayout 结构一致
-        struct { QLabel* label; QDoubleSpinBox* spin; } debugRows[] = {
+        // 2×2 QGridLayout
+        QGridLayout* debugGrid = new QGridLayout();
+        debugGrid->setSpacing(6);
+        debugGrid->setContentsMargins(0, 0, 0, 0);
+        debugGrid->setColumnStretch(0, 1);
+        debugGrid->setColumnStretch(1, 1);
+
+        struct { QLabel* label; QDoubleSpinBox* spin; } debugCells[] = {
             {ui->label_15, ui->debugStep},
             {ui->label_16, ui->debugSpeed},
             {ui->label_17, ui->debugAccel},
             {ui->label_18, ui->debugDecel},
         };
-        for (auto& r : debugRows) {
+        for (int i = 0; i < 4; ++i) {
             QHBoxLayout* row = new QHBoxLayout();
             row->setSpacing(2);
             row->setContentsMargins(0, 0, 0, 0);
-            row->addWidget(r.label);
-            row->addWidget(r.spin);
-            debugVLay->addLayout(row);
+            row->addWidget(debugCells[i].label);
+            row->addWidget(debugCells[i].spin);
+            debugGrid->addLayout(row, i / 2, i % 2);
         }
+        debugVLay->addLayout(debugGrid);
     }
 
-    // 收紧调试组，和点动组 style 统一
+    // 容器放大 3 倍
     ui->jogDebugGroup->setStyleSheet(
         QStringLiteral(
-            "QGroupBox{background:#ffffff;border:1px solid #d0d5dd;border-radius:6px;"
-            "margin-top:10px;padding:4px 6px 4px 6px;font-weight:bold;font-size:12px;color:#1a1a2e;}"
+            "QGroupBox{background:#ffffff;border:1px solid #d0d5dd;border-radius:18px;"
+            "margin-top:30px;padding:12px 8px 12px 8px;font-weight:bold;font-size:12px;color:#1a1a2e;}"
             "QGroupBox::title{subcontrol-origin:margin;left:12px;padding:0 4px;}"
         ));
 
@@ -1627,8 +1636,8 @@ void MainWindow::initManualProgUI()
     auto restructureJogGroup = [this](QGroupBox* group, bool isJoint) {
         group->setStyleSheet(
             QStringLiteral(
-                "QGroupBox{background:#ffffff;border:1px solid #d0d5dd;border-radius:6px;"
-                "margin-top:10px;padding:4px 6px 4px 6px;font-weight:bold;font-size:12px;color:#1a1a2e;}"
+                "QGroupBox{background:#ffffff;border:1px solid #d0d5dd;border-radius:18px;"
+                "margin-top:30px;padding:12px 8px 12px 8px;font-weight:bold;font-size:12px;color:#1a1a2e;}"
                 "QGroupBox::title{subcontrol-origin:margin;left:12px;padding:0 4px;}"
             ));
 
@@ -1681,10 +1690,12 @@ void MainWindow::initManualProgUI()
         };
         clearLayoutRecursive(oldLay);
 
-        // 重建：QVBoxLayout 嵌套 QHBoxLayout 逐行
-        QVBoxLayout* vlay = new QVBoxLayout();
-        vlay->setSpacing(2);
-        vlay->setContentsMargins(0, 2, 0, 2);
+        // 重建：3×2 QGridLayout
+        QGridLayout* gridLay = new QGridLayout();
+        gridLay->setSpacing(6);
+        gridLay->setContentsMargins(0, 6, 0, 6);
+        gridLay->setColumnStretch(0, 1);
+        gridLay->setColumnStretch(1, 1);
 
         auto compactLabel = [](QLabel* lbl) {
             lbl->setMinimumSize(20, 0);
@@ -1714,10 +1725,10 @@ void MainWindow::initManualProgUI()
             row->setContentsMargins(0, 0, 0, 0);
             row->addWidget(lbl);
             row->addWidget(sp);
-            vlay->addLayout(row);
+            gridLay->addLayout(row, i / 2, i % 2);
         }
 
-        // 底部"点位调整"按钮
+        // 底部"点位调整"按钮：跨两列居中
         if (applyBtn) {
             applyBtn->setFixedHeight(24);
             applyBtn->setStyleSheet(
@@ -1725,12 +1736,12 @@ void MainWindow::initManualProgUI()
                     "border-radius:3px;font-weight:bold;font-size:11px;}"
                     "QPushButton:hover{background:#0d47a1;}"
                     "QPushButton:pressed{background:#0a3d8a;}"));
-            vlay->addWidget(applyBtn);
+            gridLay->addWidget(applyBtn, 3, 0, 1, 2, Qt::AlignCenter);
         }
 
         // 把新布局设到 group 上
         delete group->layout();
-        group->setLayout(vlay);
+        group->setLayout(gridLay);
     };
 
     restructureJogGroup(ui->jogJointGroup, true);
@@ -1755,7 +1766,7 @@ void MainWindow::initManualProgUI()
     QWidget* leftPanel = new QWidget();
     QVBoxLayout* leftLay = new QVBoxLayout(leftPanel);
     leftLay->setContentsMargins(0, 0, 4, 0);
-    leftLay->setSpacing(2);
+    leftLay->setSpacing(6);
 
     // 从 jogHLayout 中取出两个 groupbox
     QHBoxLayout* jogHLay = qobject_cast<QHBoxLayout*>(jogHItem->layout());
@@ -1770,18 +1781,23 @@ void MainWindow::initManualProgUI()
     leftLay->addWidget(ui->jogJointGroup);   // 关节点动
     leftLay->addWidget(ui->jogCartGroup);    // 笛卡尔点动
 
-    // 舵机板块：2 列 3 行紧凑布局，每格只显示 "CHx:  90.0°"（被动显示）
+    // 舵机板块：3×2 网格布局
     // 控制全部在"舵机设置"弹窗内完成
     QGroupBox* servoGroup = new QGroupBox(QStringLiteral("舵机"), leftPanel);
     servoGroup->setStyleSheet(
         QStringLiteral(
-            "QGroupBox{background:#ffffff;border:1px solid #d0d5dd;border-radius:6px;"
-            "margin-top:10px;padding:4px 6px 4px 6px;font-weight:bold;font-size:12px;color:#1a1a2e;}"
+            "QGroupBox{background:#ffffff;border:1px solid #d0d5dd;border-radius:18px;"
+            "margin-top:30px;padding:12px 8px 12px 8px;font-weight:bold;font-size:12px;color:#1a1a2e;}"
             "QGroupBox::title{subcontrol-origin:margin;left:12px;padding:0 4px;}"
         ));
     QVBoxLayout* servoLay = new QVBoxLayout();
-    servoLay->setSpacing(2);
-    servoLay->setContentsMargins(0, 2, 0, 2);  // 与点动/调试面板统一边距
+    servoLay->setSpacing(6);
+    servoLay->setContentsMargins(0, 6, 0, 6);
+
+    // 3×2 QGridLayout
+    QGridLayout* servoGrid = new QGridLayout();
+    servoGrid->setSpacing(6);
+    servoGrid->setContentsMargins(0, 0, 0, 0);
 
     m_servoAngleLabels.clear();
     for (int i = 0; i < 6; ++i) {
@@ -1808,8 +1824,10 @@ void MainWindow::initManualProgUI()
 
         row->addWidget(lbl);
         row->addWidget(angleLbl);
-        servoLay->addLayout(row);
+        servoGrid->addLayout(row, i / 2, i % 2);
     }
+
+    servoLay->addLayout(servoGrid);
 
     // 订阅 ServoController::angleChanged，实时刷新手动页舵机板块角度 Label
     {
@@ -1824,7 +1842,7 @@ void MainWindow::initManualProgUI()
         }
     }
 
-    servoGroup->setMaximumWidth(130);
+    servoGroup->setMaximumWidth(390);
     servoGroup->setLayout(servoLay);
 
     // 舵机设置按钮：点击后弹出模态对话框，复用 ServoTestWidget
@@ -2034,13 +2052,10 @@ void MainWindow::initManualProgUI()
     bottomLay->addWidget(rightPanel, 2);  // 右侧权重2，尽可能宽
 
     // 左侧面板固定宽度（收窄，给右侧更多空间）
-    leftPanel->setFixedWidth(130);
+    leftPanel->setFixedWidth(260);
     leftPanel->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Expanding);
 
-    // 点动GroupBox也限制最大宽度
-    ui->jogJointGroup->setMaximumWidth(130);
-    ui->jogCartGroup->setMaximumWidth(130);
-    ui->jogDebugGroup->setMaximumWidth(130);
+    // 注释掉组最大宽度限制，面板已加宽到260
 
     // ==================== 5. 组装最终布局 ====================
     // 面包屑 → 左右分栏(左侧:调试+点动 | 右侧:编程)
