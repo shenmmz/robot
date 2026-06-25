@@ -680,12 +680,12 @@
       <widget class="QPushButton" name="btnGetPoint">
        <property name="minimumSize">
         <size>
-         <width>160</width>
-         <height>56</height>
+         <width>120</width>
+         <height>40</height>
         </size>
        </property>
        <property name="styleSheet">
-        <string>font-size:24px;font-weight:bold;</string>
+        <string>font-size:16px;font-weight:bold;</string>
        </property>
        <property name="text">
         <string>获取当前点位</string>
@@ -696,12 +696,12 @@
       <widget class="QPushButton" name="btnRun">
        <property name="minimumSize">
         <size>
-         <width>140</width>
-         <height>56</height>
+         <width>100</width>
+         <height>40</height>
         </size>
        </property>
        <property name="styleSheet">
-        <string>QPushButton{background:#1565c0;color:#fff;border:none;border-radius:4px;font-weight:bold;font-size:20px;padding:4px 16px;}QPushButton:hover{background:#1976d2;}</string>
+        <string>QPushButton{background:#1565c0;color:#fff;border:none;border-radius:4px;font-weight:bold;font-size:16px;padding:4px 16px;}QPushButton:hover{background:#1976d2;}</string>
        </property>
        <property name="text">
         <string>运行</string>

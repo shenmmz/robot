@@ -94,6 +94,13 @@ void ServoTestWidget::setupUI()
         m_angleSliders[i]->setValue(90);
         m_angleSliders[i]->setMinimumWidth(280);
         m_angleSliders[i]->setMaximumWidth(400);
+        m_angleSliders[i]->setFixedHeight(40);
+        m_angleSliders[i]->setStyleSheet(
+            "QSlider::groove:horizontal{height:10px;background:#d0d5dd;border-radius:5px;}"
+            "QSlider::handle:horizontal{width:28px;height:28px;margin:-9px 0;"
+            "background:#1565c0;border-radius:4px;}"
+            "QSlider::handle:horizontal:hover{background:#1976d2;}"
+            "QSlider::sub-page:horizontal{background:#1565c0;border-radius:5px;}");
         rowLayout->addWidget(m_angleSliders[i]);
 
         // 角度输入框
@@ -184,8 +191,7 @@ void ServoTestWidget::setupUI()
                 this, &ServoTestWidget::onAngleChanged);
     }
 
-    // 添加弹性空间
-    mainLayout->addStretch();
+    // 去掉底部弹性空间，界面紧凑贴合内容
 }
 
 /**

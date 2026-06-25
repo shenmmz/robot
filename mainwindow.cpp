@@ -1874,7 +1874,7 @@ void MainWindow::initManualProgUI()
 
         QDialog* dlg = new QDialog(this);
         dlg->setWindowTitle(QStringLiteral("舵机调试"));
-        dlg->resize(900, 660);
+        dlg->resize(680, 450);
         dlg->setAttribute(Qt::WA_DeleteOnClose);  // 关闭时自动销毁 dialog 及其子 widget
 
         QVBoxLayout* lay = new QVBoxLayout(dlg);
@@ -2081,6 +2081,7 @@ void MainWindow::showPointAdjustDialog(bool isJoint)
     ui.setupUi(&dlg);
 
     dlg.setWindowTitle(isJoint ? QStringLiteral("关节点位调整") : QStringLiteral("笛卡尔点位调整"));
+    dlg.setFixedSize(320, 480);
 
     // 按行索引映射 .ui 控件
     QLabel* lblAxis[6] = {ui.lblAxis0, ui.lblAxis1, ui.lblAxis2, ui.lblAxis3, ui.lblAxis4, ui.lblAxis5};
@@ -2091,14 +2092,10 @@ void MainWindow::showPointAdjustDialog(bool isJoint)
     const QStringList labels = isJoint
         ? QStringList{"J0", "J1", "J2", "J3", "J4", "J5"}
         : QStringList{"X",  "Y",  "Z",  "A",  "B",  "C"};
-    const QStringList suffix = isJoint
-        ? QStringList{"°", "°", "°", "°", "°", "°"}
-        : QStringList{"mm", "mm", "mm", "°", "°", "°"};
 
     for (int i = 0; i < 6; ++i) {
         lblAxis[i]->setText(labels[i]);
         spinAxis[i]->setSingleStep((isJoint || i < 3) ? 1.0 : 0.1);
-        spinAxis[i]->setSuffix(QStringLiteral(" %1").arg(suffix[i]));
 
         QDoubleSpinBox* sp = spinAxis[i];
         connect(btnMinus[i], &QPushButton::clicked, sp, [sp] { sp->stepDown(); });

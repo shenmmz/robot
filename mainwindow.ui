@@ -277,11 +277,11 @@ QPushButton:disabled{color:#555;border-color:#3a3a3a;}</string>
             <property name="minimumSize">
              <size>
               <width>0</width>
-              <height>44</height>
+              <height>56</height>
              </size>
             </property>
             <property name="styleSheet">
-             <string>QPushButton{background:transparent;color:#b0bec5;border:none;border-left:3px solid transparent;text-align:left;padding:8px 10px;font-size:12px;}
+             <string>QPushButton{background:transparent;color:#b0bec5;border:none;border-left:3px solid transparent;text-align:left;padding:10px 14px;font-size:14px;}
 QPushButton:hover{background:rgba(255,255,255,0.06);color:#cfd8dc;}
 QPushButton:checked{background:rgba(21,101,192,0.18);color:#fff;border-left:3px solid #1565c0;font-weight:bold;}</string>
             </property>
@@ -301,11 +301,11 @@ QPushButton:checked{background:rgba(21,101,192,0.18);color:#fff;border-left:3px 
             <property name="minimumSize">
              <size>
               <width>0</width>
-              <height>44</height>
+              <height>56</height>
              </size>
             </property>
             <property name="styleSheet">
-             <string>QPushButton{background:transparent;color:#b0bec5;border:none;border-left:3px solid transparent;text-align:left;padding:8px 10px;font-size:12px;}
+             <string>QPushButton{background:transparent;color:#b0bec5;border:none;border-left:3px solid transparent;text-align:left;padding:10px 14px;font-size:14px;}
 QPushButton:hover{background:rgba(255,255,255,0.06);color:#cfd8dc;}
 QPushButton:checked{background:rgba(21,101,192,0.18);color:#fff;border-left:3px solid #1565c0;font-weight:bold;}</string>
             </property>
@@ -322,11 +322,11 @@ QPushButton:checked{background:rgba(21,101,192,0.18);color:#fff;border-left:3px 
             <property name="minimumSize">
              <size>
               <width>0</width>
-              <height>44</height>
+              <height>56</height>
              </size>
             </property>
             <property name="styleSheet">
-             <string>QPushButton{background:transparent;color:#b0bec5;border:none;border-left:3px solid transparent;text-align:left;padding:8px 10px;font-size:12px;}
+             <string>QPushButton{background:transparent;color:#b0bec5;border:none;border-left:3px solid transparent;text-align:left;padding:10px 14px;font-size:14px;}
 QPushButton:hover{background:rgba(255,255,255,0.06);color:#cfd8dc;}
 QPushButton:checked{background:rgba(21,101,192,0.18);color:#fff;border-left:3px solid #1565c0;font-weight:bold;}</string>
             </property>
@@ -343,11 +343,11 @@ QPushButton:checked{background:rgba(21,101,192,0.18);color:#fff;border-left:3px 
             <property name="minimumSize">
              <size>
               <width>0</width>
-              <height>44</height>
+              <height>56</height>
              </size>
             </property>
             <property name="styleSheet">
-             <string>QPushButton{background:transparent;color:#b0bec5;border:none;border-left:3px solid transparent;text-align:left;padding:8px 10px;font-size:12px;}
+             <string>QPushButton{background:transparent;color:#b0bec5;border:none;border-left:3px solid transparent;text-align:left;padding:10px 14px;font-size:14px;}
 QPushButton:hover{background:rgba(255,255,255,0.06);color:#cfd8dc;}
 QPushButton:checked{background:rgba(21,101,192,0.18);color:#fff;border-left:3px solid #1565c0;font-weight:bold;}</string>
             </property>
@@ -364,11 +364,11 @@ QPushButton:checked{background:rgba(21,101,192,0.18);color:#fff;border-left:3px 
             <property name="minimumSize">
              <size>
               <width>0</width>
-              <height>44</height>
+              <height>56</height>
              </size>
             </property>
             <property name="styleSheet">
-             <string>QPushButton{background:transparent;color:#b0bec5;border:none;border-left:3px solid transparent;text-align:left;padding:8px 10px;font-size:12px;}
+             <string>QPushButton{background:transparent;color:#b0bec5;border:none;border-left:3px solid transparent;text-align:left;padding:10px 14px;font-size:14px;}
 QPushButton:hover{background:rgba(255,255,255,0.06);color:#cfd8dc;}
 QPushButton:checked{background:rgba(21,101,192,0.18);color:#fff;border-left:3px solid #1565c0;font-weight:bold;}</string>
             </property>
@@ -385,11 +385,11 @@ QPushButton:checked{background:rgba(21,101,192,0.18);color:#fff;border-left:3px 
             <property name="minimumSize">
              <size>
               <width>0</width>
-              <height>44</height>
+              <height>56</height>
              </size>
             </property>
             <property name="styleSheet">
-             <string>QPushButton{background:transparent;color:#b0bec5;border:none;border-left:3px solid transparent;text-align:left;padding:8px 10px;font-size:12px;}
+             <string>QPushButton{background:transparent;color:#b0bec5;border:none;border-left:3px solid transparent;text-align:left;padding:10px 14px;font-size:14px;}
 QPushButton:hover{background:rgba(255,255,255,0.06);color:#cfd8dc;}
 QPushButton:checked{background:rgba(21,101,192,0.18);color:#fff;border-left:3px solid #1565c0;font-weight:bold;}</string>
             </property>
@@ -492,10 +492,13 @@ QGroupBox::title{subcontrol-origin:margin;left:14px;padding:0 8px;}</string>
                 </item>
                 <item>
                  <layout class="QGridLayout" name="jointGridLayout">
-                  <property name="spacing">
-                   <number>4</number>
-                  </property>
-                  <item row="0" column="0">
+           <property name="spacing"><number>4</number></property>
+        <item row="0" column="0">
+         <layout class="QHBoxLayout" name="jointCellJ0">
+          <property name="spacing">
+           <number>2</number>
+          </property>
+          <item>
                    <widget class="QLabel" name="labelJ0">
                     <property name="styleSheet">
                      <string>color:#888;font-size:12px;font-weight:bold;</string>
@@ -505,7 +508,7 @@ QGroupBox::title{subcontrol-origin:margin;left:14px;padding:0 8px;}</string>
                     </property>
                    </widget>
                   </item>
-                  <item row="0" column="1">
+          <item>
                    <widget class="QLabel" name="lblPosJ0">
                     <property name="styleSheet">
                      <string>font-family:Consolas,'Microsoft YaHei UI';font-size:13px;padding:2px 6px;color:#333;background:#f5f5f5;border:1px solid #e8e8e8;border-radius:4px;</string>
@@ -518,7 +521,7 @@ QGroupBox::title{subcontrol-origin:margin;left:14px;padding:0 8px;}</string>
                     </property>
                    </widget>
                   </item>
-                  <item row="0" column="2">
+          <item>
                    <widget class="QLabel" name="unitJ0">
                     <property name="styleSheet">
                      <string>color:#aaa;font-size:11px;font-weight:normal;</string>
@@ -528,7 +531,14 @@ QGroupBox::title{subcontrol-origin:margin;left:14px;padding:0 8px;}</string>
                     </property>
                    </widget>
                   </item>
-                  <item row="0" column="3">
+         </layout>
+        </item>
+        <item row="0" column="1">
+         <layout class="QHBoxLayout" name="jointCellJ1">
+          <property name="spacing">
+           <number>2</number>
+          </property>
+          <item>
                    <widget class="QLabel" name="labelJ1">
                     <property name="styleSheet">
                      <string>color:#888;font-size:12px;font-weight:bold;</string>
@@ -538,7 +548,7 @@ QGroupBox::title{subcontrol-origin:margin;left:14px;padding:0 8px;}</string>
                     </property>
                    </widget>
                   </item>
-                  <item row="0" column="4">
+          <item>
                    <widget class="QLabel" name="lblPosJ1">
                     <property name="styleSheet">
                      <string>font-family:Consolas,'Microsoft YaHei UI';font-size:13px;padding:2px 6px;color:#333;background:#f5f5f5;border:1px solid #e8e8e8;border-radius:4px;</string>
@@ -551,7 +561,7 @@ QGroupBox::title{subcontrol-origin:margin;left:14px;padding:0 8px;}</string>
                     </property>
                    </widget>
                   </item>
-                  <item row="0" column="5">
+          <item>
                    <widget class="QLabel" name="unitJ1">
                     <property name="styleSheet">
                      <string>color:#aaa;font-size:11px;font-weight:normal;</string>
@@ -561,7 +571,14 @@ QGroupBox::title{subcontrol-origin:margin;left:14px;padding:0 8px;}</string>
                     </property>
                    </widget>
                   </item>
-                  <item row="0" column="6">
+         </layout>
+        </item>
+        <item row="0" column="2">
+         <layout class="QHBoxLayout" name="jointCellJ2">
+          <property name="spacing">
+           <number>2</number>
+          </property>
+          <item>
                    <widget class="QLabel" name="labelJ2">
                     <property name="styleSheet">
                      <string>color:#888;font-size:12px;font-weight:bold;</string>
@@ -571,7 +588,7 @@ QGroupBox::title{subcontrol-origin:margin;left:14px;padding:0 8px;}</string>
                     </property>
                    </widget>
                   </item>
-                  <item row="0" column="7">
+          <item>
                    <widget class="QLabel" name="lblPosJ2">
                     <property name="styleSheet">
                      <string>font-family:Consolas,'Microsoft YaHei UI';font-size:13px;padding:2px 6px;color:#333;background:#f5f5f5;border:1px solid #e8e8e8;border-radius:4px;</string>
@@ -584,7 +601,7 @@ QGroupBox::title{subcontrol-origin:margin;left:14px;padding:0 8px;}</string>
                     </property>
                    </widget>
                   </item>
-                  <item row="0" column="8">
+          <item>
                    <widget class="QLabel" name="unitJ2">
                     <property name="styleSheet">
                      <string>color:#aaa;font-size:11px;font-weight:normal;</string>
@@ -594,7 +611,14 @@ QGroupBox::title{subcontrol-origin:margin;left:14px;padding:0 8px;}</string>
                     </property>
                    </widget>
                   </item>
-                  <item row="1" column="0">
+         </layout>
+        </item>
+        <item row="1" column="0">
+         <layout class="QHBoxLayout" name="jointCellJ3">
+          <property name="spacing">
+           <number>2</number>
+          </property>
+          <item>
                    <widget class="QLabel" name="labelJ3">
                     <property name="styleSheet">
                      <string>color:#888;font-size:12px;font-weight:bold;</string>
@@ -604,7 +628,7 @@ QGroupBox::title{subcontrol-origin:margin;left:14px;padding:0 8px;}</string>
                     </property>
                    </widget>
                   </item>
-                  <item row="1" column="1">
+          <item>
                    <widget class="QLabel" name="lblPosJ3">
                     <property name="styleSheet">
                      <string>font-family:Consolas,'Microsoft YaHei UI';font-size:13px;padding:2px 6px;color:#333;background:#f5f5f5;border:1px solid #e8e8e8;border-radius:4px;</string>
@@ -617,7 +641,7 @@ QGroupBox::title{subcontrol-origin:margin;left:14px;padding:0 8px;}</string>
                     </property>
                    </widget>
                   </item>
-                  <item row="1" column="2">
+          <item>
                    <widget class="QLabel" name="unitJ3">
                     <property name="styleSheet">
                      <string>color:#aaa;font-size:11px;font-weight:normal;</string>
@@ -627,7 +651,14 @@ QGroupBox::title{subcontrol-origin:margin;left:14px;padding:0 8px;}</string>
                     </property>
                    </widget>
                   </item>
-                  <item row="1" column="3">
+         </layout>
+        </item>
+        <item row="1" column="1">
+         <layout class="QHBoxLayout" name="jointCellJ4">
+          <property name="spacing">
+           <number>2</number>
+          </property>
+          <item>
                    <widget class="QLabel" name="labelJ4">
                     <property name="styleSheet">
                      <string>color:#888;font-size:12px;font-weight:bold;</string>
@@ -637,7 +668,7 @@ QGroupBox::title{subcontrol-origin:margin;left:14px;padding:0 8px;}</string>
                     </property>
                    </widget>
                   </item>
-                  <item row="1" column="4">
+          <item>
                    <widget class="QLabel" name="lblPosJ4">
                     <property name="styleSheet">
                      <string>font-family:Consolas,'Microsoft YaHei UI';font-size:13px;padding:2px 6px;color:#333;background:#f5f5f5;border:1px solid #e8e8e8;border-radius:4px;</string>
@@ -650,7 +681,7 @@ QGroupBox::title{subcontrol-origin:margin;left:14px;padding:0 8px;}</string>
                     </property>
                    </widget>
                   </item>
-                  <item row="1" column="5">
+          <item>
                    <widget class="QLabel" name="unitJ4">
                     <property name="styleSheet">
                      <string>color:#aaa;font-size:11px;font-weight:normal;</string>
@@ -660,7 +691,14 @@ QGroupBox::title{subcontrol-origin:margin;left:14px;padding:0 8px;}</string>
                     </property>
                    </widget>
                   </item>
-                  <item row="1" column="6">
+         </layout>
+        </item>
+        <item row="1" column="2">
+         <layout class="QHBoxLayout" name="jointCellJ5">
+          <property name="spacing">
+           <number>2</number>
+          </property>
+          <item>
                    <widget class="QLabel" name="labelJ5">
                     <property name="styleSheet">
                      <string>color:#888;font-size:12px;font-weight:bold;</string>
@@ -670,7 +708,7 @@ QGroupBox::title{subcontrol-origin:margin;left:14px;padding:0 8px;}</string>
                     </property>
                    </widget>
                   </item>
-                  <item row="1" column="7">
+          <item>
                    <widget class="QLabel" name="lblPosJ5">
                     <property name="styleSheet">
                      <string>font-family:Consolas,'Microsoft YaHei UI';font-size:13px;padding:2px 6px;color:#333;background:#f5f5f5;border:1px solid #e8e8e8;border-radius:4px;</string>
@@ -683,7 +721,7 @@ QGroupBox::title{subcontrol-origin:margin;left:14px;padding:0 8px;}</string>
                     </property>
                    </widget>
                   </item>
-                  <item row="1" column="8">
+          <item>
                    <widget class="QLabel" name="unitJ5">
                     <property name="styleSheet">
                      <string>color:#aaa;font-size:11px;font-weight:normal;</string>
@@ -693,7 +731,9 @@ QGroupBox::title{subcontrol-origin:margin;left:14px;padding:0 8px;}</string>
                     </property>
                    </widget>
                   </item>
-                 </layout>
+         </layout>
+        </item>
+     </layout>
                 </item>
                </layout>
               </item>
@@ -1268,22 +1308,25 @@ QGroupBox::title{subcontrol-origin:margin;left:14px;padding:0 8px;}</string>
                <property name="title">
                 <string>关节点动</string>
                </property>
-               <layout class="QVBoxLayout" name="jogJointLayout">
+               <layout class="QGridLayout" name="jogJointLayout">
                 <property name="spacing">
-                 <number>6</number>
+                 <number>8</number>
                 </property>
-                <item>
+                <item row="0" column="0">
                  <layout class="QHBoxLayout">
+                  <property name="spacing">
+                   <number>6</number>
+                  </property>
                   <item>
                    <widget class="QLabel" name="label_3">
                     <property name="minimumSize">
                      <size>
-                      <width>24</width>
+                      <width>28</width>
                       <height>0</height>
                      </size>
                     </property>
                     <property name="styleSheet">
-                     <string>color:#888;font-size:12px;font-weight:bold;border:none;background:transparent;</string>
+                     <string>color:#888;font-size:14px;font-weight:bold;border:none;background:transparent;</string>
                     </property>
                     <property name="text">
                      <string>J0</string>
@@ -1291,39 +1334,17 @@ QGroupBox::title{subcontrol-origin:margin;left:14px;padding:0 8px;}</string>
                    </widget>
                   </item>
                   <item>
-                   <widget class="QPushButton" name="btnJogJ0M">
-                    <property name="visible">
-                     <bool>false</bool>
-                    </property>
-        <property name="minimumSize">
-                     <size>
-                      <width>32</width>
-                      <height>32</height>
-                     </size>
-                    </property>
-                    <property name="styleSheet">
-                     <string>QPushButton{background:#f5f5f5;color:#c62828;border:1px solid #e0e0e0;border-radius:4px;font-weight:bold;font-size:16px;}QPushButton:hover{background:#ffebee;border-color:#ef9a9a;}</string>
-                    </property>
-                    <property name="text">
-                     <string>－</string>
-                    </property>
-                   </widget>
-                  </item>
-                  <item>
                    <widget class="QDoubleSpinBox" name="spinManualJ0">
-
                     <property name="styleSheet">
-                     <string>QDoubleSpinBox{font-family:Consolas,&quot;Microsoft YaHei UI&quot;;font-size:13px;padding:2px 4px;border:1px solid #d0d5dd;border-radius:4px;background:#fafbfc;}QDoubleSpinBox:focus{border-color:#1565c0;background:#fff;}</string>
+                     <string>QDoubleSpinBox{font-family:Consolas,&quot;Microsoft YaHei UI&quot;;font-size:14px;padding:4px 6px;border:1px solid #d0d5dd;border-radius:4px;background:#fafbfc;}QDoubleSpinBox:focus{border-color:#1565c0;background:#fff;}</string>
                     </property>
                     <property name="alignment">
                      <set>Qt::AlignmentFlag::AlignRight|Qt::AlignmentFlag::AlignTrailing|Qt::AlignmentFlag::AlignVCenter</set>
                     </property>
-
                     <property name="buttonSymbols">
-         <enum>QAbstractSpinBox::NoButtons</enum>
-        </property>
-
-        <property name="decimals">
+                     <enum>QAbstractSpinBox::NoButtons</enum>
+                    </property>
+                    <property name="decimals">
                      <number>3</number>
                     </property>
                     <property name="minimum">
@@ -1337,39 +1358,23 @@ QGroupBox::title{subcontrol-origin:margin;left:14px;padding:0 8px;}</string>
                     </property>
                    </widget>
                   </item>
-                  <item>
-                   <widget class="QPushButton" name="btnJogJ0P">
-        <property name="minimumSize">
-                     <size>
-                      <width>32</width>
-                      <height>32</height>
-                     </size>
-                    </property>
-                    <property name="styleSheet">
-                     <string>QPushButton{background:#f5f5f5;color:#1565c0;border:1px solid #e0e0e0;border-radius:4px;font-weight:bold;font-size:16px;}QPushButton:hover{background:#e3f2fd;border-color:#90caf9;}</string>
-                    </property>
-                    <property name="text">
-                     <string>＋</string>
-                    </property>
-                    <property name="visible">
-                     <bool>false</bool>
-                    </property>
-                   </widget>
-                  </item>
                  </layout>
                 </item>
-                <item>
+                <item row="0" column="1">
                  <layout class="QHBoxLayout">
+                  <property name="spacing">
+                   <number>6</number>
+                  </property>
                   <item>
                    <widget class="QLabel" name="label_4">
                     <property name="minimumSize">
                      <size>
-                      <width>24</width>
+                      <width>28</width>
                       <height>0</height>
                      </size>
                     </property>
                     <property name="styleSheet">
-                     <string>color:#888;font-size:12px;font-weight:bold;border:none;background:transparent;</string>
+                     <string>color:#888;font-size:14px;font-weight:bold;border:none;background:transparent;</string>
                     </property>
                     <property name="text">
                      <string>J1</string>
@@ -1377,39 +1382,17 @@ QGroupBox::title{subcontrol-origin:margin;left:14px;padding:0 8px;}</string>
                    </widget>
                   </item>
                   <item>
-                   <widget class="QPushButton" name="btnJogJ1M">
-                    <property name="visible">
-                     <bool>false</bool>
-                    </property>
-        <property name="minimumSize">
-                     <size>
-                      <width>32</width>
-                      <height>32</height>
-                     </size>
-                    </property>
-                    <property name="styleSheet">
-                     <string>QPushButton{background:#f5f5f5;color:#c62828;border:1px solid #e0e0e0;border-radius:4px;font-weight:bold;font-size:16px;}QPushButton:hover{background:#ffebee;border-color:#ef9a9a;}</string>
-                    </property>
-                    <property name="text">
-                     <string>－</string>
-                    </property>
-                   </widget>
-                  </item>
-                  <item>
                    <widget class="QDoubleSpinBox" name="spinManualJ1">
-
                     <property name="styleSheet">
-                     <string>QDoubleSpinBox{font-family:Consolas,&quot;Microsoft YaHei UI&quot;;font-size:13px;padding:2px 4px;border:1px solid #d0d5dd;border-radius:4px;background:#fafbfc;}QDoubleSpinBox:focus{border-color:#1565c0;background:#fff;}</string>
+                     <string>QDoubleSpinBox{font-family:Consolas,&quot;Microsoft YaHei UI&quot;;font-size:14px;padding:4px 6px;border:1px solid #d0d5dd;border-radius:4px;background:#fafbfc;}QDoubleSpinBox:focus{border-color:#1565c0;background:#fff;}</string>
                     </property>
                     <property name="alignment">
                      <set>Qt::AlignmentFlag::AlignRight|Qt::AlignmentFlag::AlignTrailing|Qt::AlignmentFlag::AlignVCenter</set>
                     </property>
-
                     <property name="buttonSymbols">
-         <enum>QAbstractSpinBox::NoButtons</enum>
-        </property>
-
-        <property name="decimals">
+                     <enum>QAbstractSpinBox::NoButtons</enum>
+                    </property>
+                    <property name="decimals">
                      <number>3</number>
                     </property>
                     <property name="minimum">
@@ -1423,39 +1406,23 @@ QGroupBox::title{subcontrol-origin:margin;left:14px;padding:0 8px;}</string>
                     </property>
                    </widget>
                   </item>
-                  <item>
-                   <widget class="QPushButton" name="btnJogJ1P">
-        <property name="minimumSize">
-                     <size>
-                      <width>32</width>
-                      <height>32</height>
-                     </size>
-                    </property>
-                    <property name="styleSheet">
-                     <string>QPushButton{background:#f5f5f5;color:#1565c0;border:1px solid #e0e0e0;border-radius:4px;font-weight:bold;font-size:16px;}QPushButton:hover{background:#e3f2fd;border-color:#90caf9;}</string>
-                    </property>
-                    <property name="text">
-                     <string>＋</string>
-                    </property>
-                    <property name="visible">
-                     <bool>false</bool>
-                    </property>
-                   </widget>
-                  </item>
                  </layout>
                 </item>
-                <item>
+                <item row="1" column="0">
                  <layout class="QHBoxLayout">
+                  <property name="spacing">
+                   <number>6</number>
+                  </property>
                   <item>
                    <widget class="QLabel" name="label_5">
                     <property name="minimumSize">
                      <size>
-                      <width>24</width>
+                      <width>28</width>
                       <height>0</height>
                      </size>
                     </property>
                     <property name="styleSheet">
-                     <string>color:#888;font-size:12px;font-weight:bold;border:none;background:transparent;</string>
+                     <string>color:#888;font-size:14px;font-weight:bold;border:none;background:transparent;</string>
                     </property>
                     <property name="text">
                      <string>J2</string>
@@ -1463,39 +1430,17 @@ QGroupBox::title{subcontrol-origin:margin;left:14px;padding:0 8px;}</string>
                    </widget>
                   </item>
                   <item>
-                   <widget class="QPushButton" name="btnJogJ2M">
-                    <property name="visible">
-                     <bool>false</bool>
-                    </property>
-        <property name="minimumSize">
-                     <size>
-                      <width>32</width>
-                      <height>32</height>
-                     </size>
-                    </property>
-                    <property name="styleSheet">
-                     <string>QPushButton{background:#f5f5f5;color:#c62828;border:1px solid #e0e0e0;border-radius:4px;font-weight:bold;font-size:16px;}QPushButton:hover{background:#ffebee;border-color:#ef9a9a;}</string>
-                    </property>
-                    <property name="text">
-                     <string>－</string>
-                    </property>
-                   </widget>
-                  </item>
-                  <item>
                    <widget class="QDoubleSpinBox" name="spinManualJ2">
-
                     <property name="styleSheet">
-                     <string>QDoubleSpinBox{font-family:Consolas,&quot;Microsoft YaHei UI&quot;;font-size:13px;padding:2px 4px;border:1px solid #d0d5dd;border-radius:4px;background:#fafbfc;}QDoubleSpinBox:focus{border-color:#1565c0;background:#fff;}</string>
+                     <string>QDoubleSpinBox{font-family:Consolas,&quot;Microsoft YaHei UI&quot;;font-size:14px;padding:4px 6px;border:1px solid #d0d5dd;border-radius:4px;background:#fafbfc;}QDoubleSpinBox:focus{border-color:#1565c0;background:#fff;}</string>
                     </property>
                     <property name="alignment">
                      <set>Qt::AlignmentFlag::AlignRight|Qt::AlignmentFlag::AlignTrailing|Qt::AlignmentFlag::AlignVCenter</set>
                     </property>
-
                     <property name="buttonSymbols">
-         <enum>QAbstractSpinBox::NoButtons</enum>
-        </property>
-
-        <property name="decimals">
+                     <enum>QAbstractSpinBox::NoButtons</enum>
+                    </property>
+                    <property name="decimals">
                      <number>3</number>
                     </property>
                     <property name="minimum">
@@ -1509,39 +1454,23 @@ QGroupBox::title{subcontrol-origin:margin;left:14px;padding:0 8px;}</string>
                     </property>
                    </widget>
                   </item>
-                  <item>
-                   <widget class="QPushButton" name="btnJogJ2P">
-        <property name="minimumSize">
-                     <size>
-                      <width>32</width>
-                      <height>32</height>
-                     </size>
-                    </property>
-                    <property name="styleSheet">
-                     <string>QPushButton{background:#f5f5f5;color:#1565c0;border:1px solid #e0e0e0;border-radius:4px;font-weight:bold;font-size:16px;}QPushButton:hover{background:#e3f2fd;border-color:#90caf9;}</string>
-                    </property>
-                    <property name="text">
-                     <string>＋</string>
-                    </property>
-                    <property name="visible">
-                     <bool>false</bool>
-                    </property>
-                   </widget>
-                  </item>
                  </layout>
                 </item>
-                <item>
+                <item row="1" column="1">
                  <layout class="QHBoxLayout">
+                  <property name="spacing">
+                   <number>6</number>
+                  </property>
                   <item>
                    <widget class="QLabel" name="label_6">
                     <property name="minimumSize">
                      <size>
-                      <width>24</width>
+                      <width>28</width>
                       <height>0</height>
                      </size>
                     </property>
                     <property name="styleSheet">
-                     <string>color:#888;font-size:12px;font-weight:bold;border:none;background:transparent;</string>
+                     <string>color:#888;font-size:14px;font-weight:bold;border:none;background:transparent;</string>
                     </property>
                     <property name="text">
                      <string>J3</string>
@@ -1549,39 +1478,17 @@ QGroupBox::title{subcontrol-origin:margin;left:14px;padding:0 8px;}</string>
                    </widget>
                   </item>
                   <item>
-                   <widget class="QPushButton" name="btnJogJ3M">
-                    <property name="visible">
-                     <bool>false</bool>
-                    </property>
-        <property name="minimumSize">
-                     <size>
-                      <width>32</width>
-                      <height>32</height>
-                     </size>
-                    </property>
-                    <property name="styleSheet">
-                     <string>QPushButton{background:#f5f5f5;color:#c62828;border:1px solid #e0e0e0;border-radius:4px;font-weight:bold;font-size:16px;}QPushButton:hover{background:#ffebee;border-color:#ef9a9a;}</string>
-                    </property>
-                    <property name="text">
-                     <string>－</string>
-                    </property>
-                   </widget>
-                  </item>
-                  <item>
                    <widget class="QDoubleSpinBox" name="spinManualJ3">
-
                     <property name="styleSheet">
-                     <string>QDoubleSpinBox{font-family:Consolas,&quot;Microsoft YaHei UI&quot;;font-size:13px;padding:2px 4px;border:1px solid #d0d5dd;border-radius:4px;background:#fafbfc;}QDoubleSpinBox:focus{border-color:#1565c0;background:#fff;}</string>
+                     <string>QDoubleSpinBox{font-family:Consolas,&quot;Microsoft YaHei UI&quot;;font-size:14px;padding:4px 6px;border:1px solid #d0d5dd;border-radius:4px;background:#fafbfc;}QDoubleSpinBox:focus{border-color:#1565c0;background:#fff;}</string>
                     </property>
                     <property name="alignment">
                      <set>Qt::AlignmentFlag::AlignRight|Qt::AlignmentFlag::AlignTrailing|Qt::AlignmentFlag::AlignVCenter</set>
                     </property>
-
                     <property name="buttonSymbols">
-         <enum>QAbstractSpinBox::NoButtons</enum>
-        </property>
-
-        <property name="decimals">
+                     <enum>QAbstractSpinBox::NoButtons</enum>
+                    </property>
+                    <property name="decimals">
                      <number>3</number>
                     </property>
                     <property name="minimum">
@@ -1595,39 +1502,23 @@ QGroupBox::title{subcontrol-origin:margin;left:14px;padding:0 8px;}</string>
                     </property>
                    </widget>
                   </item>
-                  <item>
-                   <widget class="QPushButton" name="btnJogJ3P">
-        <property name="minimumSize">
-                     <size>
-                      <width>32</width>
-                      <height>32</height>
-                     </size>
-                    </property>
-                    <property name="styleSheet">
-                     <string>QPushButton{background:#f5f5f5;color:#1565c0;border:1px solid #e0e0e0;border-radius:4px;font-weight:bold;font-size:16px;}QPushButton:hover{background:#e3f2fd;border-color:#90caf9;}</string>
-                    </property>
-                    <property name="text">
-                     <string>＋</string>
-                    </property>
-                    <property name="visible">
-                     <bool>false</bool>
-                    </property>
-                   </widget>
-                  </item>
                  </layout>
                 </item>
-                <item>
+                <item row="2" column="0">
                  <layout class="QHBoxLayout">
+                  <property name="spacing">
+                   <number>6</number>
+                  </property>
                   <item>
                    <widget class="QLabel" name="label_7">
                     <property name="minimumSize">
                      <size>
-                      <width>24</width>
+                      <width>28</width>
                       <height>0</height>
                      </size>
                     </property>
                     <property name="styleSheet">
-                     <string>color:#888;font-size:12px;font-weight:bold;border:none;background:transparent;</string>
+                     <string>color:#888;font-size:14px;font-weight:bold;border:none;background:transparent;</string>
                     </property>
                     <property name="text">
                      <string>J4</string>
@@ -1635,39 +1526,17 @@ QGroupBox::title{subcontrol-origin:margin;left:14px;padding:0 8px;}</string>
                    </widget>
                   </item>
                   <item>
-                   <widget class="QPushButton" name="btnJogJ4M">
-                    <property name="visible">
-                     <bool>false</bool>
-                    </property>
-        <property name="minimumSize">
-                     <size>
-                      <width>32</width>
-                      <height>32</height>
-                     </size>
-                    </property>
-                    <property name="styleSheet">
-                     <string>QPushButton{background:#f5f5f5;color:#c62828;border:1px solid #e0e0e0;border-radius:4px;font-weight:bold;font-size:16px;}QPushButton:hover{background:#ffebee;border-color:#ef9a9a;}</string>
-                    </property>
-                    <property name="text">
-                     <string>－</string>
-                    </property>
-                   </widget>
-                  </item>
-                  <item>
                    <widget class="QDoubleSpinBox" name="spinManualJ4">
-
                     <property name="styleSheet">
-                     <string>QDoubleSpinBox{font-family:Consolas,&quot;Microsoft YaHei UI&quot;;font-size:13px;padding:2px 4px;border:1px solid #d0d5dd;border-radius:4px;background:#fafbfc;}QDoubleSpinBox:focus{border-color:#1565c0;background:#fff;}</string>
+                     <string>QDoubleSpinBox{font-family:Consolas,&quot;Microsoft YaHei UI&quot;;font-size:14px;padding:4px 6px;border:1px solid #d0d5dd;border-radius:4px;background:#fafbfc;}QDoubleSpinBox:focus{border-color:#1565c0;background:#fff;}</string>
                     </property>
                     <property name="alignment">
                      <set>Qt::AlignmentFlag::AlignRight|Qt::AlignmentFlag::AlignTrailing|Qt::AlignmentFlag::AlignVCenter</set>
                     </property>
-
                     <property name="buttonSymbols">
-         <enum>QAbstractSpinBox::NoButtons</enum>
-        </property>
-
-        <property name="decimals">
+                     <enum>QAbstractSpinBox::NoButtons</enum>
+                    </property>
+                    <property name="decimals">
                      <number>3</number>
                     </property>
                     <property name="minimum">
@@ -1681,39 +1550,23 @@ QGroupBox::title{subcontrol-origin:margin;left:14px;padding:0 8px;}</string>
                     </property>
                    </widget>
                   </item>
-                  <item>
-                   <widget class="QPushButton" name="btnJogJ4P">
-        <property name="minimumSize">
-                     <size>
-                      <width>32</width>
-                      <height>32</height>
-                     </size>
-                    </property>
-                    <property name="styleSheet">
-                     <string>QPushButton{background:#f5f5f5;color:#1565c0;border:1px solid #e0e0e0;border-radius:4px;font-weight:bold;font-size:16px;}QPushButton:hover{background:#e3f2fd;border-color:#90caf9;}</string>
-                    </property>
-                    <property name="text">
-                     <string>＋</string>
-                    </property>
-                    <property name="visible">
-                     <bool>false</bool>
-                    </property>
-                   </widget>
-                  </item>
                  </layout>
                 </item>
-                <item>
+                <item row="2" column="1">
                  <layout class="QHBoxLayout">
+                  <property name="spacing">
+                   <number>6</number>
+                  </property>
                   <item>
                    <widget class="QLabel" name="label_8">
                     <property name="minimumSize">
                      <size>
-                      <width>24</width>
+                      <width>28</width>
                       <height>0</height>
                      </size>
                     </property>
                     <property name="styleSheet">
-                     <string>color:#888;font-size:12px;font-weight:bold;border:none;background:transparent;</string>
+                     <string>color:#888;font-size:14px;font-weight:bold;border:none;background:transparent;</string>
                     </property>
                     <property name="text">
                      <string>J5</string>
@@ -1721,39 +1574,17 @@ QGroupBox::title{subcontrol-origin:margin;left:14px;padding:0 8px;}</string>
                    </widget>
                   </item>
                   <item>
-                   <widget class="QPushButton" name="btnJogJ5M">
-                    <property name="visible">
-                     <bool>false</bool>
-                    </property>
-        <property name="minimumSize">
-                     <size>
-                      <width>32</width>
-                      <height>32</height>
-                     </size>
-                    </property>
-                    <property name="styleSheet">
-                     <string>QPushButton{background:#f5f5f5;color:#c62828;border:1px solid #e0e0e0;border-radius:4px;font-weight:bold;font-size:16px;}QPushButton:hover{background:#ffebee;border-color:#ef9a9a;}</string>
-                    </property>
-                    <property name="text">
-                     <string>－</string>
-                    </property>
-                   </widget>
-                  </item>
-                  <item>
                    <widget class="QDoubleSpinBox" name="spinManualJ5">
-
                     <property name="styleSheet">
-                     <string>QDoubleSpinBox{font-family:Consolas,&quot;Microsoft YaHei UI&quot;;font-size:13px;padding:2px 4px;border:1px solid #d0d5dd;border-radius:4px;background:#fafbfc;}QDoubleSpinBox:focus{border-color:#1565c0;background:#fff;}</string>
+                     <string>QDoubleSpinBox{font-family:Consolas,&quot;Microsoft YaHei UI&quot;;font-size:14px;padding:4px 6px;border:1px solid #d0d5dd;border-radius:4px;background:#fafbfc;}QDoubleSpinBox:focus{border-color:#1565c0;background:#fff;}</string>
                     </property>
                     <property name="alignment">
                      <set>Qt::AlignmentFlag::AlignRight|Qt::AlignmentFlag::AlignTrailing|Qt::AlignmentFlag::AlignVCenter</set>
                     </property>
-
                     <property name="buttonSymbols">
-         <enum>QAbstractSpinBox::NoButtons</enum>
-        </property>
-
-        <property name="decimals">
+                     <enum>QAbstractSpinBox::NoButtons</enum>
+                    </property>
+                    <property name="decimals">
                      <number>3</number>
                     </property>
                     <property name="minimum">
@@ -1767,28 +1598,9 @@ QGroupBox::title{subcontrol-origin:margin;left:14px;padding:0 8px;}</string>
                     </property>
                    </widget>
                   </item>
-                  <item>
-                   <widget class="QPushButton" name="btnJogJ5P">
-        <property name="minimumSize">
-                     <size>
-                      <width>32</width>
-                      <height>32</height>
-                     </size>
-                    </property>
-                    <property name="styleSheet">
-                     <string>QPushButton{background:#f5f5f5;color:#1565c0;border:1px solid #e0e0e0;border-radius:4px;font-weight:bold;font-size:16px;}QPushButton:hover{background:#e3f2fd;border-color:#90caf9;}</string>
-                    </property>
-                    <property name="text">
-                     <string>＋</string>
-                    </property>
-                    <property name="visible">
-                     <bool>false</bool>
-                    </property>
-                   </widget>
-                  </item>
                  </layout>
                 </item>
-                <item>
+                <item row="3" column="0" colspan="2">
                  <widget class="QPushButton" name="btnApplyJoint">
                   <property name="minimumSize">
                    <size>
@@ -1826,22 +1638,25 @@ QGroupBox::title{subcontrol-origin:margin;left:14px;padding:0 8px;}</string>
                <property name="title">
                 <string>笛卡尔点动</string>
                </property>
-               <layout class="QVBoxLayout" name="jogCartLayout">
+               <layout class="QGridLayout" name="jogCartLayout">
                 <property name="spacing">
-                 <number>6</number>
+                 <number>8</number>
                 </property>
-                <item>
+                <item row="0" column="0">
                  <layout class="QHBoxLayout">
+                  <property name="spacing">
+                   <number>6</number>
+                  </property>
                   <item>
                    <widget class="QLabel" name="label_9">
                     <property name="minimumSize">
                      <size>
-                      <width>24</width>
+                      <width>28</width>
                       <height>0</height>
                      </size>
                     </property>
                     <property name="styleSheet">
-                     <string>color:#888;font-size:12px;font-weight:bold;border:none;background:transparent;</string>
+                     <string>color:#888;font-size:14px;font-weight:bold;border:none;background:transparent;</string>
                     </property>
                     <property name="text">
                      <string>X</string>
@@ -1849,39 +1664,17 @@ QGroupBox::title{subcontrol-origin:margin;left:14px;padding:0 8px;}</string>
                    </widget>
                   </item>
                   <item>
-                   <widget class="QPushButton" name="btnJogXM">
-                    <property name="visible">
-                     <bool>false</bool>
-                    </property>
-        <property name="minimumSize">
-                     <size>
-                      <width>32</width>
-                      <height>32</height>
-                     </size>
-                    </property>
-                    <property name="styleSheet">
-                     <string>QPushButton{background:#f5f5f5;color:#c62828;border:1px solid #e0e0e0;border-radius:4px;font-weight:bold;font-size:16px;}QPushButton:hover{background:#ffebee;border-color:#ef9a9a;}</string>
-                    </property>
-                    <property name="text">
-                     <string>－</string>
-                    </property>
-                   </widget>
-                  </item>
-                  <item>
                    <widget class="QDoubleSpinBox" name="spinManualX">
-
                     <property name="styleSheet">
-                     <string>QDoubleSpinBox{font-family:Consolas,&quot;Microsoft YaHei UI&quot;;font-size:13px;padding:2px 4px;border:1px solid #d0d5dd;border-radius:4px;background:#fafbfc;}QDoubleSpinBox:focus{border-color:#1565c0;background:#fff;}</string>
+                     <string>QDoubleSpinBox{font-family:Consolas,&quot;Microsoft YaHei UI&quot;;font-size:14px;padding:4px 6px;border:1px solid #d0d5dd;border-radius:4px;background:#fafbfc;}QDoubleSpinBox:focus{border-color:#1565c0;background:#fff;}</string>
                     </property>
                     <property name="alignment">
                      <set>Qt::AlignmentFlag::AlignRight|Qt::AlignmentFlag::AlignTrailing|Qt::AlignmentFlag::AlignVCenter</set>
                     </property>
-
                     <property name="buttonSymbols">
-         <enum>QAbstractSpinBox::NoButtons</enum>
-        </property>
-
-        <property name="decimals">
+                     <enum>QAbstractSpinBox::NoButtons</enum>
+                    </property>
+                    <property name="decimals">
                      <number>3</number>
                     </property>
                     <property name="minimum">
@@ -1895,211 +1688,23 @@ QGroupBox::title{subcontrol-origin:margin;left:14px;padding:0 8px;}</string>
                     </property>
                    </widget>
                   </item>
-                  <item>
-                   <widget class="QPushButton" name="btnJogXP">
-        <property name="minimumSize">
-                     <size>
-                      <width>32</width>
-                      <height>32</height>
-                     </size>
-                    </property>
-                    <property name="styleSheet">
-                     <string>QPushButton{background:#f5f5f5;color:#1565c0;border:1px solid #e0e0e0;border-radius:4px;font-weight:bold;font-size:16px;}QPushButton:hover{background:#e3f2fd;border-color:#90caf9;}</string>
-                    </property>
-                    <property name="text">
-                     <string>＋</string>
-                    </property>
-                    <property name="visible">
-                     <bool>false</bool>
-                    </property>
-                   </widget>
-                  </item>
                  </layout>
                 </item>
-                <item>
+                <item row="0" column="1">
                  <layout class="QHBoxLayout">
-                  <item>
-                   <widget class="QLabel" name="label_10">
-                    <property name="minimumSize">
-                     <size>
-                      <width>24</width>
-                      <height>0</height>
-                     </size>
-                    </property>
-                    <property name="styleSheet">
-                     <string>color:#888;font-size:12px;font-weight:bold;border:none;background:transparent;</string>
-                    </property>
-                    <property name="text">
-                     <string>Y</string>
-                    </property>
-                   </widget>
-                  </item>
-                  <item>
-                   <widget class="QPushButton" name="btnJogYM">
-                    <property name="visible">
-                     <bool>false</bool>
-                    </property>
-        <property name="minimumSize">
-                     <size>
-                      <width>32</width>
-                      <height>32</height>
-                     </size>
-                    </property>
-                    <property name="styleSheet">
-                     <string>QPushButton{background:#f5f5f5;color:#c62828;border:1px solid #e0e0e0;border-radius:4px;font-weight:bold;font-size:16px;}QPushButton:hover{background:#ffebee;border-color:#ef9a9a;}</string>
-                    </property>
-                    <property name="text">
-                     <string>－</string>
-                    </property>
-                   </widget>
-                  </item>
-                  <item>
-                   <widget class="QDoubleSpinBox" name="spinManualY">
-
-                    <property name="styleSheet">
-                     <string>QDoubleSpinBox{font-family:Consolas,&quot;Microsoft YaHei UI&quot;;font-size:13px;padding:2px 4px;border:1px solid #d0d5dd;border-radius:4px;background:#fafbfc;}QDoubleSpinBox:focus{border-color:#1565c0;background:#fff;}</string>
-                    </property>
-                    <property name="alignment">
-                     <set>Qt::AlignmentFlag::AlignRight|Qt::AlignmentFlag::AlignTrailing|Qt::AlignmentFlag::AlignVCenter</set>
-                    </property>
-
-                    <property name="buttonSymbols">
-         <enum>QAbstractSpinBox::NoButtons</enum>
-        </property>
-
-        <property name="decimals">
-                     <number>3</number>
-                    </property>
-                    <property name="minimum">
-                     <double>-999.999000000000024</double>
-                    </property>
-                    <property name="maximum">
-                     <double>999.999000000000024</double>
-                    </property>
-                    <property name="singleStep">
-                     <double>1.000000000000000</double>
-                    </property>
-                   </widget>
-                  </item>
-                  <item>
-                   <widget class="QPushButton" name="btnJogYP">
-        <property name="minimumSize">
-                     <size>
-                      <width>32</width>
-                      <height>32</height>
-                     </size>
-                    </property>
-                    <property name="styleSheet">
-                     <string>QPushButton{background:#f5f5f5;color:#1565c0;border:1px solid #e0e0e0;border-radius:4px;font-weight:bold;font-size:16px;}QPushButton:hover{background:#e3f2fd;border-color:#90caf9;}</string>
-                    </property>
-                    <property name="text">
-                     <string>＋</string>
-                    </property>
-                    <property name="visible">
-                     <bool>false</bool>
-                    </property>
-                   </widget>
-                  </item>
-                 </layout>
-                </item>
-                <item>
-                 <layout class="QHBoxLayout">
-                  <item>
-                   <widget class="QLabel" name="label_11">
-                    <property name="minimumSize">
-                     <size>
-                      <width>24</width>
-                      <height>0</height>
-                     </size>
-                    </property>
-                    <property name="styleSheet">
-                     <string>color:#888;font-size:12px;font-weight:bold;border:none;background:transparent;</string>
-                    </property>
-                    <property name="text">
-                     <string>Z</string>
-                    </property>
-                   </widget>
-                  </item>
-                  <item>
-                   <widget class="QPushButton" name="btnJogZM">
-                    <property name="visible">
-                     <bool>false</bool>
-                    </property>
-        <property name="minimumSize">
-                     <size>
-                      <width>32</width>
-                      <height>32</height>
-                     </size>
-                    </property>
-                    <property name="styleSheet">
-                     <string>QPushButton{background:#f5f5f5;color:#c62828;border:1px solid #e0e0e0;border-radius:4px;font-weight:bold;font-size:16px;}QPushButton:hover{background:#ffebee;border-color:#ef9a9a;}</string>
-                    </property>
-                    <property name="text">
-                     <string>－</string>
-                    </property>
-                   </widget>
-                  </item>
-                  <item>
-                   <widget class="QDoubleSpinBox" name="spinManualZ">
-
-                    <property name="styleSheet">
-                     <string>QDoubleSpinBox{font-family:Consolas,&quot;Microsoft YaHei UI&quot;;font-size:13px;padding:2px 4px;border:1px solid #d0d5dd;border-radius:4px;background:#fafbfc;}QDoubleSpinBox:focus{border-color:#1565c0;background:#fff;}</string>
-                    </property>
-                    <property name="alignment">
-                     <set>Qt::AlignmentFlag::AlignRight|Qt::AlignmentFlag::AlignTrailing|Qt::AlignmentFlag::AlignVCenter</set>
-                    </property>
-
-                    <property name="buttonSymbols">
-         <enum>QAbstractSpinBox::NoButtons</enum>
-        </property>
-
-        <property name="decimals">
-                     <number>3</number>
-                    </property>
-                    <property name="minimum">
-                     <double>-999.999000000000024</double>
-                    </property>
-                    <property name="maximum">
-                     <double>999.999000000000024</double>
-                    </property>
-                    <property name="singleStep">
-                     <double>1.000000000000000</double>
-                    </property>
-                   </widget>
-                  </item>
-                  <item>
-                   <widget class="QPushButton" name="btnJogZP">
-        <property name="minimumSize">
-                     <size>
-                      <width>32</width>
-                      <height>32</height>
-                     </size>
-                    </property>
-                    <property name="styleSheet">
-                     <string>QPushButton{background:#f5f5f5;color:#1565c0;border:1px solid #e0e0e0;border-radius:4px;font-weight:bold;font-size:16px;}QPushButton:hover{background:#e3f2fd;border-color:#90caf9;}</string>
-                    </property>
-                    <property name="text">
-                     <string>＋</string>
-                    </property>
-                    <property name="visible">
-                     <bool>false</bool>
-                    </property>
-                   </widget>
-                  </item>
-                 </layout>
-                </item>
-                <item>
-                 <layout class="QHBoxLayout">
+                  <property name="spacing">
+                   <number>6</number>
+                  </property>
                   <item>
                    <widget class="QLabel" name="label_12">
                     <property name="minimumSize">
                      <size>
-                      <width>24</width>
+                      <width>28</width>
                       <height>0</height>
                      </size>
                     </property>
                     <property name="styleSheet">
-                     <string>color:#888;font-size:12px;font-weight:bold;border:none;background:transparent;</string>
+                     <string>color:#888;font-size:14px;font-weight:bold;border:none;background:transparent;</string>
                     </property>
                     <property name="text">
                      <string>A</string>
@@ -2107,39 +1712,17 @@ QGroupBox::title{subcontrol-origin:margin;left:14px;padding:0 8px;}</string>
                    </widget>
                   </item>
                   <item>
-                   <widget class="QPushButton" name="btnJogRxM">
-                    <property name="visible">
-                     <bool>false</bool>
-                    </property>
-        <property name="minimumSize">
-                     <size>
-                      <width>32</width>
-                      <height>32</height>
-                     </size>
-                    </property>
-                    <property name="styleSheet">
-                     <string>QPushButton{background:#f5f5f5;color:#c62828;border:1px solid #e0e0e0;border-radius:4px;font-weight:bold;font-size:16px;}QPushButton:hover{background:#ffebee;border-color:#ef9a9a;}</string>
-                    </property>
-                    <property name="text">
-                     <string>－</string>
-                    </property>
-                   </widget>
-                  </item>
-                  <item>
                    <widget class="QDoubleSpinBox" name="spinManualRx">
-
                     <property name="styleSheet">
-                     <string>QDoubleSpinBox{font-family:Consolas,&quot;Microsoft YaHei UI&quot;;font-size:13px;padding:2px 4px;border:1px solid #d0d5dd;border-radius:4px;background:#fafbfc;}QDoubleSpinBox:focus{border-color:#1565c0;background:#fff;}</string>
+                     <string>QDoubleSpinBox{font-family:Consolas,&quot;Microsoft YaHei UI&quot;;font-size:14px;padding:4px 6px;border:1px solid #d0d5dd;border-radius:4px;background:#fafbfc;}QDoubleSpinBox:focus{border-color:#1565c0;background:#fff;}</string>
                     </property>
                     <property name="alignment">
                      <set>Qt::AlignmentFlag::AlignRight|Qt::AlignmentFlag::AlignTrailing|Qt::AlignmentFlag::AlignVCenter</set>
                     </property>
-
                     <property name="buttonSymbols">
-         <enum>QAbstractSpinBox::NoButtons</enum>
-        </property>
-
-        <property name="decimals">
+                     <enum>QAbstractSpinBox::NoButtons</enum>
+                    </property>
+                    <property name="decimals">
                      <number>3</number>
                     </property>
                     <property name="minimum">
@@ -2153,39 +1736,71 @@ QGroupBox::title{subcontrol-origin:margin;left:14px;padding:0 8px;}</string>
                     </property>
                    </widget>
                   </item>
+                 </layout>
+                </item>
+                <item row="1" column="0">
+                 <layout class="QHBoxLayout">
+                  <property name="spacing">
+                   <number>6</number>
+                  </property>
                   <item>
-                   <widget class="QPushButton" name="btnJogRxP">
-        <property name="minimumSize">
+                   <widget class="QLabel" name="label_10">
+                    <property name="minimumSize">
                      <size>
-                      <width>32</width>
-                      <height>32</height>
+                      <width>28</width>
+                      <height>0</height>
                      </size>
                     </property>
                     <property name="styleSheet">
-                     <string>QPushButton{background:#f5f5f5;color:#1565c0;border:1px solid #e0e0e0;border-radius:4px;font-weight:bold;font-size:16px;}QPushButton:hover{background:#e3f2fd;border-color:#90caf9;}</string>
+                     <string>color:#888;font-size:14px;font-weight:bold;border:none;background:transparent;</string>
                     </property>
                     <property name="text">
-                     <string>＋</string>
+                     <string>Y</string>
                     </property>
-                    <property name="visible">
-                     <bool>false</bool>
+                   </widget>
+                  </item>
+                  <item>
+                   <widget class="QDoubleSpinBox" name="spinManualY">
+                    <property name="styleSheet">
+                     <string>QDoubleSpinBox{font-family:Consolas,&quot;Microsoft YaHei UI&quot;;font-size:14px;padding:4px 6px;border:1px solid #d0d5dd;border-radius:4px;background:#fafbfc;}QDoubleSpinBox:focus{border-color:#1565c0;background:#fff;}</string>
+                    </property>
+                    <property name="alignment">
+                     <set>Qt::AlignmentFlag::AlignRight|Qt::AlignmentFlag::AlignTrailing|Qt::AlignmentFlag::AlignVCenter</set>
+                    </property>
+                    <property name="buttonSymbols">
+                     <enum>QAbstractSpinBox::NoButtons</enum>
+                    </property>
+                    <property name="decimals">
+                     <number>3</number>
+                    </property>
+                    <property name="minimum">
+                     <double>-999.999000000000024</double>
+                    </property>
+                    <property name="maximum">
+                     <double>999.999000000000024</double>
+                    </property>
+                    <property name="singleStep">
+                     <double>1.000000000000000</double>
                     </property>
                    </widget>
                   </item>
                  </layout>
                 </item>
-                <item>
+                <item row="1" column="1">
                  <layout class="QHBoxLayout">
+                  <property name="spacing">
+                   <number>6</number>
+                  </property>
                   <item>
                    <widget class="QLabel" name="label_13">
                     <property name="minimumSize">
                      <size>
-                      <width>24</width>
+                      <width>28</width>
                       <height>0</height>
                      </size>
                     </property>
                     <property name="styleSheet">
-                     <string>color:#888;font-size:12px;font-weight:bold;border:none;background:transparent;</string>
+                     <string>color:#888;font-size:14px;font-weight:bold;border:none;background:transparent;</string>
                     </property>
                     <property name="text">
                      <string>B</string>
@@ -2193,39 +1808,17 @@ QGroupBox::title{subcontrol-origin:margin;left:14px;padding:0 8px;}</string>
                    </widget>
                   </item>
                   <item>
-                   <widget class="QPushButton" name="btnJogRyM">
-                    <property name="visible">
-                     <bool>false</bool>
-                    </property>
-        <property name="minimumSize">
-                     <size>
-                      <width>32</width>
-                      <height>32</height>
-                     </size>
-                    </property>
-                    <property name="styleSheet">
-                     <string>QPushButton{background:#f5f5f5;color:#c62828;border:1px solid #e0e0e0;border-radius:4px;font-weight:bold;font-size:16px;}QPushButton:hover{background:#ffebee;border-color:#ef9a9a;}</string>
-                    </property>
-                    <property name="text">
-                     <string>－</string>
-                    </property>
-                   </widget>
-                  </item>
-                  <item>
                    <widget class="QDoubleSpinBox" name="spinManualRy">
-
                     <property name="styleSheet">
-                     <string>QDoubleSpinBox{font-family:Consolas,&quot;Microsoft YaHei UI&quot;;font-size:13px;padding:2px 4px;border:1px solid #d0d5dd;border-radius:4px;background:#fafbfc;}QDoubleSpinBox:focus{border-color:#1565c0;background:#fff;}</string>
+                     <string>QDoubleSpinBox{font-family:Consolas,&quot;Microsoft YaHei UI&quot;;font-size:14px;padding:4px 6px;border:1px solid #d0d5dd;border-radius:4px;background:#fafbfc;}QDoubleSpinBox:focus{border-color:#1565c0;background:#fff;}</string>
                     </property>
                     <property name="alignment">
                      <set>Qt::AlignmentFlag::AlignRight|Qt::AlignmentFlag::AlignTrailing|Qt::AlignmentFlag::AlignVCenter</set>
                     </property>
-
                     <property name="buttonSymbols">
-         <enum>QAbstractSpinBox::NoButtons</enum>
-        </property>
-
-        <property name="decimals">
+                     <enum>QAbstractSpinBox::NoButtons</enum>
+                    </property>
+                    <property name="decimals">
                      <number>3</number>
                     </property>
                     <property name="minimum">
@@ -2239,39 +1832,71 @@ QGroupBox::title{subcontrol-origin:margin;left:14px;padding:0 8px;}</string>
                     </property>
                    </widget>
                   </item>
+                 </layout>
+                </item>
+                <item row="2" column="0">
+                 <layout class="QHBoxLayout">
+                  <property name="spacing">
+                   <number>6</number>
+                  </property>
                   <item>
-                   <widget class="QPushButton" name="btnJogRyP">
-        <property name="minimumSize">
+                   <widget class="QLabel" name="label_11">
+                    <property name="minimumSize">
                      <size>
-                      <width>32</width>
-                      <height>32</height>
+                      <width>28</width>
+                      <height>0</height>
                      </size>
                     </property>
                     <property name="styleSheet">
-                     <string>QPushButton{background:#f5f5f5;color:#1565c0;border:1px solid #e0e0e0;border-radius:4px;font-weight:bold;font-size:16px;}QPushButton:hover{background:#e3f2fd;border-color:#90caf9;}</string>
+                     <string>color:#888;font-size:14px;font-weight:bold;border:none;background:transparent;</string>
                     </property>
                     <property name="text">
-                     <string>＋</string>
+                     <string>Z</string>
                     </property>
-                    <property name="visible">
-                     <bool>false</bool>
+                   </widget>
+                  </item>
+                  <item>
+                   <widget class="QDoubleSpinBox" name="spinManualZ">
+                    <property name="styleSheet">
+                     <string>QDoubleSpinBox{font-family:Consolas,&quot;Microsoft YaHei UI&quot;;font-size:14px;padding:4px 6px;border:1px solid #d0d5dd;border-radius:4px;background:#fafbfc;}QDoubleSpinBox:focus{border-color:#1565c0;background:#fff;}</string>
+                    </property>
+                    <property name="alignment">
+                     <set>Qt::AlignmentFlag::AlignRight|Qt::AlignmentFlag::AlignTrailing|Qt::AlignmentFlag::AlignVCenter</set>
+                    </property>
+                    <property name="buttonSymbols">
+                     <enum>QAbstractSpinBox::NoButtons</enum>
+                    </property>
+                    <property name="decimals">
+                     <number>3</number>
+                    </property>
+                    <property name="minimum">
+                     <double>-999.999000000000024</double>
+                    </property>
+                    <property name="maximum">
+                     <double>999.999000000000024</double>
+                    </property>
+                    <property name="singleStep">
+                     <double>1.000000000000000</double>
                     </property>
                    </widget>
                   </item>
                  </layout>
                 </item>
-                <item>
+                <item row="2" column="1">
                  <layout class="QHBoxLayout">
+                  <property name="spacing">
+                   <number>6</number>
+                  </property>
                   <item>
                    <widget class="QLabel" name="label_14">
                     <property name="minimumSize">
                      <size>
-                      <width>24</width>
+                      <width>28</width>
                       <height>0</height>
                      </size>
                     </property>
                     <property name="styleSheet">
-                     <string>color:#888;font-size:12px;font-weight:bold;border:none;background:transparent;</string>
+                     <string>color:#888;font-size:14px;font-weight:bold;border:none;background:transparent;</string>
                     </property>
                     <property name="text">
                      <string>C</string>
@@ -2279,39 +1904,17 @@ QGroupBox::title{subcontrol-origin:margin;left:14px;padding:0 8px;}</string>
                    </widget>
                   </item>
                   <item>
-                   <widget class="QPushButton" name="btnJogRzM">
-                    <property name="visible">
-                     <bool>false</bool>
-                    </property>
-        <property name="minimumSize">
-                     <size>
-                      <width>32</width>
-                      <height>32</height>
-                     </size>
-                    </property>
-                    <property name="styleSheet">
-                     <string>QPushButton{background:#f5f5f5;color:#c62828;border:1px solid #e0e0e0;border-radius:4px;font-weight:bold;font-size:16px;}QPushButton:hover{background:#ffebee;border-color:#ef9a9a;}</string>
-                    </property>
-                    <property name="text">
-                     <string>－</string>
-                    </property>
-                   </widget>
-                  </item>
-                  <item>
                    <widget class="QDoubleSpinBox" name="spinManualRz">
-
                     <property name="styleSheet">
-                     <string>QDoubleSpinBox{font-family:Consolas,&quot;Microsoft YaHei UI&quot;;font-size:13px;padding:2px 4px;border:1px solid #d0d5dd;border-radius:4px;background:#fafbfc;}QDoubleSpinBox:focus{border-color:#1565c0;background:#fff;}</string>
+                     <string>QDoubleSpinBox{font-family:Consolas,&quot;Microsoft YaHei UI&quot;;font-size:14px;padding:4px 6px;border:1px solid #d0d5dd;border-radius:4px;background:#fafbfc;}QDoubleSpinBox:focus{border-color:#1565c0;background:#fff;}</string>
                     </property>
                     <property name="alignment">
                      <set>Qt::AlignmentFlag::AlignRight|Qt::AlignmentFlag::AlignTrailing|Qt::AlignmentFlag::AlignVCenter</set>
                     </property>
-
                     <property name="buttonSymbols">
-         <enum>QAbstractSpinBox::NoButtons</enum>
-        </property>
-
-        <property name="decimals">
+                     <enum>QAbstractSpinBox::NoButtons</enum>
+                    </property>
+                    <property name="decimals">
                      <number>3</number>
                     </property>
                     <property name="minimum">
@@ -2325,28 +1928,9 @@ QGroupBox::title{subcontrol-origin:margin;left:14px;padding:0 8px;}</string>
                     </property>
                    </widget>
                   </item>
-                  <item>
-                   <widget class="QPushButton" name="btnJogRzP">
-        <property name="minimumSize">
-                     <size>
-                      <width>32</width>
-                      <height>32</height>
-                     </size>
-                    </property>
-                    <property name="styleSheet">
-                     <string>QPushButton{background:#f5f5f5;color:#1565c0;border:1px solid #e0e0e0;border-radius:4px;font-weight:bold;font-size:16px;}QPushButton:hover{background:#e3f2fd;border-color:#90caf9;}</string>
-                    </property>
-                    <property name="text">
-                     <string>＋</string>
-                    </property>
-                    <property name="visible">
-                     <bool>false</bool>
-                    </property>
-                   </widget>
-                  </item>
                  </layout>
                 </item>
-                <item>
+                <item row="3" column="0" colspan="2">
                  <widget class="QPushButton" name="btnApplyCart">
                   <property name="minimumSize">
                    <size>
@@ -2391,7 +1975,12 @@ QGroupBox::title{subcontrol-origin:margin;left:14px;padding:0 8px;}</string>
                </widget>
               </item>
               <item>
-               <layout class="QHBoxLayout" name="debugSpeedRow">
+               <layout class="QGridLayout" name="debugGridLayout">
+                <property name="spacing">
+                 <number>8</number>
+                </property>
+                <item row="0" column="0">
+                 <layout class="QHBoxLayout" name="debugSpeedRow">
                 <item>
                  <widget class="QLabel" name="label_15">
                   <property name="minimumSize">
@@ -2444,9 +2033,9 @@ QGroupBox::title{subcontrol-origin:margin;left:14px;padding:0 8px;}</string>
                  </spacer>
                 </item>
                </layout>
-              </item>
-              <item>
-               <layout class="QHBoxLayout" name="debugAccelRow">
+                </item>
+                <item row="0" column="1">
+                 <layout class="QHBoxLayout" name="debugAccelRow">
                 <item>
                  <widget class="QLabel" name="label_16">
                   <property name="minimumSize">
@@ -2499,9 +2088,9 @@ QGroupBox::title{subcontrol-origin:margin;left:14px;padding:0 8px;}</string>
                  </spacer>
                 </item>
                </layout>
-              </item>
-              <item>
-               <layout class="QHBoxLayout" name="debugDecelRow">
+                </item>
+                <item row="1" column="0">
+                 <layout class="QHBoxLayout" name="debugDecelRow">
                 <item>
                  <widget class="QLabel" name="label_17">
                   <property name="minimumSize">
@@ -2554,9 +2143,9 @@ QGroupBox::title{subcontrol-origin:margin;left:14px;padding:0 8px;}</string>
                  </spacer>
                 </item>
                </layout>
-              </item>
-              <item>
-               <layout class="QHBoxLayout" name="debugStepRow">
+                </item>
+                <item row="1" column="1">
+                 <layout class="QHBoxLayout" name="debugStepRow">
                 <item>
                  <widget class="QLabel" name="label_18">
                   <property name="minimumSize">
@@ -2610,6 +2199,8 @@ QGroupBox::title{subcontrol-origin:margin;left:14px;padding:0 8px;}</string>
                    </size>
                   </property>
                  </spacer>
+                </item>
+               </layout>
                 </item>
                </layout>
               </item>
