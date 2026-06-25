@@ -3182,7 +3182,7 @@ QGroupBox::title{subcontrol-origin:margin;left:14px;padding:0 8px;}</string>
              <property name="minimumSize">
               <size>
                <width>0</width>
-               <height>36</height>
+               <height>48</height>
               </size>
              </property>
              <property name="styleSheet">
@@ -3190,12 +3190,12 @@ QGroupBox::title{subcontrol-origin:margin;left:14px;padding:0 8px;}</string>
              </property>
              <layout class="QHBoxLayout" name="progToolLayout">
               <property name="spacing">
-               <number>6</number>
+               <number>8</number>
               </property>
               <item>
                <widget class="QLabel" name="progFileName">
                 <property name="styleSheet">
-                 <string>color:#333;font-size:12px;font-weight:bold;border:none;background:transparent;</string>
+                 <string>color:#333;font-size:14px;font-weight:bold;border:none;background:transparent;</string>
                 </property>
                 <property name="text">
                  <string>📄 未命名.rbt</string>
@@ -3206,12 +3206,12 @@ QGroupBox::title{subcontrol-origin:margin;left:14px;padding:0 8px;}</string>
                <widget class="QPushButton" name="btnProgLoad">
                 <property name="minimumSize">
                  <size>
-                  <width>52</width>
-                  <height>26</height>
+                  <width>76</width>
+                  <height>36</height>
                  </size>
                 </property>
                 <property name="styleSheet">
-                 <string>QPushButton{background:#fafafa;color:#555;border:1px solid #d0d0d0;border-radius:4px;padding:2px 8px;font-size:11px;}QPushButton:hover{background:#f0f0f0;}</string>
+                 <string>QPushButton{background:#fafafa;color:#555;border:1px solid #d0d0d0;border-radius:4px;padding:2px 8px;font-size:13px;font-weight:bold;}QPushButton:hover{background:#f0f0f0;}</string>
                 </property>
                 <property name="text">
                  <string>📂 加载</string>
@@ -3222,12 +3222,12 @@ QGroupBox::title{subcontrol-origin:margin;left:14px;padding:0 8px;}</string>
                <widget class="QPushButton" name="btnProgNew">
                 <property name="minimumSize">
                  <size>
-                  <width>52</width>
-                  <height>26</height>
+                  <width>76</width>
+                  <height>36</height>
                  </size>
                 </property>
                 <property name="styleSheet">
-                 <string>QPushButton{background:#fafafa;color:#555;border:1px solid #d0d0d0;border-radius:4px;padding:2px 8px;font-size:11px;}QPushButton:hover{background:#f0f0f0;}</string>
+                 <string>QPushButton{background:#fafafa;color:#555;border:1px solid #d0d0d0;border-radius:4px;padding:2px 8px;font-size:13px;font-weight:bold;}QPushButton:hover{background:#f0f0f0;}</string>
                 </property>
                 <property name="text">
                  <string>📄 新建</string>
@@ -3238,12 +3238,12 @@ QGroupBox::title{subcontrol-origin:margin;left:14px;padding:0 8px;}</string>
                <widget class="QPushButton" name="btnProgSave">
                 <property name="minimumSize">
                  <size>
-                  <width>52</width>
-                  <height>26</height>
+                  <width>76</width>
+                  <height>36</height>
                  </size>
                 </property>
                 <property name="styleSheet">
-                 <string>QPushButton{background:#fafafa;color:#555;border:1px solid #d0d0d0;border-radius:4px;padding:2px 8px;font-size:11px;}QPushButton:hover{background:#f0f0f0;}</string>
+                 <string>QPushButton{background:#fafafa;color:#555;border:1px solid #d0d0d0;border-radius:4px;padding:2px 8px;font-size:13px;font-weight:bold;}QPushButton:hover{background:#f0f0f0;}</string>
                 </property>
                 <property name="text">
                  <string>💾 保存</string>
@@ -3254,12 +3254,12 @@ QGroupBox::title{subcontrol-origin:margin;left:14px;padding:0 8px;}</string>
                <widget class="QPushButton" name="btnProgDeleteLine">
                 <property name="minimumSize">
                  <size>
-                  <width>48</width>
-                  <height>26</height>
+                  <width>68</width>
+                  <height>36</height>
                  </size>
                 </property>
                 <property name="styleSheet">
-                 <string>QPushButton{background:#fafafa;color:#c62828;border:1px solid #ffcdd2;border-radius:4px;padding:2px 8px;font-size:11px;}QPushButton:hover{background:#ffebee;}</string>
+                 <string>QPushButton{background:#fafafa;color:#c62828;border:1px solid #ffcdd2;border-radius:4px;padding:2px 8px;font-size:13px;font-weight:bold;}QPushButton:hover{background:#ffebee;}</string>
                 </property>
                 <property name="text">
                  <string>🗑 删行</string>
@@ -3283,12 +3283,12 @@ QGroupBox::title{subcontrol-origin:margin;left:14px;padding:0 8px;}</string>
                <widget class="QPushButton" name="btnProgRun">
                 <property name="minimumSize">
                  <size>
-                  <width>60</width>
-                  <height>26</height>
+                  <width>84</width>
+                  <height>36</height>
                  </size>
                 </property>
                 <property name="styleSheet">
-                 <string>QPushButton{background:#e8f5e9;color:#2e7d32;border:1px solid #a5d6a7;border-radius:4px;padding:2px 10px;font-weight:bold;font-size:12px;}QPushButton:hover{background:#c8e6c9;}</string>
+                 <string>QPushButton{background:#e8f5e9;color:#2e7d32;border:1px solid #a5d6a7;border-radius:4px;padding:2px 12px;font-weight:bold;font-size:14px;}QPushButton:hover{background:#c8e6c9;}</string>
                 </property>
                 <property name="text">
                  <string>▶ 运行</string>
@@ -3299,12 +3299,12 @@ QGroupBox::title{subcontrol-origin:margin;left:14px;padding:0 8px;}</string>
                <widget class="QPushButton" name="btnProgStop">
                 <property name="minimumSize">
                  <size>
-                  <width>60</width>
-                  <height>26</height>
+                  <width>84</width>
+                  <height>36</height>
                  </size>
                 </property>
                 <property name="styleSheet">
-                 <string>QPushButton{background:#fff3e0;color:#e65100;border:1px solid #ffcc80;border-radius:4px;padding:2px 10px;font-weight:bold;font-size:12px;}QPushButton:hover{background:#ffe0b2;}</string>
+                 <string>QPushButton{background:#fff3e0;color:#e65100;border:1px solid #ffcc80;border-radius:4px;padding:2px 12px;font-weight:bold;font-size:14px;}QPushButton:hover{background:#ffe0b2;}</string>
                 </property>
                 <property name="text">
                  <string>⏸ 暂停</string>

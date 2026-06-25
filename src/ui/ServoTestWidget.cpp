@@ -35,43 +35,56 @@ void ServoTestWidget::setupUI()
 {
     // 主布局
     QVBoxLayout* mainLayout = new QVBoxLayout(this);
-    mainLayout->setSpacing(10);
-    mainLayout->setContentsMargins(10, 10, 10, 10);
+    mainLayout->setSpacing(16);
+    mainLayout->setContentsMargins(16, 16, 16, 16);
 
     // 标题
     QLabel* titleLabel = new QLabel("舵机测试界面", this);
-    titleLabel->setStyleSheet("font-size: 16px; font-weight: bold;");
+    titleLabel->setStyleSheet("font-size: 24px; font-weight: bold;");
     mainLayout->addWidget(titleLabel);
 
     // 表头
     QGridLayout* headerLayout = new QGridLayout();
-    headerLayout->addWidget(new QLabel("选择", this), 0, 0);
-    headerLayout->addWidget(new QLabel("通道", this), 0, 1);
-    headerLayout->addWidget(new QLabel("角度 (°)", this), 0, 2);
-    headerLayout->addWidget(new QLabel("当前", this), 0, 3);
-    headerLayout->addWidget(new QLabel("速度 (°/s)", this), 0, 4);
+    headerLayout->setSpacing(16);
+    QLabel* h1 = new QLabel("选择", this);
+    QLabel* h2 = new QLabel("通道", this);
+    QLabel* h3 = new QLabel("角度 (°)", this);
+    QLabel* h4 = new QLabel("当前", this);
+    QLabel* h5 = new QLabel("速度 (°/s)", this);
+    QString headerStyle = "font-size:16px;font-weight:bold;color:#555;";
+    h1->setStyleSheet(headerStyle);
+    h2->setStyleSheet(headerStyle);
+    h3->setStyleSheet(headerStyle);
+    h4->setStyleSheet(headerStyle);
+    h5->setStyleSheet(headerStyle);
+    headerLayout->addWidget(h1, 0, 0);
+    headerLayout->addWidget(h2, 0, 1);
+    headerLayout->addWidget(h3, 0, 2);
+    headerLayout->addWidget(h4, 0, 3);
+    headerLayout->addWidget(h5, 0, 4);
     mainLayout->addLayout(headerLayout);
 
     // 分隔线
     QFrame* line = new QFrame(this);
     line->setFrameShape(QFrame::HLine);
-    line->setStyleSheet("background-color: #cccccc;");
+    line->setStyleSheet("background-color: #cccccc; min-height: 2px;");
     mainLayout->addWidget(line);
 
     // 6个舵机通道
     for (int i = 0; i < 6; ++i) {
         QHBoxLayout* rowLayout = new QHBoxLayout();
-        rowLayout->setSpacing(10);
+        rowLayout->setSpacing(16);
 
         // 勾选框
         m_checkBoxes[i] = new QCheckBox(this);
         m_checkBoxes[i]->setObjectName(QString("checkBox_%1").arg(i));
+        m_checkBoxes[i]->setStyleSheet("QCheckBox::indicator{width:24px;height:24px;}");
         rowLayout->addWidget(m_checkBoxes[i], 0, Qt::AlignCenter);
 
         // 通道标签
         QLabel* chLabel = new QLabel(QString("P%1").arg(i + 1), this);
-        chLabel->setStyleSheet("font-weight: bold; color: #2196F3;");
-        chLabel->setMinimumWidth(40);
+        chLabel->setStyleSheet("font-weight: bold; color: #2196F3; font-size: 18px;");
+        chLabel->setMinimumWidth(56);
         rowLayout->addWidget(chLabel);
 
         // 角度滑块
@@ -79,8 +92,8 @@ void ServoTestWidget::setupUI()
         m_angleSliders[i]->setMinimum(0);
         m_angleSliders[i]->setMaximum(180);
         m_angleSliders[i]->setValue(90);
-        m_angleSliders[i]->setMinimumWidth(150);
-        m_angleSliders[i]->setMaximumWidth(200);
+        m_angleSliders[i]->setMinimumWidth(280);
+        m_angleSliders[i]->setMaximumWidth(400);
         rowLayout->addWidget(m_angleSliders[i]);
 
         // 角度输入框
@@ -90,7 +103,8 @@ void ServoTestWidget::setupUI()
         m_angleSpins[i]->setValue(90);
         m_angleSpins[i]->setSuffix(" °");
         m_angleSpins[i]->setSingleStep(1);
-        m_angleSpins[i]->setMinimumWidth(80);
+        m_angleSpins[i]->setMinimumWidth(100);
+        m_angleSpins[i]->setStyleSheet("font-size:16px;font-weight:bold;");
         rowLayout->addWidget(m_angleSpins[i]);
 
         // 当前角度显示
@@ -100,7 +114,8 @@ void ServoTestWidget::setupUI()
             "border: 1px solid #2196F3; "
             "border-radius: 3px; "
             "padding: 2px 8px; "
-            "min-width: 50px;"
+            "min-width: 70px;"
+            "font-size: 16px;"
         );
         m_currentLabels[i]->setAlignment(Qt::AlignCenter);
         rowLayout->addWidget(m_currentLabels[i]);
@@ -112,7 +127,8 @@ void ServoTestWidget::setupUI()
         m_speedSpins[i]->setValue(10);   // 默认速度 10°/s
         m_speedSpins[i]->setSuffix(" °/s");
         m_speedSpins[i]->setSingleStep(5);
-        m_speedSpins[i]->setMinimumWidth(80);
+        m_speedSpins[i]->setMinimumWidth(100);
+        m_speedSpins[i]->setStyleSheet("font-size:16px;font-weight:bold;");
         rowLayout->addWidget(m_speedSpins[i]);
 
         mainLayout->addLayout(rowLayout);
@@ -214,11 +230,11 @@ void ServoTestWidget::updateChannelLockState(int channel)
     const QString angleStyle =
         enabled
         ? QStringLiteral(
-              "QDoubleSpinBox{font-family:Consolas,'Microsoft YaHei UI';font-size:11px;"
+              "QDoubleSpinBox{font-family:Consolas,'Microsoft YaHei UI';font-size:16px;"
               "padding:1px 2px;border:1px solid #d0d5dd;border-radius:3px;background:#fafbfc;}"
               "QDoubleSpinBox:focus{border-color:#1565c0;background:#fff;}")
         : QStringLiteral(
-              "QDoubleSpinBox{font-family:Consolas,'Microsoft YaHei UI';font-size:11px;"
+              "QDoubleSpinBox{font-family:Consolas,'Microsoft YaHei UI';font-size:16px;"
               "padding:1px 2px;border:1px solid #e0e0e0;border-radius:3px;background:#f0f1f3;color:#aaa;}");
     m_angleSpins[channel]->setStyleSheet(angleStyle);
 }

@@ -1397,14 +1397,14 @@ void MainWindow::initManualProgUI()
     // ==================== 2. 指令按钮 → QTabWidget ====================
     QTabWidget* instrTabs = new QTabWidget(ui->pageManual);
     instrTabs->setDocumentMode(true);
-    instrTabs->setMinimumHeight(44);
-    instrTabs->setMaximumHeight(50);
+    instrTabs->setMinimumHeight(60);
+    instrTabs->setMaximumHeight(72);
     instrTabs->setStyleSheet(
         QStringLiteral(
             "QTabWidget::pane{border:1px solid #d0d5dd;border-radius:0 6px 6px 6px;background:#fff;}"
-            "QTabBar::tab{background:#f5f5f5;color:#666;padding:2px 12px;"
+            "QTabBar::tab{background:#f5f5f5;color:#666;padding:4px 16px;"
             "border:1px solid #d0d5dd;border-bottom:none;border-radius:4px 4px 0 0;"
-            "margin-right:2px;font-size:11px;font-weight:bold;}"
+            "margin-right:2px;font-size:14px;font-weight:bold;}"
             "QTabBar::tab:selected{background:#fff;color:#1565c0;}"
             "QTabBar::tab:hover{background:#e3f2fd;}"
         ));
@@ -1424,11 +1424,20 @@ void MainWindow::initManualProgUI()
     {
         QWidget* tab = new QWidget();
         QHBoxLayout* lay = new QHBoxLayout(tab);
-        lay->setContentsMargins(6, 2, 6, 2); lay->setSpacing(4);
+        lay->setContentsMargins(10, 6, 10, 6); lay->setSpacing(8);
         migrateBtn(ui->btnProgMoveJ, lay);    ui->btnProgMoveJ->setText(QStringLiteral("关节"));
         migrateBtn(ui->btnProgMoveL, lay);    ui->btnProgMoveL->setText(QStringLiteral("直线"));
         migrateBtn(ui->btnProgMoveOff, lay);  ui->btnProgMoveOff->setText(QStringLiteral("关节偏移"));
         migrateBtn(ui->btnProgMoveLOff, lay); ui->btnProgMoveLOff->setText(QStringLiteral("直线偏移"));
+        // 统一指令按钮样式
+        for (QPushButton* b : {ui->btnProgMoveJ, ui->btnProgMoveL, ui->btnProgMoveOff, ui->btnProgMoveLOff}) {
+            b->setMinimumSize(80, 36);
+            b->setFont(QFont(b->font().family(), 11, QFont::Bold));
+            b->setStyleSheet(QStringLiteral(
+                "QPushButton{background:#e8f0fe;color:#1557b0;border:1px solid #a8c8fa;border-radius:4px;"
+                "padding:2px 10px;font-weight:bold;}"
+                "QPushButton:hover{background:#d0e2ff;}"));
+        }
         lay->addStretch();
         instrTabs->addTab(tab, QStringLiteral("  运动  "));
     }
@@ -1444,7 +1453,7 @@ void MainWindow::initManualProgUI()
     {
         QWidget* tab = new QWidget();
         QHBoxLayout* lay = new QHBoxLayout(tab);
-        lay->setContentsMargins(6, 2, 6, 2); lay->setSpacing(4);
+        lay->setContentsMargins(10, 6, 10, 6); lay->setSpacing(8);
         migrateBtn(ui->btnProgWaitIdle, lay); ui->btnProgWaitIdle->setText(QStringLiteral("等待完成"));
         migrateBtn(ui->btnProgDelay, lay);    ui->btnProgDelay->setText(QStringLiteral("延时"));
         QFrame* s1 = new QFrame(); s1->setFrameShape(QFrame::VLine);
@@ -1461,6 +1470,16 @@ void MainWindow::initManualProgUI()
         s3->setStyleSheet(QStringLiteral("color:#e0e0e0;"));
         lay->addWidget(s3);
         migrateBtn(ui->btnProgSet, lay);    ui->btnProgSet->setText(QStringLiteral("赋值"));
+        // 统一逻辑按钮样式
+        for (QPushButton* b : {ui->btnProgWaitIdle, ui->btnProgDelay, ui->btnProgSetDO,
+                                ui->btnProgWaitDI, ui->btnProgIfDI, ui->btnProgElse, ui->btnProgSet}) {
+            b->setMinimumSize(76, 36);
+            b->setFont(QFont(b->font().family(), 11, QFont::Bold));
+            b->setStyleSheet(QStringLiteral(
+                "QPushButton{background:#f3e5f5;color:#7b1fa2;border:1px solid #ce93d8;border-radius:4px;"
+                "padding:2px 10px;font-weight:bold;}"
+                "QPushButton:hover{background:#e1bee7;}"));
+        }
         lay->addStretch();
         instrTabs->addTab(tab, QStringLiteral("  逻辑  "));
     }
@@ -1469,18 +1488,28 @@ void MainWindow::initManualProgUI()
     {
         QWidget* tab = new QWidget();
         QHBoxLayout* lay = new QHBoxLayout(tab);
-        lay->setContentsMargins(6, 2, 6, 2); lay->setSpacing(4);
+        lay->setContentsMargins(10, 6, 10, 6); lay->setSpacing(8);
         migrateBtn(ui->btnProgPrint, lay);   ui->btnProgPrint->setText(QStringLiteral("打印"));
         migrateBtn(ui->btnProgReadPos, lay); ui->btnProgReadPos->setText(QStringLiteral("读位置"));
         migrateBtn(ui->btnProgCall, lay);    ui->btnProgCall->setText(QStringLiteral("调用"));
         migrateBtn(ui->btnProgFor, lay);     ui->btnProgFor->setText(QStringLiteral("FOR循环"));
         migrateBtn(ui->btnProgComment, lay); ui->btnProgComment->setText(QStringLiteral("注释"));
+        // 统一工具按钮样式
+        for (QPushButton* b : {ui->btnProgPrint, ui->btnProgReadPos, ui->btnProgCall,
+                                ui->btnProgFor, ui->btnProgComment}) {
+            b->setMinimumSize(76, 36);
+            b->setFont(QFont(b->font().family(), 11, QFont::Bold));
+            b->setStyleSheet(QStringLiteral(
+                "QPushButton{background:#e8f5e9;color:#2e7d32;border:1px solid #a5d6a7;border-radius:4px;"
+                "padding:2px 10px;font-weight:bold;}"
+                "QPushButton:hover{background:#c8e6c9;}"));
+        }
         // SERVO 单舵机按钮
         QPushButton* btnServo = new QPushButton(QStringLiteral("SERVO"));
-        btnServo->setMinimumSize(42, 24);
+        btnServo->setMinimumSize(72, 36);
         btnServo->setStyleSheet(
-            QStringLiteral("QPushButton{background:#e3f2fd;color:#1565c0;border:1px solid #90caf9;border-radius:3px;"
-                "padding:2px 4px;font-weight:bold;font-size:10px;font-family:Consolas;}"
+            QStringLiteral("QPushButton{background:#e3f2fd;color:#1565c0;border:1px solid #90caf9;border-radius:4px;"
+                "padding:2px 8px;font-weight:bold;font-size:11px;font-family:Consolas;}"
                 "QPushButton:hover{background:#bbdefb;}"));
         connect(btnServo, &QPushButton::clicked, this, [this] {
             if (m_uiController) m_uiController->onProgInsertServo();
@@ -1490,10 +1519,10 @@ void MainWindow::initManualProgUI()
         // 通过 SERVO(0=..., 1=..., 2=...) 即可同时控制多路。
         // WHILE TRUE 循环按钮
         QPushButton* btnWhile = new QPushButton(QStringLiteral("WHILE循环"));
-        btnWhile->setMinimumSize(52, 24);
+        btnWhile->setMinimumSize(88, 36);
         btnWhile->setStyleSheet(
-            QStringLiteral("QPushButton{background:#fce4ec;color:#c62828;border:1px solid #ef9a9a;border-radius:3px;"
-                "padding:2px 4px;font-weight:bold;font-size:10px;font-family:Consolas;}"
+            QStringLiteral("QPushButton{background:#fce4ec;color:#c62828;border:1px solid #ef9a9a;border-radius:4px;"
+                "padding:2px 8px;font-weight:bold;font-size:11px;font-family:Consolas;}"
                 "QPushButton:hover{background:#ffcdd2;}"));
         connect(btnWhile, &QPushButton::clicked, this, [this] {
             if (m_uiController) {
@@ -1538,15 +1567,15 @@ void MainWindow::initManualProgUI()
 
         // 标签和 SpinBox 紧凑化，使用与点动组相同的 QHBoxLayout 逐行结构保证对齐
         auto compactLabel = [](QLabel* lbl) {
-            lbl->setMinimumSize(24, 0);  // 与 J0 标签同宽
-            lbl->setMaximumWidth(48);
+            lbl->setMinimumSize(20, 0);  // 与 J0 标签同宽
+            lbl->setMaximumWidth(40);
             lbl->setAlignment(Qt::AlignLeft | Qt::AlignVCenter);
             lbl->setStyleSheet(QStringLiteral("color:#888;font-size:11px;font-weight:bold;border:none;background:transparent;"));
         };
         auto compactSpin = [](QDoubleSpinBox* sp) {
             sp->setFixedHeight(22);
-            sp->setMinimumWidth(60);
-            sp->setMaximumWidth(78);
+            sp->setMinimumWidth(50);
+            sp->setMaximumWidth(68);
             sp->setButtonSymbols(QAbstractSpinBox::NoButtons);
             sp->setStyleSheet(QStringLiteral("QDoubleSpinBox{border:1px solid #d0d5dd;border-radius:3px;padding:1px 2px;font-size:11px;}"));
         };
@@ -1658,15 +1687,15 @@ void MainWindow::initManualProgUI()
         vlay->setContentsMargins(0, 2, 0, 2);
 
         auto compactLabel = [](QLabel* lbl) {
-            lbl->setMinimumSize(24, 0);
-            lbl->setMaximumWidth(48);
+            lbl->setMinimumSize(20, 0);
+            lbl->setMaximumWidth(40);
             lbl->setAlignment(Qt::AlignLeft | Qt::AlignVCenter);
             lbl->setStyleSheet(QStringLiteral("color:#888;font-size:11px;font-weight:bold;border:none;background:transparent;"));
         };
         auto compactSpin = [](QDoubleSpinBox* sp) {
             sp->setFixedHeight(22);
-            sp->setMinimumWidth(60);
-            sp->setMaximumWidth(78);
+            sp->setMinimumWidth(50);
+            sp->setMaximumWidth(68);
             sp->setButtonSymbols(QAbstractSpinBox::NoButtons);
             sp->setStyleSheet(QStringLiteral("QDoubleSpinBox{font-family:Consolas,'Microsoft YaHei UI';font-size:11px;"
                 "padding:1px 2px;border:1px solid #d0d5dd;border-radius:3px;background:#fafbfc;color:#1565c0;font-weight:bold;}"));
@@ -1767,8 +1796,8 @@ void MainWindow::initManualProgUI()
         QLabel* angleLbl = new QLabel(QStringLiteral("90.0°"));
         angleLbl->setAlignment(Qt::AlignCenter);
         angleLbl->setFixedHeight(22);
-        angleLbl->setMinimumWidth(60);
-        angleLbl->setMaximumWidth(78);
+        angleLbl->setMinimumWidth(50);
+        angleLbl->setMaximumWidth(68);
         angleLbl->setStyleSheet(
             QStringLiteral(
                 "QLabel{font-family:Consolas,'Microsoft YaHei UI';font-size:11px;"
@@ -1795,7 +1824,7 @@ void MainWindow::initManualProgUI()
         }
     }
 
-    servoGroup->setMaximumWidth(170);
+    servoGroup->setMaximumWidth(130);
     servoGroup->setLayout(servoLay);
 
     // 舵机设置按钮：点击后弹出模态对话框，复用 ServoTestWidget
@@ -1827,7 +1856,7 @@ void MainWindow::initManualProgUI()
 
         QDialog* dlg = new QDialog(this);
         dlg->setWindowTitle(QStringLiteral("舵机调试"));
-        dlg->resize(720, 520);
+        dlg->resize(900, 660);
         dlg->setAttribute(Qt::WA_DeleteOnClose);  // 关闭时自动销毁 dialog 及其子 widget
 
         QVBoxLayout* lay = new QVBoxLayout(dlg);
@@ -1928,10 +1957,10 @@ void MainWindow::initManualProgUI()
         });
 
     QPushButton* btnRunStep = new QPushButton(QStringLiteral("单步"));
-    btnRunStep->setMinimumSize(50, 26);
+    btnRunStep->setMinimumSize(72, 36);
     btnRunStep->setStyleSheet(
         QStringLiteral("QPushButton{background:#ede7f6;color:#4527a0;border:1px solid #b39ddb;border-radius:4px;"
-            "padding:2px 8px;font-weight:bold;font-size:11px;}QPushButton:hover{background:#d1c4e9;}"));
+            "padding:2px 10px;font-weight:bold;font-size:13px;}QPushButton:hover{background:#d1c4e9;}"));
     connect(btnRunStep, &QPushButton::clicked, this, [this, lastFocusedEditor, codeEditor] {
         if (!m_uiController || m_uiController->isTaskRunning()) return;
         QPlainTextEdit* src = *lastFocusedEditor;
@@ -2005,13 +2034,13 @@ void MainWindow::initManualProgUI()
     bottomLay->addWidget(rightPanel, 2);  // 右侧权重2，尽可能宽
 
     // 左侧面板固定宽度（收窄，给右侧更多空间）
-    leftPanel->setFixedWidth(170);
+    leftPanel->setFixedWidth(130);
     leftPanel->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Expanding);
 
     // 点动GroupBox也限制最大宽度
-    ui->jogJointGroup->setMaximumWidth(170);
-    ui->jogCartGroup->setMaximumWidth(170);
-    ui->jogDebugGroup->setMaximumWidth(170);
+    ui->jogJointGroup->setMaximumWidth(130);
+    ui->jogCartGroup->setMaximumWidth(130);
+    ui->jogDebugGroup->setMaximumWidth(130);
 
     // ==================== 5. 组装最终布局 ====================
     // 面包屑 → 左右分栏(左侧:调试+点动 | 右侧:编程)
