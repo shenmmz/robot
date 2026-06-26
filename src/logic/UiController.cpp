@@ -1815,54 +1815,11 @@ void UiController::bindHoldButton(QPushButton* btn, int intervalMs,
     // 按钮所在窗口内),所以这里不再额外装事件过滤器避免泄漏。
 }
 
-/**
- * @brief 运行预设点位测试：机械臂先归位，然后在两个笛卡尔点位间往返 50 次
- *
- * 用于验证运动控制器稳定性和机械臂重复定位精度。
- *   - 归位点: J = {0, 0, 0, 0, 90, 0}（关节 MoveJ）
- *   - 基准点: {X=450, Y=0, Z=450, Rx=180, Ry=0, Rz=180}（直线 MoveL）
- *   - X-300 点: {X=150, Y=0, Z=450, Rx=180, Ry=0, Rz=180}（直线 MoveL）
- */
 void UiController::runTestPoints()
 {
-    if (!m_robotController || !m_robotController->isConnected()) {
-        if (auto* sb = m_mainWindow->findChild<QStatusBar*>(QStringLiteral("statusbar")))
-            sb->showMessage(QStringLiteral("请先连接控制器"));
-        return;
+    if (auto* sb = m_mainWindow->findChild<QStatusBar*>(QStringLiteral("statusbar"))) {
+        sb->showMessage(QStringLiteral("功能测试已移除"));
     }
-
-    QList<ScriptCommand> commands;
-
-    // 1: moveJ 归位（只执行一次）
-    {
-        ScriptCommand cmd;
-        cmd.type = ScriptCmdType::MoveJ;
-        cmd.targets = {0.0, 0.0, 0.0, 0.0, 90.0, 0.0};
-        cmd.speed = 100.0; cmd.accel = 120.0; cmd.decel = 150.0; cmd.timeoutMs = 6000;
-        commands.append(cmd);
-    }
-
-    // 2–3: moveL 基准 ↔ X-300，循环 50 轮
-    const int REPEAT = 50;
-    for (int r = 0; r < REPEAT; ++r) {
-        ScriptCommand cmd1;
-        cmd1.type = ScriptCmdType::MoveL;
-        cmd1.targets = {450.0, 0.0, 450.0, 180.0, 0.0, 180.0};
-        cmd1.speed = 100.0; cmd1.accel = 120.0; cmd1.decel = 150.0; cmd1.timeoutMs = 6000;
-        commands.append(cmd1);
-
-        ScriptCommand cmd2;
-        cmd2.type = ScriptCmdType::MoveL;
-        cmd2.targets = {150.0, 0.0, 450.0, 180.0, 0.0, 180.0};
-        cmd2.speed = 100.0; cmd2.accel = 120.0; cmd2.decel = 150.0; cmd2.timeoutMs = 6000;
-        commands.append(cmd2);
-    }
-
-    qDebug() << QStringLiteral("========== 预设点位测试（共%1个） ==========").arg(commands.size());
-    ZmotionAPI::setVerbose(false);
-
-    m_taskExecutor->setCommands(commands);
-    m_taskExecutor->start();
 }
 
 /**

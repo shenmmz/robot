@@ -58,6 +58,7 @@ target_link_libraries(Robot_R06 PRIVATE
     robot_logic
     robot_utils
     robot_ui
+    robot_vision         # 外部 VisualRoboticArmQtController.exe 子进程管理
     zmotion_sdk
 )
 
