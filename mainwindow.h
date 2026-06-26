@@ -18,6 +18,7 @@ class RobotController;
 class UiController;
 class Rs485Controller;
 class ServoController;
+class VisionController;
 class QPlainTextEdit;
 class ServoTestWidget;  // 舵机测试界面
 
@@ -96,12 +97,24 @@ private slots:
     // PWM 测试按钮
     void onTestPwmDuty();
 
+    // 视觉系统控制
+    void onVisionStarted();
+    void onVisionStopped(int exitCode);
+    void onVisionError(const QString &error);
+    void onVisionMessage(const QString &channel, const QString &line);
+    void onVisionMotorCommand(double angle);
+
 private:
     Ui::MainWindow *ui;
     RobotController* m_robotController;
     UiController* m_uiController;
     Rs485Controller* m_rs485 = nullptr;
     ServoController* m_servo = nullptr;
+    VisionController* m_vision = nullptr;
+    QElapsedTimer m_visionThrottleTimer;
+    double m_lastVisionAngle = 0;
+    int m_visionConsecutiveCount = 0;
+    static constexpr int kVisionConfirmCount = 10;
     ServoTestWidget* m_servoTestWidget = nullptr;  // 舵机测试界面
     QList<QSpinBox*> m_servoSpins;   // 6通道舵机角度 spinbox
     QList<QDoubleSpinBox*> m_servoSpeedSpins;  // 6通道舵机速度 spinbox (度/秒)

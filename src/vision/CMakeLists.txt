@@ -11,7 +11,8 @@ target_include_directories(robot_vision PUBLIC
 )
 
 target_link_libraries(robot_vision PUBLIC
-    Qt${QT_VERSION_MAJOR}::Core   # QObject / QProcess
+    Qt${QT_VERSION_MAJOR}::Core     # QObject / QProcess / QTimer
+    Qt${QT_VERSION_MAJOR}::Network  # QTcpSocket
 )
 
 target_sources(robot_vision PUBLIC

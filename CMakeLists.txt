@@ -12,7 +12,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # 查找 Qt Widgets 模块，优先使用 Qt6，如果没有则回退到 Qt5。
 find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS Widgets)
-find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Widgets SerialPort)
+find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Widgets SerialPort Network)
 
 # 根 CMakeLists 必须保持简洁，大型项目应使用子目录模块。
 add_subdirectory(library)

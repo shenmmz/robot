@@ -13,12 +13,15 @@
 #include "src/logic/RobotController.h"
 #include "src/logic/UiController.h"
 #include "src/hardware/Rs485Controller.h"
+#include "src/hardware/ServoController.h"
+#include "src/vision/VisionController.h"
 #include "src/models/RobotConfig.h"
 #include "src/models/RobotKinematics.h"
 #include "library/zmotion.h"
 #include "src/utils/MathUtils.h"
 #include "src/utils/CodeEditor.h"
 #include "library/zauxdll2.h"
+#include <QElapsedTimer>
 #include <QThread>
 #include <QTimer>
 #include <functional>
@@ -112,6 +115,14 @@ MainWindow::MainWindow(QWidget *parent)
 
     // 重构手动编程页布局（含舵机控制）
     initManualProgUI();
+
+    // --- 视觉系统：管理外部 VisualRoboticArmQtController.exe ---
+    m_vision = new VisionController(this);
+    connect(m_vision, &VisionController::started,        this, &MainWindow::onVisionStarted);
+    connect(m_vision, &VisionController::stopped,        this, &MainWindow::onVisionStopped);
+    connect(m_vision, &VisionController::errorOccurred,  this, &MainWindow::onVisionError);
+    connect(m_vision, &VisionController::outputMessage,  this, &MainWindow::onVisionMessage);
+    connect(m_vision, &VisionController::motorCommand,   this, &MainWindow::onVisionMotorCommand);
 
     // 切换到手动编程页时强制刷新布局
     connect(ui->contentStack, &QStackedWidget::currentChanged, this, [this](int idx) {
@@ -807,11 +818,17 @@ void MainWindow::finishAgingTest(bool success, const QString& message)
 
 
 /**
- * @brief 运行预设测试点位
+ * @brief 功能测试：切换视觉程序启停
  */
 void MainWindow::on_pushButton_6_clicked()
 {
-    m_uiController->runTestPoints();
+    if (!m_vision) return;
+
+    if (m_vision->isRunning()) {
+        m_vision->stop();
+    } else {
+        m_vision->start();
+    }
 }
 
 /**
@@ -2297,5 +2314,67 @@ void MainWindow::showPointAdjustDialog(bool isJoint)
     });
 
     dlg.exec();
+}
+
+// ==================== 视觉系统控制 ====================
+
+void MainWindow::onVisionStarted()
+{
+    qDebug() << "[MainWindow] 视觉程序已启动";
+    ui->pushButton_6->setText(QStringLiteral("停止测试"));
+}
+
+void MainWindow::onVisionStopped(int exitCode)
+{
+    qDebug() << "[MainWindow] 视觉程序已退出，exitCode=" << exitCode;
+    ui->pushButton_6->setText(QStringLiteral("功能测试"));
+}
+
+void MainWindow::onVisionError(const QString &error)
+{
+    qWarning() << "[MainWindow] 视觉程序错误:" << error;
+    ui->pushButton_6->setText(QStringLiteral("功能测试"));
+}
+
+void MainWindow::onVisionMessage(const QString &channel, const QString &line)
+{
+    qDebug() << "[MainWindow] vision" << channel << ":" << line;
+}
+
+void MainWindow::onVisionMotorCommand(double angle)
+{
+    qDebug() << "[MainWindow] 视觉控制 J0 -> angle =" << angle;
+
+    if (!m_robotController || !m_robotController->isConnected()) {
+        qWarning() << "[MainWindow] 视觉 J0 指令未执行：控制器未连接";
+        return;
+    }
+
+    // 连续相同值消抖：需相同值连续出现 N 次才有效
+    if (qAbs(angle - m_lastVisionAngle) < 1e-6) {
+        m_visionConsecutiveCount++;
+    } else {
+        m_lastVisionAngle = angle;
+        m_visionConsecutiveCount = 1;
+        return;
+    }
+
+    if (m_visionConsecutiveCount < kVisionConfirmCount) {
+        return;
+    }
+
+    // 达到确认次数后，首次立即下发，后续加 500ms 间隔
+    if (m_visionConsecutiveCount == kVisionConfirmCount) {
+        m_visionThrottleTimer.start();
+        m_robotController->jogJoint(0, angle, 25.0, 50.0, 60.0);
+        return;
+    }
+
+    if (m_visionThrottleTimer.elapsed() < 500) {
+        return;
+    }
+
+    m_visionThrottleTimer.restart();
+    m_robotController->jogJoint(0, angle, 25.0, 50.0, 60.0);
 }
 
