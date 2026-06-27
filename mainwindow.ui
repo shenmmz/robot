@@ -230,13 +230,13 @@ QPushButton:disabled{color:#555;border-color:#3a3a3a;}</string>
         <widget class="QFrame" name="sideBar">
          <property name="minimumSize">
           <size>
-           <width>96</width>
+           <width>88</width>
            <height>0</height>
           </size>
          </property>
          <property name="maximumSize">
           <size>
-           <width>96</width>
+           <width>88</width>
            <height>16777215</height>
           </size>
          </property>
@@ -262,13 +262,13 @@ QPushButton:disabled{color:#555;border-color:#3a3a3a;}</string>
           <item>
            <widget class="QLabel" name="sideTitle">
             <property name="styleSheet">
-             <string>color:#546e7a;font-size:10px;font-weight:bold;border:none;background:transparent;padding:4px 0 8px 0;</string>
+             <string>color:#546e7a;font-size:14px;font-weight:bold;border:none;background:transparent;padding:4px 0 8px 0;</string>
             </property>
             <property name="text">
              <string>⚙ 导航</string>
             </property>
             <property name="alignment">
-             <set>Qt::AlignmentFlag::AlignCenter</set>
+             <set>Qt::AlignmentFlag::AlignLeft</set>
             </property>
            </widget>
           </item>
@@ -281,7 +281,7 @@ QPushButton:disabled{color:#555;border-color:#3a3a3a;}</string>
              </size>
             </property>
             <property name="styleSheet">
-             <string>QPushButton{background:transparent;color:#b0bec5;border:none;border-left:3px solid transparent;text-align:left;padding:10px 14px;font-size:14px;}
+             <string>QPushButton{background:transparent;color:#b0bec5;border:none;border-left:3px solid transparent;text-align:left;padding:10px 14px 10px 6px;font-size:14px;}
 QPushButton:hover{background:rgba(255,255,255,0.06);color:#cfd8dc;}
 QPushButton:checked{background:rgba(21,101,192,0.18);color:#fff;border-left:3px solid #1565c0;font-weight:bold;}</string>
             </property>
@@ -305,7 +305,7 @@ QPushButton:checked{background:rgba(21,101,192,0.18);color:#fff;border-left:3px 
              </size>
             </property>
             <property name="styleSheet">
-             <string>QPushButton{background:transparent;color:#b0bec5;border:none;border-left:3px solid transparent;text-align:left;padding:10px 14px;font-size:14px;}
+             <string>QPushButton{background:transparent;color:#b0bec5;border:none;border-left:3px solid transparent;text-align:left;padding:10px 14px 10px 6px;font-size:14px;}
 QPushButton:hover{background:rgba(255,255,255,0.06);color:#cfd8dc;}
 QPushButton:checked{background:rgba(21,101,192,0.18);color:#fff;border-left:3px solid #1565c0;font-weight:bold;}</string>
             </property>
@@ -326,7 +326,7 @@ QPushButton:checked{background:rgba(21,101,192,0.18);color:#fff;border-left:3px 
              </size>
             </property>
             <property name="styleSheet">
-             <string>QPushButton{background:transparent;color:#b0bec5;border:none;border-left:3px solid transparent;text-align:left;padding:10px 14px;font-size:14px;}
+             <string>QPushButton{background:transparent;color:#b0bec5;border:none;border-left:3px solid transparent;text-align:left;padding:10px 14px 10px 6px;font-size:14px;}
 QPushButton:hover{background:rgba(255,255,255,0.06);color:#cfd8dc;}
 QPushButton:checked{background:rgba(21,101,192,0.18);color:#fff;border-left:3px solid #1565c0;font-weight:bold;}</string>
             </property>
@@ -347,7 +347,7 @@ QPushButton:checked{background:rgba(21,101,192,0.18);color:#fff;border-left:3px 
              </size>
             </property>
             <property name="styleSheet">
-             <string>QPushButton{background:transparent;color:#b0bec5;border:none;border-left:3px solid transparent;text-align:left;padding:10px 14px;font-size:14px;}
+             <string>QPushButton{background:transparent;color:#b0bec5;border:none;border-left:3px solid transparent;text-align:left;padding:10px 14px 10px 6px;font-size:14px;}
 QPushButton:hover{background:rgba(255,255,255,0.06);color:#cfd8dc;}
 QPushButton:checked{background:rgba(21,101,192,0.18);color:#fff;border-left:3px solid #1565c0;font-weight:bold;}</string>
             </property>
@@ -368,7 +368,7 @@ QPushButton:checked{background:rgba(21,101,192,0.18);color:#fff;border-left:3px 
              </size>
             </property>
             <property name="styleSheet">
-             <string>QPushButton{background:transparent;color:#b0bec5;border:none;border-left:3px solid transparent;text-align:left;padding:10px 14px;font-size:14px;}
+             <string>QPushButton{background:transparent;color:#b0bec5;border:none;border-left:3px solid transparent;text-align:left;padding:10px 14px 10px 6px;font-size:14px;}
 QPushButton:hover{background:rgba(255,255,255,0.06);color:#cfd8dc;}
 QPushButton:checked{background:rgba(21,101,192,0.18);color:#fff;border-left:3px solid #1565c0;font-weight:bold;}</string>
             </property>
@@ -389,7 +389,7 @@ QPushButton:checked{background:rgba(21,101,192,0.18);color:#fff;border-left:3px 
              </size>
             </property>
             <property name="styleSheet">
-             <string>QPushButton{background:transparent;color:#b0bec5;border:none;border-left:3px solid transparent;text-align:left;padding:10px 14px;font-size:14px;}
+             <string>QPushButton{background:transparent;color:#b0bec5;border:none;border-left:3px solid transparent;text-align:left;padding:10px 14px 10px 6px;font-size:14px;}
 QPushButton:hover{background:rgba(255,255,255,0.06);color:#cfd8dc;}
 QPushButton:checked{background:rgba(21,101,192,0.18);color:#fff;border-left:3px solid #1565c0;font-weight:bold;}</string>
             </property>

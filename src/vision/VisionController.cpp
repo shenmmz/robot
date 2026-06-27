@@ -16,6 +16,15 @@
 #include <QJsonObject>
 #include <QProcessEnvironment>
 
+/**
+ * @brief 构造 VisionController,创建并初始化内部的 QTcpServer。
+ *
+ * 负责:
+ * - 创建 QTcpServer 实例并将其父子对象设为 this,保证生命周期随本对象释放。
+ * - 将 QTcpServer::newConnection 信号连接至本对象的 onNewConnection 槽。
+ *
+ * @param parent Qt 父对象指针,默认 nullptr。
+ */
 VisionController::VisionController(QObject *parent)
     : QObject(parent)
 {
@@ -23,6 +32,13 @@ VisionController::VisionController(QObject *parent)
     connect(m_tcpServer, &QTcpServer::newConnection, this, &VisionController::onNewConnection);
 }
 
+/**
+ * @brief 析构函数,负责安全释放子进程与 TCP Server 资源。
+ *
+ * 释放顺序:
+ * - 若 Python 子进程仍在运行,先 terminate(),等待 1 秒后若仍未退出则 kill() 强杀。
+ * - 关闭 QTcpServer,断开所有 TCP 连接。
+ */
 VisionController::~VisionController()
 {
     if (m_process && m_process->state() != QProcess::NotRunning) {
@@ -38,6 +54,19 @@ VisionController::~VisionController()
     }
 }
 
+/**
+ * @brief 启动 TCP Server 并拉起 Python 视觉程序。
+ *
+ * 流程:
+ * - 若已经在运行,直接返回 true(幂等)。
+ * - 从 exe 所在目录向上查找 external/VisualRoboticArm 子目录,作为 Python 项目根。
+ * - QTcpServer 监听 127.0.0.1:5001;失败时 emit errorOccurred 并返回 false。
+ * - 构造 QProcess,使用项目自带的 .venv/Scripts/python.exe,设置工作目录和
+ *   VISUAL_ARM_COMM_PORT=5001 环境变量,然后 start() 并 waitForStarted(5 秒)。
+ * - 失败时负责回滚:deleteLater、置空 m_process、关闭 TCP Server。
+ *
+ * @return true 表示 TCP 监听成功且 QProcess 已成功拉起。
+ */
 bool VisionController::start()
 {
     if (isRunning()) {
@@ -101,6 +130,14 @@ bool VisionController::start()
     return true;
 }
 
+/**
+ * @brief 停止 Python 子进程并关闭 TCP Server。
+ *
+ * 流程:
+ * - 关闭 QTcpServer,清空 m_clientSocket 和 m_tcpBuffer(连接会在子进程结束前被强制断开)。
+ * - 若 QProcess 不存在或已退出,直接返回。
+ * - 否则先 terminate(),等待 1.5 秒;超时则 kill() 强杀,再 waitForFinished(1 秒)。
+ */
 void VisionController::stop()
 {
     // 关闭 TCP Server
@@ -121,11 +158,21 @@ void VisionController::stop()
     }
 }
 
+/**
+ * @brief 判断 Python 视觉子进程是否仍在运行。
+ * @return true 表示 m_process 非空且状态不是 QProcess::NotRunning。
+ */
 bool VisionController::isRunning() const
 {
     return m_process != nullptr && m_process->state() != QProcess::NotRunning;
 }
 
+/**
+ * @brief 获取 Python 项目目录路径。
+ *
+ * 即 start() 中向上搜索得到的 external/VisualRoboticArm 绝对路径。
+ * 若尚未 start,返回空字符串。
+ */
 QString VisionController::projectPath() const
 {
     return m_projectPath;
@@ -133,23 +180,49 @@ QString VisionController::projectPath() const
 
 // ==================== QProcess 信号槽 ====================
 
+/**
+ * @brief QProcess::started 信号槽,Python 子进程成功启动后立即触发。
+ *
+ * 透传:emit started() 通知外部 UI / 业务层。
+ */
 void VisionController::onStarted()
 {
     emit started();
 }
 
+/**
+ * @brief QProcess::readyReadStandardOutput 信号槽。
+ *
+ * 读取 stdout 全部可用字节并交给 drainLines 按 '\n' 切行。
+ */
 void VisionController::onReadyReadStdout()
 {
     if (!m_process) return;
     drainLines(m_process->readAllStandardOutput(), QStringLiteral("stdout"));
 }
 
+/**
+ * @brief QProcess::readyReadStandardError 信号槽。
+ *
+ * 读取 stderr 全部可用字节并交给 drainLines 按 '\n' 切行。
+ */
 void VisionController::onReadyReadStderr()
 {
     if (!m_process) return;
     drainLines(m_process->readAllStandardError(), QStringLiteral("stderr"));
 }
 
+/**
+ * @brief QProcess::finished 信号槽,Python 子进程退出时触发。
+ *
+ * 流程:
+ * - 先把 stdout/stderr 缓冲区中残留的最后一行(没有 '\n' 结尾)冲刷出去。
+ * - qDebug 输出 exitCode,emit stopped(exitCode) 通知业务层。
+ * - 通过 deleteLater 释放 m_process 并置空指针。
+ *
+ * @param exitCode   Python 进程退出码。
+ * @param exitStatus 退出状态(正常 / 崩溃),本函数暂不区分。
+ */
 void VisionController::onFinished(int exitCode, int /*exitStatus*/)
 {
     if (!m_stdoutBuffer.isEmpty()) {
@@ -168,6 +241,13 @@ void VisionController::onFinished(int exitCode, int /*exitStatus*/)
     m_process = nullptr;
 }
 
+/**
+ * @brief QProcess::errorOccurred 信号槽。
+ *
+ * 把 QProcess::errorString 透传给 errorOccurred 信号,并 qWarning 记录日志。
+ *
+ * @param error QProcess 错误枚举值,本函数未使用。
+ */
 void VisionController::onProcessError(int /*error*/)
 {
     const QString err = m_process ? m_process->errorString() : QStringLiteral("unknown");
@@ -175,6 +255,18 @@ void VisionController::onProcessError(int /*error*/)
     emit errorOccurred(err);
 }
 
+/**
+ * @brief 将 QByteArray 数据按 '\n' 切行,并逐行 emit outputMessage。
+ *
+ * 根据 channel 字符串选择累加缓冲:
+ * - "stderr" → m_stderrBuffer
+ * - 其它    → m_stdoutBuffer
+ *
+ * 切分策略: 在缓冲区中查找第一个 '\n',取出该行 trim 后 emit;剩余字节继续保留在缓冲区等待下次数据。
+ *
+ * @param data    本次 readyRead 读到的字节片段。
+ * @param channel "stdout" 或 "stderr",决定使用哪个累加缓冲。
+ */
 void VisionController::drainLines(const QByteArray &data, const QString &channel)
 {
     if (data.isEmpty()) return;
@@ -196,6 +288,13 @@ void VisionController::drainLines(const QByteArray &data, const QString &channel
 
 // ==================== TCP Server ====================
 
+/**
+ * @brief QTcpServer::newConnection 信号槽。
+ *
+ * 单连接策略: 已存在 m_clientSocket 时,取到 nextPendingConnection 后立即断开并 deleteLater,
+ * qWarning 记录日志后返回。否则接受该连接作为 m_clientSocket,绑定 readyRead / disconnected 信号,
+ * 清空 m_tcpBuffer,qDebug 打印对端地址和端口。
+ */
 void VisionController::onNewConnection()
 {
     // 只保留一个客户端连接（与 Python 一一对应）
@@ -217,6 +316,12 @@ void VisionController::onNewConnection()
              << m_clientSocket->peerPort();
 }
 
+/**
+ * @brief QTcpSocket::readyRead 信号槽。
+ *
+ * 把当前可读字节追加进 m_tcpBuffer,然后按 '\n' 切包,每得到完整一行(已 trim)就交给 parseAndDispatch 解析。
+ * 不完整的尾部字节保留在 m_tcpBuffer 中,等待下次数据到达时继续拼接。
+ */
 void VisionController::onClientReadyRead()
 {
     if (!m_clientSocket) return;
@@ -236,6 +341,11 @@ void VisionController::onClientReadyRead()
     }
 }
 
+/**
+ * @brief QTcpSocket::disconnected 信号槽。
+ *
+ * Python 端断开 TCP 连接后触发:qDebug 记录日志,通过 deleteLater 释放 m_clientSocket 并置空指针。
+ */
 void VisionController::onClientDisconnected()
 {
     qDebug() << "[Vision] Python 已断开 TCP 连接";
@@ -247,6 +357,25 @@ void VisionController::onClientDisconnected()
 
 // ==================== JSON 解析 ====================
 
+/**
+ * @brief 解析一帧 JSON 并下发对应的业务信号。
+ *
+ * 协议约定(只关心 type=="pose" 的消息):
+ * @code
+ * {
+ *   "type": "pose",
+ *   "payload": {
+ *     "motor_6": { "angle_deg": <double> }
+ *   }
+ * }
+ * @endcode
+ *
+ * 解析失败时 qWarning 输出错误信息和原始字节;
+ * type 非 "pose"、payload / motor_6 缺失时静默忽略;
+ * 解析成功后 emit motorCommand(angle)。
+ *
+ * @param line 单行 UTF-8 JSON 文本(已去除 '\n' 两侧空白)。
+ */
 void VisionController::parseAndDispatch(const QByteArray &line)
 {
     QJsonParseError err;
