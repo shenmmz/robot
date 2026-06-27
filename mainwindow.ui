@@ -268,7 +268,7 @@ QPushButton:disabled{color:#555;border-color:#3a3a3a;}</string>
              <string>⚙ 导航</string>
             </property>
             <property name="alignment">
-             <set>Qt::AlignmentFlag::AlignLeft</set>
+             <set>Qt::AlignmentFlag::AlignLeading</set>
             </property>
            </widget>
           </item>
@@ -436,7 +436,7 @@ QPushButton:checked{background:rgba(21,101,192,0.18);color:#fff;border-left:3px 
           <string>QStackedWidget{background:transparent;}</string>
          </property>
          <property name="currentIndex">
-          <number>0</number>
+          <number>1</number>
          </property>
          <widget class="QWidget" name="pageRun">
           <layout class="QVBoxLayout" name="pageRunLayout">
@@ -1320,7 +1320,7 @@ QGroupBox::title{subcontrol-origin:margin;left:14px;padding:0 8px;}</string>
              <item>
               <widget class="QGroupBox" name="jogJointGroup">
                <property name="styleSheet">
-                <string>QGroupBox{background:#ffffff;border:1px solid #d0d5dd;border-radius:8px;margin-top:14px;padding:12px 10px 10px 10px;font-weight:bold;font-size:13px;color:#1a1a2e;}
+                <string>QGroupBox{background:#ffffff;border:1px solid #d0d5dd;border-radius:8px;margin-top:14px;padding:16px 12px 16px 12px;font-weight:bold;font-size:13px;color:#1a1a2e;}
 QGroupBox::title{subcontrol-origin:margin;left:14px;padding:0 8px;}</string>
                </property>
                <property name="title">
@@ -1354,7 +1354,13 @@ QGroupBox::title{subcontrol-origin:margin;left:14px;padding:0 8px;}</string>
                   <item>
                    <widget class="QDoubleSpinBox" name="spinManualJ0">
                     <property name="styleSheet">
-                     <string>QDoubleSpinBox{font-family:Consolas,&quot;Microsoft YaHei UI&quot;;font-size:14px;padding:4px 6px;border:1px solid #d0d5dd;border-radius:4px;background:#fafbfc;}QDoubleSpinBox:focus{border-color:#1565c0;background:#fff;}</string>
+                     <string>QDoubleSpinBox{font-family:Consolas,&quot;Microsoft YaHei UI&quot;;font-size:20px;padding:6px 40px;border:1px solid #d0d5dd;border-radius:4px;background:#fafbfc;min-width:120px;}QDoubleSpinBox:focus{border-color:#1565c0;background:#fff;}</string>
+                    </property>
+                    <property name="minimumSize">
+                     <size>
+                      <width>120</width>
+                      <height>0</height>
+                     </size>
                     </property>
                     <property name="alignment">
                      <set>Qt::AlignmentFlag::AlignRight|Qt::AlignmentFlag::AlignTrailing|Qt::AlignmentFlag::AlignVCenter</set>
@@ -1402,7 +1408,13 @@ QGroupBox::title{subcontrol-origin:margin;left:14px;padding:0 8px;}</string>
                   <item>
                    <widget class="QDoubleSpinBox" name="spinManualJ1">
                     <property name="styleSheet">
-                     <string>QDoubleSpinBox{font-family:Consolas,&quot;Microsoft YaHei UI&quot;;font-size:14px;padding:4px 6px;border:1px solid #d0d5dd;border-radius:4px;background:#fafbfc;}QDoubleSpinBox:focus{border-color:#1565c0;background:#fff;}</string>
+                     <string>QDoubleSpinBox{font-family:Consolas,&quot;Microsoft YaHei UI&quot;;font-size:20px;padding:6px 40px;border:1px solid #d0d5dd;border-radius:4px;background:#fafbfc;min-width:120px;}QDoubleSpinBox:focus{border-color:#1565c0;background:#fff;}</string>
+                    </property>
+                    <property name="minimumSize">
+                     <size>
+                      <width>120</width>
+                      <height>0</height>
+                     </size>
                     </property>
                     <property name="alignment">
                      <set>Qt::AlignmentFlag::AlignRight|Qt::AlignmentFlag::AlignTrailing|Qt::AlignmentFlag::AlignVCenter</set>
@@ -1450,7 +1462,13 @@ QGroupBox::title{subcontrol-origin:margin;left:14px;padding:0 8px;}</string>
                   <item>
                    <widget class="QDoubleSpinBox" name="spinManualJ2">
                     <property name="styleSheet">
-                     <string>QDoubleSpinBox{font-family:Consolas,&quot;Microsoft YaHei UI&quot;;font-size:14px;padding:4px 6px;border:1px solid #d0d5dd;border-radius:4px;background:#fafbfc;}QDoubleSpinBox:focus{border-color:#1565c0;background:#fff;}</string>
+                     <string>QDoubleSpinBox{font-family:Consolas,&quot;Microsoft YaHei UI&quot;;font-size:20px;padding:6px 40px;border:1px solid #d0d5dd;border-radius:4px;background:#fafbfc;min-width:120px;}QDoubleSpinBox:focus{border-color:#1565c0;background:#fff;}</string>
+                    </property>
+                    <property name="minimumSize">
+                     <size>
+                      <width>120</width>
+                      <height>0</height>
+                     </size>
                     </property>
                     <property name="alignment">
                      <set>Qt::AlignmentFlag::AlignRight|Qt::AlignmentFlag::AlignTrailing|Qt::AlignmentFlag::AlignVCenter</set>
@@ -1498,7 +1516,13 @@ QGroupBox::title{subcontrol-origin:margin;left:14px;padding:0 8px;}</string>
                   <item>
                    <widget class="QDoubleSpinBox" name="spinManualJ3">
                     <property name="styleSheet">
-                     <string>QDoubleSpinBox{font-family:Consolas,&quot;Microsoft YaHei UI&quot;;font-size:14px;padding:4px 6px;border:1px solid #d0d5dd;border-radius:4px;background:#fafbfc;}QDoubleSpinBox:focus{border-color:#1565c0;background:#fff;}</string>
+                     <string>QDoubleSpinBox{font-family:Consolas,&quot;Microsoft YaHei UI&quot;;font-size:20px;padding:6px 40px;border:1px solid #d0d5dd;border-radius:4px;background:#fafbfc;min-width:120px;}QDoubleSpinBox:focus{border-color:#1565c0;background:#fff;}</string>
+                    </property>
+                    <property name="minimumSize">
+                     <size>
+                      <width>120</width>
+                      <height>0</height>
+                     </size>
                     </property>
                     <property name="alignment">
                      <set>Qt::AlignmentFlag::AlignRight|Qt::AlignmentFlag::AlignTrailing|Qt::AlignmentFlag::AlignVCenter</set>
@@ -1546,7 +1570,13 @@ QGroupBox::title{subcontrol-origin:margin;left:14px;padding:0 8px;}</string>
                   <item>
                    <widget class="QDoubleSpinBox" name="spinManualJ4">
                     <property name="styleSheet">
-                     <string>QDoubleSpinBox{font-family:Consolas,&quot;Microsoft YaHei UI&quot;;font-size:14px;padding:4px 6px;border:1px solid #d0d5dd;border-radius:4px;background:#fafbfc;}QDoubleSpinBox:focus{border-color:#1565c0;background:#fff;}</string>
+                     <string>QDoubleSpinBox{font-family:Consolas,&quot;Microsoft YaHei UI&quot;;font-size:20px;padding:6px 40px;border:1px solid #d0d5dd;border-radius:4px;background:#fafbfc;min-width:120px;}QDoubleSpinBox:focus{border-color:#1565c0;background:#fff;}</string>
+                    </property>
+                    <property name="minimumSize">
+                     <size>
+                      <width>120</width>
+                      <height>0</height>
+                     </size>
                     </property>
                     <property name="alignment">
                      <set>Qt::AlignmentFlag::AlignRight|Qt::AlignmentFlag::AlignTrailing|Qt::AlignmentFlag::AlignVCenter</set>
@@ -1594,7 +1624,13 @@ QGroupBox::title{subcontrol-origin:margin;left:14px;padding:0 8px;}</string>
                   <item>
                    <widget class="QDoubleSpinBox" name="spinManualJ5">
                     <property name="styleSheet">
-                     <string>QDoubleSpinBox{font-family:Consolas,&quot;Microsoft YaHei UI&quot;;font-size:14px;padding:4px 6px;border:1px solid #d0d5dd;border-radius:4px;background:#fafbfc;}QDoubleSpinBox:focus{border-color:#1565c0;background:#fff;}</string>
+                     <string>QDoubleSpinBox{font-family:Consolas,&quot;Microsoft YaHei UI&quot;;font-size:20px;padding:6px 40px;border:1px solid #d0d5dd;border-radius:4px;background:#fafbfc;min-width:120px;}QDoubleSpinBox:focus{border-color:#1565c0;background:#fff;}</string>
+                    </property>
+                    <property name="minimumSize">
+                     <size>
+                      <width>120</width>
+                      <height>0</height>
+                     </size>
                     </property>
                     <property name="alignment">
                      <set>Qt::AlignmentFlag::AlignRight|Qt::AlignmentFlag::AlignTrailing|Qt::AlignmentFlag::AlignVCenter</set>
@@ -1623,11 +1659,11 @@ QGroupBox::title{subcontrol-origin:margin;left:14px;padding:0 8px;}</string>
                   <property name="minimumSize">
                    <size>
                     <width>0</width>
-                    <height>28</height>
+                    <height>48</height>
                    </size>
                   </property>
                   <property name="styleSheet">
-                   <string>QPushButton{background:#1565c0;color:#fff;border:none;border-radius:4px;font-size:12px;font-weight:bold;}QPushButton:hover{background:#1976d2;}</string>
+                   <string>QPushButton{background:#1565c0;color:#fff;border:1px solid #0d47a1;border-radius:6px;font-weight:bold;font-size:18px;padding:8px 20px;}QPushButton:hover{background:#0d47a1;}QPushButton:pressed{background:#0a3d8a;}</string>
                   </property>
                   <property name="text">
                    <string>点位调整</string>
@@ -1650,7 +1686,7 @@ QGroupBox::title{subcontrol-origin:margin;left:14px;padding:0 8px;}</string>
              <item>
               <widget class="QGroupBox" name="jogCartGroup">
                <property name="styleSheet">
-                <string>QGroupBox{background:#ffffff;border:1px solid #d0d5dd;border-radius:8px;margin-top:14px;padding:12px 10px 10px 10px;font-weight:bold;font-size:13px;color:#1a1a2e;}
+                <string>QGroupBox{background:#ffffff;border:1px solid #d0d5dd;border-radius:8px;margin-top:14px;padding:16px 12px 16px 12px;font-weight:bold;font-size:13px;color:#1a1a2e;}
 QGroupBox::title{subcontrol-origin:margin;left:14px;padding:0 8px;}</string>
                </property>
                <property name="title">
@@ -1684,7 +1720,13 @@ QGroupBox::title{subcontrol-origin:margin;left:14px;padding:0 8px;}</string>
                   <item>
                    <widget class="QDoubleSpinBox" name="spinManualX">
                     <property name="styleSheet">
-                     <string>QDoubleSpinBox{font-family:Consolas,&quot;Microsoft YaHei UI&quot;;font-size:14px;padding:4px 6px;border:1px solid #d0d5dd;border-radius:4px;background:#fafbfc;}QDoubleSpinBox:focus{border-color:#1565c0;background:#fff;}</string>
+                     <string>QDoubleSpinBox{font-family:Consolas,&quot;Microsoft YaHei UI&quot;;font-size:20px;padding:6px 40px;border:1px solid #d0d5dd;border-radius:4px;background:#fafbfc;min-width:120px;}QDoubleSpinBox:focus{border-color:#1565c0;background:#fff;}</string>
+                    </property>
+                    <property name="minimumSize">
+                     <size>
+                      <width>120</width>
+                      <height>0</height>
+                     </size>
                     </property>
                     <property name="alignment">
                      <set>Qt::AlignmentFlag::AlignRight|Qt::AlignmentFlag::AlignTrailing|Qt::AlignmentFlag::AlignVCenter</set>
@@ -1732,7 +1774,13 @@ QGroupBox::title{subcontrol-origin:margin;left:14px;padding:0 8px;}</string>
                   <item>
                    <widget class="QDoubleSpinBox" name="spinManualRx">
                     <property name="styleSheet">
-                     <string>QDoubleSpinBox{font-family:Consolas,&quot;Microsoft YaHei UI&quot;;font-size:14px;padding:4px 6px;border:1px solid #d0d5dd;border-radius:4px;background:#fafbfc;}QDoubleSpinBox:focus{border-color:#1565c0;background:#fff;}</string>
+                     <string>QDoubleSpinBox{font-family:Consolas,&quot;Microsoft YaHei UI&quot;;font-size:20px;padding:6px 40px;border:1px solid #d0d5dd;border-radius:4px;background:#fafbfc;min-width:120px;}QDoubleSpinBox:focus{border-color:#1565c0;background:#fff;}</string>
+                    </property>
+                    <property name="minimumSize">
+                     <size>
+                      <width>120</width>
+                      <height>0</height>
+                     </size>
                     </property>
                     <property name="alignment">
                      <set>Qt::AlignmentFlag::AlignRight|Qt::AlignmentFlag::AlignTrailing|Qt::AlignmentFlag::AlignVCenter</set>
@@ -1780,7 +1828,13 @@ QGroupBox::title{subcontrol-origin:margin;left:14px;padding:0 8px;}</string>
                   <item>
                    <widget class="QDoubleSpinBox" name="spinManualY">
                     <property name="styleSheet">
-                     <string>QDoubleSpinBox{font-family:Consolas,&quot;Microsoft YaHei UI&quot;;font-size:14px;padding:4px 6px;border:1px solid #d0d5dd;border-radius:4px;background:#fafbfc;}QDoubleSpinBox:focus{border-color:#1565c0;background:#fff;}</string>
+                     <string>QDoubleSpinBox{font-family:Consolas,&quot;Microsoft YaHei UI&quot;;font-size:20px;padding:6px 40px;border:1px solid #d0d5dd;border-radius:4px;background:#fafbfc;min-width:120px;}QDoubleSpinBox:focus{border-color:#1565c0;background:#fff;}</string>
+                    </property>
+                    <property name="minimumSize">
+                     <size>
+                      <width>120</width>
+                      <height>0</height>
+                     </size>
                     </property>
                     <property name="alignment">
                      <set>Qt::AlignmentFlag::AlignRight|Qt::AlignmentFlag::AlignTrailing|Qt::AlignmentFlag::AlignVCenter</set>
@@ -1828,7 +1882,13 @@ QGroupBox::title{subcontrol-origin:margin;left:14px;padding:0 8px;}</string>
                   <item>
                    <widget class="QDoubleSpinBox" name="spinManualRy">
                     <property name="styleSheet">
-                     <string>QDoubleSpinBox{font-family:Consolas,&quot;Microsoft YaHei UI&quot;;font-size:14px;padding:4px 6px;border:1px solid #d0d5dd;border-radius:4px;background:#fafbfc;}QDoubleSpinBox:focus{border-color:#1565c0;background:#fff;}</string>
+                     <string>QDoubleSpinBox{font-family:Consolas,&quot;Microsoft YaHei UI&quot;;font-size:20px;padding:6px 40px;border:1px solid #d0d5dd;border-radius:4px;background:#fafbfc;min-width:120px;}QDoubleSpinBox:focus{border-color:#1565c0;background:#fff;}</string>
+                    </property>
+                    <property name="minimumSize">
+                     <size>
+                      <width>120</width>
+                      <height>0</height>
+                     </size>
                     </property>
                     <property name="alignment">
                      <set>Qt::AlignmentFlag::AlignRight|Qt::AlignmentFlag::AlignTrailing|Qt::AlignmentFlag::AlignVCenter</set>
@@ -1876,7 +1936,13 @@ QGroupBox::title{subcontrol-origin:margin;left:14px;padding:0 8px;}</string>
                   <item>
                    <widget class="QDoubleSpinBox" name="spinManualZ">
                     <property name="styleSheet">
-                     <string>QDoubleSpinBox{font-family:Consolas,&quot;Microsoft YaHei UI&quot;;font-size:14px;padding:4px 6px;border:1px solid #d0d5dd;border-radius:4px;background:#fafbfc;}QDoubleSpinBox:focus{border-color:#1565c0;background:#fff;}</string>
+                     <string>QDoubleSpinBox{font-family:Consolas,&quot;Microsoft YaHei UI&quot;;font-size:20px;padding:6px 40px;border:1px solid #d0d5dd;border-radius:4px;background:#fafbfc;min-width:120px;}QDoubleSpinBox:focus{border-color:#1565c0;background:#fff;}</string>
+                    </property>
+                    <property name="minimumSize">
+                     <size>
+                      <width>120</width>
+                      <height>0</height>
+                     </size>
                     </property>
                     <property name="alignment">
                      <set>Qt::AlignmentFlag::AlignRight|Qt::AlignmentFlag::AlignTrailing|Qt::AlignmentFlag::AlignVCenter</set>
@@ -1924,7 +1990,13 @@ QGroupBox::title{subcontrol-origin:margin;left:14px;padding:0 8px;}</string>
                   <item>
                    <widget class="QDoubleSpinBox" name="spinManualRz">
                     <property name="styleSheet">
-                     <string>QDoubleSpinBox{font-family:Consolas,&quot;Microsoft YaHei UI&quot;;font-size:14px;padding:4px 6px;border:1px solid #d0d5dd;border-radius:4px;background:#fafbfc;}QDoubleSpinBox:focus{border-color:#1565c0;background:#fff;}</string>
+                     <string>QDoubleSpinBox{font-family:Consolas,&quot;Microsoft YaHei UI&quot;;font-size:20px;padding:6px 40px;border:1px solid #d0d5dd;border-radius:4px;background:#fafbfc;min-width:120px;}QDoubleSpinBox:focus{border-color:#1565c0;background:#fff;}</string>
+                    </property>
+                    <property name="minimumSize">
+                     <size>
+                      <width>120</width>
+                      <height>0</height>
+                     </size>
                     </property>
                     <property name="alignment">
                      <set>Qt::AlignmentFlag::AlignRight|Qt::AlignmentFlag::AlignTrailing|Qt::AlignmentFlag::AlignVCenter</set>
@@ -1953,11 +2025,11 @@ QGroupBox::title{subcontrol-origin:margin;left:14px;padding:0 8px;}</string>
                   <property name="minimumSize">
                    <size>
                     <width>0</width>
-                    <height>28</height>
+                    <height>48</height>
                    </size>
                   </property>
                   <property name="styleSheet">
-                   <string>QPushButton{background:#1565c0;color:#fff;border:none;border-radius:4px;font-size:12px;font-weight:bold;}QPushButton:hover{background:#1976d2;}</string>
+                   <string>QPushButton{background:#1565c0;color:#fff;border:1px solid #0d47a1;border-radius:6px;font-weight:bold;font-size:18px;padding:8px 20px;}QPushButton:hover{background:#0d47a1;}QPushButton:pressed{background:#0a3d8a;}</string>
                   </property>
                   <property name="text">
                    <string>点位调整</string>

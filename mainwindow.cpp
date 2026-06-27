@@ -917,11 +917,11 @@ void MainWindow::updatePositionDisplay()
     bool isCart = m_robotController->isCartesianMode();
 
     QString jStyle = isCart
-        ? QStringLiteral("font-family:Consolas,'Microsoft YaHei UI';font-size:13px;padding:2px 6px;color:#999;background:#f5f5f5;border:1px solid #e8e8e8;border-radius:4px;")
-        : QStringLiteral("font-family:Consolas,'Microsoft YaHei UI';font-size:13px;padding:2px 6px;color:#333;background:#f5f5f5;border:1px solid #1565c0;border-radius:4px;");
+        ? QStringLiteral("font-family:Consolas,'Microsoft YaHei UI';font-size:14px;padding:3px 8px;color:#999;background:#f5f5f5;border:1px solid #e8e8e8;border-radius:4px;min-width:90px;qproperty-alignment:'AlignLeft | AlignVCenter';")
+        : QStringLiteral("font-family:Consolas,'Microsoft YaHei UI';font-size:14px;padding:3px 8px;color:#333;background:#f5f5f5;border:1px solid #1565c0;border-radius:4px;min-width:90px;qproperty-alignment:'AlignLeft | AlignVCenter';");
     QString cStyle = isCart
-        ? QStringLiteral("font-family:Consolas,'Microsoft YaHei UI';font-size:13px;padding:2px 6px;color:#0078d4;background:#f0f4ff;border:1px solid #1565c0;border-radius:4px;")
-        : QStringLiteral("font-family:Consolas,'Microsoft YaHei UI';font-size:13px;padding:2px 6px;color:#999;background:#f5f5f5;border:1px solid #e8e8e8;border-radius:4px;");
+        ? QStringLiteral("font-family:Consolas,'Microsoft YaHei UI';font-size:14px;padding:3px 8px;color:#0078d4;background:#f0f4ff;border:1px solid #1565c0;border-radius:4px;min-width:90px;qproperty-alignment:'AlignLeft | AlignVCenter';")
+        : QStringLiteral("font-family:Consolas,'Microsoft YaHei UI';font-size:14px;padding:3px 8px;color:#999;background:#f5f5f5;border:1px solid #e8e8e8;border-radius:4px;min-width:90px;qproperty-alignment:'AlignLeft | AlignVCenter';");
 
     // 始终实时刷新，用户正在手动输入时暂停刷新该组
     for (int i = 0; i < 6 && i < joints.size(); ++i) {
@@ -1649,118 +1649,6 @@ void MainWindow::initManualProgUI()
             "margin-top:4px;padding:14px 10px 14px 10px;font-weight:bold;font-size:12px;color:#1a1a2e;}"
         ));
 
-    // ==================== 关节点动 & 笛卡尔点动 → 与调试面板统一的 QHBoxLayout 逐行结构 ====================
-    auto restructureJogGroup = [this](QGroupBox* group, bool isJoint) {
-        group->setStyleSheet(
-            QStringLiteral(
-                "QGroupBox{background:#ffffff;border:1px solid #d0d5dd;border-radius:18px;"
-                "margin-top:30px;padding:12px 8px 12px 8px;font-weight:bold;font-size:12px;color:#1a1a2e;}"
-                "QGroupBox::title{subcontrol-origin:margin;left:12px;padding:0 4px;}"
-            ));
-
-        QVBoxLayout* oldLay = qobject_cast<QVBoxLayout*>(group->layout());
-        if (!oldLay) return;
-
-        // 收集旧布局中的 Label 和 SpinBox，按名称映射保留
-        QStringList labelNames, spinNames;
-        if (isJoint) {
-            labelNames = {"label_3","label_4","label_5","label_6","label_7","label_8"};  // J0-J5
-            spinNames  = {"spinManualJ0","spinManualJ1","spinManualJ2","spinManualJ3","spinManualJ4","spinManualJ5"};
-        } else {
-            labelNames = {"label_9","label_10","label_11","label_12","label_13","label_14"};
-            spinNames  = {"spinManualX","spinManualY","spinManualZ","spinManualRx","spinManualRy","spinManualRz"};
-        }
-        QMap<QString, QLabel*> labelMap;
-        QMap<QString, QDoubleSpinBox*> spinMap;
-        for (QLabel* w : group->findChildren<QLabel*>()) {
-            if (labelNames.contains(w->objectName())) labelMap[w->objectName()] = w;
-        }
-        for (QDoubleSpinBox* w : group->findChildren<QDoubleSpinBox*>()) {
-            if (spinNames.contains(w->objectName())) spinMap[w->objectName()] = w;
-        }
-
-        // 收集"点位调整"按钮（在 group 内部，需保留并放到底部）
-        QString applyBtnName = isJoint ? QStringLiteral("btnApplyJoint") : QStringLiteral("btnApplyCart");
-        QPushButton* applyBtn = group->findChild<QPushButton*>(applyBtnName);
-
-        // 隐藏 [-] [+] lblPos unit 等多余控件
-        QStringList hidePrefixes = {"btnJog", "lblPos", "unit"};
-        for (QWidget* w : group->findChildren<QWidget*>(QString(), Qt::FindDirectChildrenOnly)) {
-            bool keep = labelNames.contains(w->objectName()) || spinNames.contains(w->objectName())
-                     || w->objectName() == applyBtnName;
-            if (!keep) {
-                bool shouldHide = false;
-                for (const QString& pfx : hidePrefixes) {
-                    if (w->objectName().startsWith(pfx)) { shouldHide = true; break; }
-                }
-                if (shouldHide) w->hide();
-            }
-        }
-
-        // 清空旧布局
-        std::function<void(QLayout*)> clearLayoutRecursive = [&](QLayout* l) {
-            while (l->count() > 0) {
-                QLayoutItem* item = l->takeAt(0);
-                if (item->layout()) clearLayoutRecursive(item->layout());
-                delete item;
-            }
-        };
-        clearLayoutRecursive(oldLay);
-
-        // 重建：3×2 QGridLayout
-        QGridLayout* gridLay = new QGridLayout();
-        gridLay->setSpacing(6);
-        gridLay->setContentsMargins(0, 6, 0, 6);
-        gridLay->setColumnStretch(0, 1);
-        gridLay->setColumnStretch(1, 1);
-
-        auto compactLabel = [](QLabel* lbl) {
-            lbl->setMinimumSize(20, 0);
-            lbl->setMaximumWidth(40);
-            lbl->setAlignment(Qt::AlignLeft | Qt::AlignVCenter);
-            lbl->setStyleSheet(QStringLiteral("color:#888;font-size:11px;font-weight:bold;border:none;background:transparent;"));
-        };
-        auto compactSpin = [](QDoubleSpinBox* sp) {
-            sp->setFixedHeight(22);
-            sp->setMinimumWidth(50);
-            sp->setMaximumWidth(68);
-            sp->setButtonSymbols(QAbstractSpinBox::NoButtons);
-            sp->setStyleSheet(QStringLiteral("QDoubleSpinBox{font-family:Consolas,'Microsoft YaHei UI';font-size:11px;"
-                "padding:1px 2px;border:1px solid #d0d5dd;border-radius:3px;background:#fafbfc;color:#1565c0;font-weight:bold;}"));
-        };
-
-        for (int i = 0; i < labelNames.size(); ++i) {
-            QLabel* lbl = labelMap.value(labelNames[i]);
-            QDoubleSpinBox* sp = spinMap.value(spinNames[i]);
-            if (!lbl || !sp) continue;
-
-            compactLabel(lbl);
-            compactSpin(sp);
-
-            QHBoxLayout* row = new QHBoxLayout();
-            row->setSpacing(2);
-            row->setContentsMargins(0, 0, 0, 0);
-            row->addWidget(lbl);
-            row->addWidget(sp);
-            gridLay->addLayout(row, i / 2, i % 2);
-        }
-
-        // 底部"点位调整"按钮：跨两列居中
-        if (applyBtn) {
-            applyBtn->setFixedHeight(24);
-            applyBtn->setStyleSheet(
-                QStringLiteral("QPushButton{background:#1565c0;color:#fff;border:1px solid #0d47a1;"
-                    "border-radius:3px;font-weight:bold;font-size:11px;}"
-                    "QPushButton:hover{background:#0d47a1;}"
-                    "QPushButton:pressed{background:#0a3d8a;}"));
-            gridLay->addWidget(applyBtn, 3, 0, 1, 2, Qt::AlignCenter);
-        }
-
-        // 把新布局设到 group 上
-        delete group->layout();
-        group->setLayout(gridLay);
-    };
-
     // ==================== 合并点动组：关节 / 笛卡尔切换 ====================
 
     auto compactLabel = [](QLabel* lbl) {
@@ -1797,7 +1685,7 @@ void MainWindow::initManualProgUI()
         }
         QPushButton* applyBtn = srcGroup->findChild<QPushButton*>(btnName);
 
-        // 清空旧布局并隐藏
+       
         QLayout* oldLay = srcGroup->layout();
         if (oldLay) {
             std::function<void(QLayout*)> clearRec = [&](QLayout* l) {
@@ -1816,9 +1704,9 @@ void MainWindow::initManualProgUI()
         QWidget* page = new QWidget();
         QGridLayout* gridLay = new QGridLayout(page);
         gridLay->setSpacing(8);
-        gridLay->setContentsMargins(0, 6, 0, 6);
-        gridLay->setColumnStretch(0, 1);
-        gridLay->setColumnStretch(1, 1);
+        gridLay->setContentsMargins(0, 16, 0, 16);// 上下边距 16px，左右边距 0
+        gridLay->setColumnStretch(0, 1);// 左右两列等宽，便于对齐
+        gridLay->setColumnStretch(1, 1);// 左右两列等宽，便于对齐
 
         for (int i = 0; i < spinNames.size(); ++i) {
             QDoubleSpinBox* sp = spinMap.value(spinNames[i]);
@@ -1829,30 +1717,31 @@ void MainWindow::initManualProgUI()
             if (lbl) lbl->hide();
 
             sp->setParent(page);
-            sp->setFixedHeight(30);
+            sp->setMinimumHeight(26);
             sp->setMinimumWidth(60);
-            sp->setMaximumWidth(90);
+            sp->setMaximumWidth(80);
             sp->setButtonSymbols(QAbstractSpinBox::NoButtons);
-            sp->setPrefix(prefixes[i] + QStringLiteral(" ："));
+            sp->setPrefix(prefixes[i] + QStringLiteral(": "));
             sp->setStyleSheet(QStringLiteral(
-                "QDoubleSpinBox{font-family:Consolas,'Microsoft YaHei UI';font-size:15px;"
-                "padding:2px 4px;border:1px solid #d0d5dd;border-radius:5px;"
-                "background:#fafbfc;color:#1565c0;font-weight:bold;}"));
-            sp->setAlignment(Qt::AlignCenter);
+                "QDoubleSpinBox{font-family:Consolas,'Microsoft YaHei UI';font-size:13px;"
+                "padding:2px 6px;border:1px solid #d0d5dd;border-radius:4px;"
+                "background:#fafbfc;color:#1565c0;font-weight:bold;min-width:60px;max-width:80px;"
+                "qproperty-alignment:'AlignLeft | AlignVCenter';}"));
+            sp->setAlignment(Qt::AlignLeft | Qt::AlignVCenter);
 
             gridLay->addWidget(sp, i / 2, i % 2);
         }
 
-        if (applyBtn) {
+        if (applyBtn) {// 底部"点位调整"按钮：跨两列居中
             applyBtn->setParent(page);
-            applyBtn->setFixedHeight(40);
+            applyBtn->setFixedHeight(48);//点位调整按钮
             applyBtn->setStyleSheet(
                 QStringLiteral(
                     "QPushButton{background:#1565c0;color:#fff;border:1px solid #0d47a1;"
-                    "border-radius:5px;font-weight:bold;font-size:14px;padding:6px 12px;}"
+                    "border-radius:6px;font-weight:bold;font-size:18px;padding:8px 20px;}"
                     "QPushButton:hover{background:#0d47a1;}"
                     "QPushButton:pressed{background:#0a3d8a;}"));
-            gridLay->addWidget(applyBtn, (labelNames.size() + 1) / 2, 0, 1, 2, Qt::AlignCenter);
+            gridLay->addWidget(applyBtn, (labelNames.size() + 1) / 2, 0, 1, 2, Qt::AlignCenter);// 底部"点位调整"按钮：跨两列居中
         }
 
         return page;
@@ -1903,7 +1792,7 @@ void MainWindow::initManualProgUI()
 
     QVBoxLayout* jogMainLay = new QVBoxLayout(jogMergedGroup);
     jogMainLay->setSpacing(10);
-    jogMainLay->setContentsMargins(18, 18, 18, 26);
+    jogMainLay->setContentsMargins(2, 2, 2, 2); // 18px 左右边距，26px 下边距
 
     QLabel* jogTitle = new QLabel(QStringLiteral("点动控制"), jogMergedGroup);
     jogTitle->setStyleSheet(
@@ -1972,16 +1861,16 @@ void MainWindow::initManualProgUI()
 
     m_servoAngleLabels.clear();
     for (int i = 0; i < 6; ++i) {
-        QLabel* angleLbl = new QLabel(QStringLiteral("CH%1 ：90.0°").arg(i));
-        angleLbl->setAlignment(Qt::AlignCenter);
-        angleLbl->setFixedHeight(30);
-        angleLbl->setMinimumWidth(60);
-        angleLbl->setMaximumWidth(90);
+        QLabel* angleLbl = new QLabel(QStringLiteral("CH%1 : 90.0°").arg(i));
+        angleLbl->setAlignment(Qt::AlignLeft | Qt::AlignVCenter);
+        angleLbl->setMinimumHeight(26);
+        angleLbl->setMinimumWidth(100);
+        angleLbl->setMaximumWidth(120);
         angleLbl->setStyleSheet(
             QStringLiteral(
-                "QLabel{font-family:Consolas,'Microsoft YaHei UI';font-size:13px;"
+                "QLabel{font-family:Consolas,'Microsoft YaHei UI';font-size:14px;"
                 "color:#1565c0;font-weight:bold;background:#fafbfc;"
-                "border:1px solid #d0d5dd;border-radius:5px;padding:2px 4px;}"
+                "border:1px solid #d0d5dd;border-radius:5px;padding:3px 8px;}"
             ));
         m_servoAngleLabels.append(angleLbl);
 
@@ -1998,7 +1887,7 @@ void MainWindow::initManualProgUI()
                 [this](int channel, float angle) {
                     if (channel < 0 || channel >= m_servoAngleLabels.size()) return;
                     m_servoAngleLabels[channel]->setText(
-                        QString("CH%1 ：%2°").arg(channel).arg(angle, 0, 'f', 1));
+                        QString("CH%1 : %2°").arg(channel).arg(angle, 0, 'f', 1));
                 });
         }
     }
@@ -2007,12 +1896,12 @@ void MainWindow::initManualProgUI()
 
     // 舵机设置按钮：样式与点位调整按钮一致，跨两列居中
     QPushButton* btnServoDebug = new QPushButton(QStringLiteral("舵机设置"), servoGroup);
-    btnServoDebug->setFixedHeight(40);
+    btnServoDebug->setFixedHeight(48);
     btnServoDebug->setCursor(Qt::PointingHandCursor);
     btnServoDebug->setStyleSheet(
         QStringLiteral(
             "QPushButton{background:#1565c0;color:#fff;border:1px solid #0d47a1;"
-            "border-radius:5px;font-weight:bold;font-size:14px;padding:6px 12px;}"
+            "border-radius:6px;font-weight:bold;font-size:18px;padding:8px 20px;}"
             "QPushButton:hover{background:#0d47a1;}"
             "QPushButton:pressed{background:#0a3d8a;}"
         ));
