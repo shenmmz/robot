@@ -13,6 +13,7 @@
 #include <QTimer>
 #include <QByteArray>
 #include <QSpinBox>
+#include <QElapsedTimer>
 
 class RobotController;
 class UiController;

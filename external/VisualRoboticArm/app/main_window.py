@@ -4,7 +4,7 @@ import os
 from datetime import datetime
 
 from PySide6.QtCore import QTimer, Qt
-from PySide6.QtGui import QAction, QColor, QFont, QImage, QPainter, QPen, QPixmap
+from PySide6.QtGui import QAction, QColor, QFont, QImage, QPainter, QPen, QPixmap, QTextCursor
 from PySide6.QtMultimedia import QCamera, QMediaCaptureSession, QMediaDevices, QVideoSink
 from PySide6.QtWidgets import (
     QComboBox,
@@ -142,6 +142,8 @@ class MainWindow(QMainWindow):
         self.btn_connect = QPushButton("连接")
         self.btn_disconnect = QPushButton("断开")
         self.camera_list = QListWidget()
+        self.camera_list.setMaximumHeight(160)
+        self.camera_list.setMinimumHeight(80)
         self.btn_start = QPushButton("开始采集")
         self.btn_stop = QPushButton("停止")
         self.btn_params = QPushButton("参数")
@@ -150,7 +152,15 @@ class MainWindow(QMainWindow):
         self.interval_spin.setValue(33)
         self.interval_spin.setSuffix(" ms")
         self.state_value = QLabel("等待枚举相机")
-        self.action_value = QLabel("暂无操作")
+        self.action_value = QTextEdit()
+        self.action_value.setReadOnly(True)
+        self.action_value.setPlainText("暂无操作")
+        self.action_value.setMinimumHeight(100)
+        self.action_value.setMaximumHeight(400)
+        self.action_value.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self.action_value.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+        self.action_value.setLineWrapMode(QTextEdit.WidgetWidth)
+        self.action_value.setObjectName("actionText")
 
         self.runtime_group = QGroupBox("关节旋转角度")
         self.runtime_group.setMinimumHeight(180)
@@ -220,7 +230,7 @@ class MainWindow(QMainWindow):
         top_control_layout.addWidget(self.btn_connect)
         top_control_layout.addWidget(self.btn_disconnect)
         camera_layout.addLayout(top_control_layout)
-        camera_layout.addWidget(self.camera_list, 1)
+        camera_layout.addWidget(self.camera_list, 0)
 
         camera_bottom = QHBoxLayout()
         camera_bottom.addWidget(self.btn_start)
@@ -235,7 +245,10 @@ class MainWindow(QMainWindow):
         camera_info.addWidget(self.state_value, 1, 1)
         camera_info.addWidget(QLabel("最近操作"), 2, 0)
         camera_info.addWidget(self.action_value, 2, 1)
-        camera_layout.addLayout(camera_info)
+        camera_info.setRowStretch(0, 0)
+        camera_info.setRowStretch(1, 0)
+        camera_info.setRowStretch(2, 1)
+        camera_layout.addLayout(camera_info, 1)
 
         serial_page = QWidget()
         serial_layout = QVBoxLayout(serial_page)
@@ -411,7 +424,7 @@ class MainWindow(QMainWindow):
         else:
             message = "未发现可用相机"
         self.state_value.setText(message)
-        self.action_value.setText(message)
+        self._set_action_text(message)
         self.statusBar().showMessage(message, 3000)
         self._update_preview("等待连接相机")
         self._refresh_control_state()
@@ -429,7 +442,7 @@ class MainWindow(QMainWindow):
         self.connected_camera_name = selected_name
         self._setup_camera_pipeline()
         self.state_value.setText(f"已连接: {selected_name}")
-        self.action_value.setText(f"成功: 已连接 {selected_name}")
+        self.action_value.setPlainText(f"成功: 已连接 {selected_name}")
         self.statusBar().showMessage("相机已连接", 3000)
         self._update_preview("相机已连接\n等待开始采集")
         self._refresh_control_state()
@@ -447,7 +460,7 @@ class MainWindow(QMainWindow):
         self.image_info_label.setText("W:0,H:0 | X:-,Y:- | R:-,G:-,B:- | Gray:-")
         self.runtime_text.setHtml(_angle_placeholder_html())
         self.state_value.setText("相机未连接")
-        self.action_value.setText(f"已断开: {disconnected_name}")
+        self.action_value.setPlainText(f"已断开: {disconnected_name}")
         self.statusBar().showMessage("相机已断开", 3000)
         self._update_preview("等待连接相机")
         self._refresh_control_state()
@@ -469,7 +482,7 @@ class MainWindow(QMainWindow):
         self.preview_timer.start()
         self.camera.start()
         self.state_value.setText("采集中")
-        self.action_value.setText(f"成功: 开始采集 {self.connected_camera_name}")
+        self.action_value.setPlainText(f"成功: 开始采集 {self.connected_camera_name}")
         self.statusBar().showMessage("采集已启动", 3000)
         self._refresh_control_state()
 
@@ -479,7 +492,7 @@ class MainWindow(QMainWindow):
             self.camera.stop()
         self.is_capturing = False
         self.state_value.setText("采集已停止")
-        self.action_value.setText("成功: 已停止采集")
+        self.action_value.setPlainText("成功: 已停止采集")
         self.statusBar().showMessage("采集已停止", 3000)
         self._update_preview("采集已停止")
         self._refresh_control_state()
@@ -523,11 +536,11 @@ class MainWindow(QMainWindow):
             summary = _format_arm_rotation_summary(angles)
             if not payload.get("motion_allowed", True):
                 summary = f"[保持] {summary}"
-            self.action_value.setText(motor_6_summary or summary.splitlines()[0])
+            self.action_value.setPlainText(motor_6_summary or summary.splitlines()[0])
             self.runtime_text.setHtml(_format_arm_rotation_html(angles))
         else:
             if motor_6_summary:
-                self.action_value.setText(motor_6_summary)
+                self.action_value.setPlainText(motor_6_summary)
             self.runtime_text.setHtml(_angle_placeholder_html())
 
         if self.pose_comm is not None:
@@ -538,7 +551,13 @@ class MainWindow(QMainWindow):
     def on_worker_error(self, message: str):
         self.statusBar().showMessage(message, 5000)
         QMessageBox.warning(self, "推理模块错误", message)
-        self.action_value.setText("推理模块不可用，已回退到原始画面")
+        self.action_value.setPlainText("推理模块不可用，已回退到原始画面")
+
+    def _set_action_text(self, text: str):
+        """设置最近操作文本并自动滚动到底部。"""
+        self.action_value.setPlainText(text)
+        self.action_value.moveCursor(QTextCursor.End)
+        self.action_value.ensureCursorVisible()
 
     def _refresh_control_state(self):
         has_selection = self.camera_list.currentItem() is not None
@@ -561,9 +580,9 @@ class MainWindow(QMainWindow):
     def _init_pose_comm(self):
         host = os.environ.get("VISUAL_ARM_COMM_HOST", "127.0.0.1").strip()
         try:
-            port = int(os.environ.get("VISUAL_ARM_COMM_PORT", "5001"))
+            port = int(os.environ.get("VISUAL_ARM_COMM_PORT", "5000"))
         except ValueError:
-            port = 5001
+            port = 5000
         client_name = os.environ.get("VISUAL_ARM_COMM_CLIENT", "visual-arm").strip() or "visual-arm"
 
         self.pose_comm = PoseCommClient(self, host=host, port=port, client_name=client_name)
@@ -680,6 +699,20 @@ class MainWindow(QMainWindow):
             return
         self._teardown_camera(clear_preview=False)
         self.camera = QCamera(self.connected_camera)
+
+        # 设置摄像头采集分辨率为 1280×720 以提升手部识别精度
+        camera_device = self.connected_camera
+        formats = camera_device.videoFormats()
+        target_w, target_h = 1280, 720
+        best_format = None
+        for fmt in formats:
+            res = fmt.resolution()
+            if res.width() == target_w and res.height() == target_h:
+                best_format = fmt
+                break
+        if best_format is not None:
+            self.camera.setCameraFormat(best_format)
+
         self.capture_session = QMediaCaptureSession()
         self.video_sink = QVideoSink()
         self.video_sink.videoFrameChanged.connect(self.on_video_frame_changed)
@@ -819,12 +852,18 @@ def _format_motor_6_summary(command):
     roll = _fmt_whole(command.get("roll_deg"))
 
     if not command.get("valid"):
-        return f"6号电机 保持 | 右手未有效识别 | reason={reason}"
+        lines = [f"6号电机 保持 | 右手未有效识别 | reason={reason}"]
+    elif not command.get("motion_allowed"):
+        lines = [f"6号电机 保持 | {rotation_side}/{direction} {roll}° | reason={reason}"]
+    else:
+        lines = [f"6号电机 发送 | {rotation_side}/{direction} {roll}° | 掌面+拇指平面"]
 
-    if not command.get("motion_allowed"):
-        return f"6号电机 保持 | {rotation_side}/{direction} {roll}° | reason={reason}"
+    pitch_deg = command.get("wrist_pitch_deg")
+    if pitch_deg is not None:
+        motor_5_text = command.get("motor_5_direction_text", "保持")
+        lines.append(f"5号电机 {motor_5_text} {_fmt_whole(pitch_deg)}°")
 
-    return f"6号电机 发送 | {rotation_side}/{direction} {roll}° | 掌面+拇指平面"
+    return " | ".join(lines)
 
 
 def _format_arm_rotation_html(angles):

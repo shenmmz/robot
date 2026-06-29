@@ -114,6 +114,7 @@ class Motor6Command:
     palm_normal: Optional[Point3D] = None
     thumb_vector: Optional[Point3D] = None
     roll_vector: Optional[Point3D] = None
+    wrist_pitch_deg: Optional[float] = None
     confidence: Optional[float] = None
     motion_allowed: bool = False
     reason: str = "not_ready"

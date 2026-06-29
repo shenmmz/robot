@@ -62,14 +62,14 @@ class FrameProcessorThread(QThread):
             return
 
         try:
-            from app.services import MediaPipeHolisticService
+            from app.services import MediaPipePoseHandService
         except Exception as exc:
             self.error.emit(f"MediaPipe 服务初始化失败: {exc}")
             return
 
         service = None
         try:
-            service = MediaPipeHolisticService()
+            service = MediaPipePoseHandService()
             while not self.isInterruptionRequested():
                 self._mutex.lock()
                 try:

@@ -1,3 +1,9 @@
+"""
+电机映射：
+- 6号电机：手腕翻转角（signed_roll_deg），左转负/右转正
+- 5号电机：手腕上下角（wrist_pitch_deg），上翻正/下翻负
+"""
+
 from __future__ import annotations
 
 from dataclasses import asdict, is_dataclass
@@ -53,6 +59,30 @@ def _motor_direction_text(direction: str) -> str:
     return "保持"
 
 
+def _wrist_pitch_direction_text(pitch_deg: float | None) -> str:
+    """手腕上下方向中文文本。上翻为正（伸展/dorsiflexion），下翻为负（屈曲/palmar flexion）。"""
+    if pitch_deg is None:
+        return "保持"
+    threshold = 3.0
+    if pitch_deg > threshold:
+        return "上翻"
+    if pitch_deg < -threshold:
+        return "下翻"
+    return "保持"
+
+
+def _wrist_pitch_direction(pitch_deg: float | None) -> str:
+    """手腕上下方向枚举值。"""
+    if pitch_deg is None:
+        return "hold"
+    threshold = 3.0
+    if pitch_deg > threshold:
+        return "up"
+    if pitch_deg < -threshold:
+        return "down"
+    return "hold"
+
+
 def _compact_motor_6(motor: Any) -> dict[str, Any]:
     if not isinstance(motor, dict):
         return {
@@ -67,11 +97,17 @@ def _compact_motor_6(motor: Any) -> dict[str, Any]:
             "angle_deg": None,
             "signed_angle_deg": None,
             "reason": "motor_6_missing",
+            "wrist_pitch_deg": None,
+            "motor_5": "hold",
+            "motor_5_direction_text": "保持",
         }
 
     direction = str(motor.get("direction") or "unknown")
     angle_deg = _round_deg(motor.get("angle_deg", motor.get("roll_deg")))
     signed_angle_deg = _round_deg(motor.get("signed_angle_deg", motor.get("signed_roll_deg")))
+    wrist_pitch_deg = _round_deg(motor.get("wrist_pitch_deg"))
+    pitch_direction = _wrist_pitch_direction(wrist_pitch_deg)
+    pitch_direction_text = _wrist_pitch_direction_text(wrist_pitch_deg)
     valid = _as_bool(motor.get("valid"))
     motion_allowed = valid and _as_bool(motor.get("motion_allowed"))
     state = "send" if motion_allowed else "hold"
@@ -93,20 +129,28 @@ def _compact_motor_6(motor: Any) -> dict[str, Any]:
         "signed_angle_deg": signed_angle_deg,
         "confidence": _round_deg(motor.get("confidence")),
         "reason": reason,
+        "wrist_pitch_deg": wrist_pitch_deg,
+        "motor_5": pitch_direction,
+        "motor_5_direction_text": pitch_direction_text,
     }
 
 
 def _motor_summary(command: dict[str, Any]) -> str:
     reason = command.get("reason") or "-"
+    pitch_direction_text = command.get("motor_5_direction_text") or "保持"
+    pitch_deg = command.get("wrist_pitch_deg")
+    pitch_part = ""
+    if pitch_deg is not None:
+        pitch_part = f"\n5号电机: {pitch_direction_text} {pitch_deg}°"
     if not command.get("valid"):
-        return f"6号电机：保持 | 右手未有效识别 | reason={reason}"
+        return f"6号电机：保持 | 右手未有效识别 | reason={reason}{pitch_part}"
 
     angle = command.get("angle_deg")
     angle_text = "-" if angle is None else f"{angle:g}°"
     direction_text = command.get("direction_text") or _motor_direction_text(str(command.get("direction") or "unknown"))
     if not command.get("motion_allowed"):
-        return f"6号电机：保持 | {direction_text} {angle_text} | reason={reason}"
-    return f"6号电机：发送 | {direction_text} {angle_text}"
+        return f"6号电机：保持 | {direction_text} {angle_text} | reason={reason}{pitch_part}"
+    return f"6号电机：发送 | {direction_text} {angle_text}{pitch_part}"
 
 
 def _compact_pose_payload(body: dict[str, Any], client_name: str) -> dict[str, Any]:

@@ -35,12 +35,12 @@ def _parse_comm_args(argv: list[str]) -> tuple[argparse.Namespace, list[str]]:
       这里把我们自定义的参数先消费掉，避免 Qt 误解析或报错。
     """
     parser = argparse.ArgumentParser(add_help=False)
-    # 通信端地址，供其它模块（例如 socket/http 客户端）读取并建立连接。
-    parser.add_argument("--host", default="127.0.0.1")
-    # 通信端口号：这里保留为字符串兼容性更好，写入环境变量时再转 str。
-    parser.add_argument("--port", default="5001")
+    # 通信端地址：优先 CLI，回退到环境变量 VISUAL_ARM_COMM_HOST，再回退默认值。
+    parser.add_argument("--host", default=os.environ.get("VISUAL_ARM_COMM_HOST", "127.0.0.1"))
+    # 通信端口号：优先 CLI，回退到环境变量 VISUAL_ARM_COMM_PORT，再回退默认值。
+    parser.add_argument("--port", default=os.environ.get("VISUAL_ARM_COMM_PORT", "5001"))
     # 客户端名称/实例标识：当多实例运行时便于区分。
-    parser.add_argument("--name", default="visual-arm")
+    parser.add_argument("--name", default=os.environ.get("VISUAL_ARM_COMM_CLIENT", "visual-arm"))
     # parse_known_args：只解析我们关心的参数，未知参数原样保留。
     args, rest = parser.parse_known_args(argv[1:])
     # 返回给 QApplication 的 argv，必须把脚本名 argv[0] 放回去。
