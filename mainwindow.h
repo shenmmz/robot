@@ -78,6 +78,7 @@ private slots:
     // 页面导航
     void onNavButtonClicked(int index);
 
+    // 老化测试已禁用(声明保留,函数体已 return + 注释,实际不会跑)
     // 老化测试
     void onAgingTick();
     void finishAgingTest(bool success, const QString& message);
@@ -130,13 +131,13 @@ private:
     // RS485 定时发送
     QTimer* m_rs485AutoSendTimer = nullptr;
 
-    // 老化测试状态
+    // ===== 老化测试已禁用(成员保留以便兼容旧信号槽连接,实际逻辑已注释) =====
     QTimer* m_agingTimer = nullptr;
     int m_agingCycle = 0;
     int m_agingTargetIdx = 0;
     enum class AgingStep { MoveJ, MoveL };
     AgingStep m_agingStep = AgingStep::MoveJ;
-    bool m_agingSimMode = false;  // 检测到模拟器（轴不动）后启用快速模式
+    bool m_agingSimMode = false;
     QList<QList<double>> m_agingJointTargets;
 
     void initConnectionUI();

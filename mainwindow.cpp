@@ -24,6 +24,7 @@
 #include <QElapsedTimer>
 #include <QThread>
 #include <QTimer>
+#include <QLineEdit>
 #include <functional>
 #include "ZmotionAPI/ZmotionAPI.h"
 #include "src/hardware/ServoController.h"
@@ -140,7 +141,8 @@ MainWindow::MainWindow(QWidget *parent)
  */
 MainWindow::~MainWindow()
 {
-    if (m_agingTimer) m_agingTimer->stop();
+    // 老化测试已禁用
+    // if (m_agingTimer) m_agingTimer->stop();
     delete ui;
 }
 
@@ -324,12 +326,6 @@ void MainWindow::onHardwareConnected()
  */
 void MainWindow::onHardwareDisconnected()
 {
-    // TODO: 暂时注释掉舵机控制器
-    // // 停止舵机 PWM 输出
-    // if (m_servo) {
-    //     m_servo->stopAll();
-    // }
-
     setConnectionStatus(QStringLiteral("未连接"), QStringLiteral("red"));
     updateConnectionUI(false);
 }
@@ -689,6 +685,18 @@ void MainWindow::on_pushButton_4_clicked()
  */
 void MainWindow::on_pushButton_5_clicked()
 {
+    // ===== 老化测试已禁用 =====
+    ui->statusbar->showMessage(QStringLiteral("老化测试已禁用"));
+    Q_UNUSED(m_agingTimer);  // 保持成员引用占位,后续如需彻底删除可移除
+    Q_UNUSED(m_agingCycle);
+    Q_UNUSED(m_agingTargetIdx);
+    Q_UNUSED(m_agingStep);
+    Q_UNUSED(m_agingSimMode);
+    Q_UNUSED(m_agingJointTargets);
+    return;
+
+    // ----- 下方原始代码已注释 -----
+    /*
     if (!m_robotController || !m_robotController->isConnected()) {
         ui->statusbar->showMessage(QStringLiteral("请先连接控制器"));
         return;
@@ -712,6 +720,7 @@ void MainWindow::on_pushButton_5_clicked()
         connect(m_agingTimer, &QTimer::timeout, this, &MainWindow::onAgingTick);
     }
     m_agingTimer->start(50);
+    */
 }
 
 /**
@@ -723,6 +732,10 @@ void MainWindow::on_pushButton_5_clicked()
  */
 void MainWindow::onAgingTick()
 {
+    // ===== 老化测试已禁用 =====
+    return;
+    // ----- 下方原始代码已注释 -----
+    /*
     constexpr double MOVE_SPEED  = 80.0;
     constexpr double MOVE_ACCEL  = 160.0;
     constexpr double MOVE_DECEL  = 180.0;
@@ -799,6 +812,7 @@ void MainWindow::onAgingTick()
 
     ui->statusbar->showMessage(
         QStringLiteral("老化测试: 第%1/%2轮").arg(m_agingCycle).arg(MAX_CYCLES));
+    */
 }
 
 /**
@@ -809,11 +823,18 @@ void MainWindow::onAgingTick()
  */
 void MainWindow::finishAgingTest(bool success, const QString& message)
 {
+    // ===== 老化测试已禁用 =====
+    Q_UNUSED(success);
+    Q_UNUSED(message);
+    return;
+    // ----- 下方原始代码已注释 -----
+    /*
     m_agingTimer->stop();
     setConnectionStatus(success ? QStringLiteral("老化测试完成") : QStringLiteral("老化测试失败"),
                       success ? QStringLiteral("green") : QStringLiteral("red"));
     ui->statusbar->showMessage(message);
     ui->pushButton_5->setEnabled(true);
+    */
 }
 
 
@@ -849,9 +870,10 @@ void MainWindow::onBtnStop()
         m_robotController->stopMotion();
     }
 
-    if (m_agingTimer && m_agingTimer->isActive()) {
-        finishAgingTest(false, QStringLiteral("用户已停止老化测试"));
-    }
+    // 老化测试已禁用
+    // if (m_agingTimer && m_agingTimer->isActive()) {
+    //     finishAgingTest(false, QStringLiteral("用户已停止老化测试"));
+    // }
     ui->statusbar->showMessage(QStringLiteral("已发送停止指令"));
 }
 
@@ -1722,12 +1744,12 @@ void MainWindow::initManualProgUI()
             sp->setMaximumWidth(80);
             sp->setButtonSymbols(QAbstractSpinBox::NoButtons);
             sp->setPrefix(prefixes[i] + QStringLiteral(": "));
-            sp->setStyleSheet(QStringLiteral(
+      sp->setStyleSheet(QStringLiteral(
                 "QDoubleSpinBox{font-family:Consolas,'Microsoft YaHei UI';font-size:13px;"
                 "padding:2px 6px;border:1px solid #d0d5dd;border-radius:4px;"
                 "background:#fafbfc;color:#1565c0;font-weight:bold;min-width:60px;max-width:80px;"
                 "qproperty-alignment:'AlignLeft | AlignVCenter';}"));
-            sp->setAlignment(Qt::AlignLeft | Qt::AlignVCenter);
+            sp->setAlignment(Qt::AlignLeft | Qt::AlignVCenter);      
 
             gridLay->addWidget(sp, i / 2, i % 2);
         }
@@ -1762,26 +1784,28 @@ void MainWindow::initManualProgUI()
     }
     delete jogHItem;
 
-    // 构建两个页面
-    QWidget* jointPage = buildJogPage(ui->jogJointGroup,
-        {"label_3","label_4","label_5","label_6","label_7","label_8"},
-        {"spinManualJ0","spinManualJ1","spinManualJ2","spinManualJ3","spinManualJ4","spinManualJ5"},
-        QStringLiteral("btnApplyJoint"),
-        {"J0","J1","J2","J3","J4","J5"});
+        // 取关节/笛卡尔 SpinBox(从旧 groupbox 拿,先把这些 groupbox 隐藏)
+    ui->jogJointGroup->hide();
+    ui->jogCartGroup->hide();
 
-    QWidget* cartPage = buildJogPage(ui->jogCartGroup,
-        {"label_9","label_10","label_11","label_12","label_13","label_14"},
-        {"spinManualX","spinManualRx","spinManualY","spinManualRy","spinManualZ","spinManualRz"},
-        QStringLiteral("btnApplyCart"),
-        {"X","A","Y","B","Z","C"});
+    QDoubleSpinBox* spinJ[6] = {
+        ui->spinManualJ0, ui->spinManualJ1, ui->spinManualJ2,
+        ui->spinManualJ3, ui->spinManualJ4, ui->spinManualJ5
+    };
+    QDoubleSpinBox* spinC[6] = {
+        ui->spinManualX,  ui->spinManualY,  ui->spinManualZ,
+        ui->spinManualRx, ui->spinManualRy, ui->spinManualRz
+    };
+    const QString jointLabels[6] = {"J0", "J1", "J2", "J3", "J4", "J5"};
+    const QString cartLabels[6]  = {"X",  "Y",  "Z",  "A",  "B",  "C"};
 
-    // 点位调整按钮连接
-    QPushButton* btnApplyJoint = jointPage->findChild<QPushButton*>(QStringLiteral("btnApplyJoint"));
-    QPushButton* btnApplyCart  = cartPage->findChild<QPushButton*>(QStringLiteral("btnApplyCart"));
+    // 点位调整按钮:取出显示用
+    QPushButton* btnApplyJoint = ui->jogJointGroup->findChild<QPushButton*>(QStringLiteral("btnApplyJoint"));
+    QPushButton* btnApplyCart  = ui->jogCartGroup->findChild<QPushButton*>(QStringLiteral("btnApplyCart"));
     if (btnApplyJoint)
         connect(btnApplyJoint, &QPushButton::clicked, this, [this] { showPointAdjustDialog(true); });
     if (btnApplyCart)
-        connect(btnApplyCart, &QPushButton::clicked, this, [this] { showPointAdjustDialog(false); });
+        connect(btnApplyCart,  &QPushButton::clicked, this, [this] { showPointAdjustDialog(false); });
 
     // 合并容器
     QFrame* jogMergedGroup = new QFrame(leftPanel);
@@ -1791,39 +1815,89 @@ void MainWindow::initManualProgUI()
     jogMergedGroup->setFrameShape(QFrame::StyledPanel);
 
     QVBoxLayout* jogMainLay = new QVBoxLayout(jogMergedGroup);
-    jogMainLay->setSpacing(10);
-    jogMainLay->setContentsMargins(2, 2, 2, 2); // 18px 左右边距，26px 下边距
+    jogMainLay->setSpacing(8);
+    jogMainLay->setContentsMargins(0, 0, 0, 0); // 18px 左右边距,26px 下边距
 
+    // 标题("点动控制")
     QLabel* jogTitle = new QLabel(QStringLiteral("点动控制"), jogMergedGroup);
     jogTitle->setStyleSheet(
         QStringLiteral("color:#1a1a2e;font-weight:bold;font-size:15px;border:none;background:transparent;"));
     jogMainLay->addWidget(jogTitle);
 
-    QTabBar* jogTabBar = new QTabBar(jogMergedGroup);
-    jogTabBar->addTab(QStringLiteral("关节"));
-    jogTabBar->addTab(QStringLiteral("笛卡尔"));
-    jogTabBar->setStyleSheet(
-        QStringLiteral(
-            "QTabBar::tab{font-size:13px;font-weight:bold;padding:4px 16px;"
-            "background:#f5f5f5;border:1px solid #d0d5dd;border-bottom:none;"
-            "border-radius:4px 4px 0 0;margin-right:2px;}"
-            "QTabBar::tab:selected{background:#fff;color:#1565c0;}"
-            "QTabBar::tab:!selected{color:#888;}"));
-    jogMainLay->addWidget(jogTabBar);
+    // ===== 两列同时显示:左列 J0~J5(关节),右列 X/Y/Z/A/B/C(笛卡尔) =====
+    // 6 行 × 2 列的 SpinBox 网格:左边一列是 J0~J5,右边一列是 X/Y/Z/A/B/C
+    QGridLayout* twoColGrid = new QGridLayout();
+    twoColGrid->setHorizontalSpacing(8);
+    twoColGrid->setVerticalSpacing(4);
+    twoColGrid->setContentsMargins(0, 4, 0, 4);
 
-    QStackedWidget* jogStack = new QStackedWidget(jogMergedGroup);
-    jogStack->addWidget(jointPage);
-    jogStack->addWidget(cartPage);
-    jogMainLay->addWidget(jogStack);
+    // 中间加一条 1px 分隔线(放在第 7 列)
+    // 关节列:0,1,2,3,4,5 | 分隔:6 | 笛卡尔列:7,8,9,10,11,12
+    // 让关节列拉伸 1、笛卡尔列拉伸 1,中间不拉伸
+    for (int i = 0; i < 6; ++i) {
+        QDoubleSpinBox* spJ = spinJ[i];
+        QDoubleSpinBox* spC = spinC[i];
 
-    connect(jogTabBar, &QTabBar::currentChanged, jogStack, &QStackedWidget::setCurrentIndex);
+        // SpinBox 重新设置 prefix(因为 buildJogPage 没跑过,SpinBox 仍是默认值)
+        spJ->setParent(jogMergedGroup);
+        spC->setParent(jogMergedGroup);
+        spJ->setPrefix(jointLabels[i] + QStringLiteral(": "));
+        spC->setPrefix(cartLabels[i]  + QStringLiteral(": "));
+        // 加大字体 + 加大 padding,值更醒目
+        const QString spinStyle = QStringLiteral(
+            "QDoubleSpinBox{font-family:Consolas,'Microsoft YaHei UI';font-size:17px;"
+            "padding:5px 8px;border:1px solid #d0d5dd;border-radius:4px;"
+            "background:#fafbfc;color:#1565c0;font-weight:bold;"
+            "qproperty-alignment:'AlignLeft | AlignVCenter';}");
+        spJ->setStyleSheet(spinStyle);
+        spC->setStyleSheet(spinStyle);
+        spJ->setAlignment(Qt::AlignLeft | Qt::AlignVCenter);
+        spC->setAlignment(Qt::AlignLeft | Qt::AlignVCenter);
+        spJ->setButtonSymbols(QAbstractSpinBox::NoButtons);
+        spC->setButtonSymbols(QAbstractSpinBox::NoButtons);
+        spJ->setMinimumHeight(36);
+        spC->setMinimumHeight(36);
+        // 不限制最大宽度,让 SpinBox 在拉伸列里尽量占满
+        spJ->setMinimumWidth(0);
+        spC->setMinimumWidth(0);
+
+        twoColGrid->addWidget(spJ, i, 0);
+        twoColGrid->addWidget(spC, i, 2);
+    }
+    // 分隔线(第 1 列)
+    QFrame* vline = new QFrame(jogMergedGroup);
+    vline->setFrameShape(QFrame::VLine);
+    vline->setFrameShadow(QFrame::Plain);
+    vline->setStyleSheet(QStringLiteral("color:#e0e0e0;background:#e0e0e0;"));
+    vline->setFixedWidth(1);
+    twoColGrid->addWidget(vline, 0, 1, 6, 1);
+    twoColGrid->setColumnStretch(0, 1);
+    twoColGrid->setColumnStretch(1, 0);
+    twoColGrid->setColumnStretch(2, 1);
+    jogMainLay->addLayout(twoColGrid);
+
+    // "点位调整"按钮:放在两列下方中央
+    // 根据当前模式自动选关节/笛卡尔弹窗
+    QPushButton* btnOpenPointAdjust = new QPushButton(QStringLiteral("点位调整"), jogMergedGroup);
+    btnOpenPointAdjust->setFixedHeight(40);
+    btnOpenPointAdjust->setCursor(Qt::PointingHandCursor);
+    btnOpenPointAdjust->setStyleSheet(QStringLiteral(
+        "QPushButton{background:#1565c0;color:#fff;border:1px solid #0d47a1;"
+        "border-radius:6px;font-weight:bold;font-size:15px;padding:4px 16px;}"
+        "QPushButton:hover{background:#0d47a1;}"
+        "QPushButton:pressed{background:#0a3d8a;}"));
+    connect(btnOpenPointAdjust, &QPushButton::clicked, this, [this] {
+        if (!m_robotController) return;
+        // 根据当前模式决定弹哪个对话框(正解=关节,逆解=笛卡尔)
+        const bool isCart = m_robotController->isCartesianMode();
+        showPointAdjustDialog(isCart);
+    });
+    jogMainLay->addWidget(btnOpenPointAdjust, 0, Qt::AlignHCenter);
 
     // 调试模式控制点动可用性
-    auto setJogEnabled = [this, jogStack](bool enabled) {
-        for (int p = 0; p < jogStack->count(); ++p) {
-            for (QDoubleSpinBox* sp : jogStack->widget(p)->findChildren<QDoubleSpinBox*>())
-                sp->setReadOnly(!enabled);
-        }
+    auto setJogEnabled = [this, jogMergedGroup](bool enabled) {
+        for (QDoubleSpinBox* sp : jogMergedGroup->findChildren<QDoubleSpinBox*>())
+            sp->setReadOnly(!enabled);
         QString labelColor = enabled ? QStringLiteral("#000") : QStringLiteral("#666");
         QString labelSS = QStringLiteral("color:%1;font-size:16px;border:none;background:transparent;").arg(labelColor);
         for (QLabel* lb : {ui->label_15, ui->label_16, ui->label_17, ui->label_18})
@@ -2126,14 +2200,101 @@ void MainWindow::initManualProgUI()
 void MainWindow::showPointAdjustDialog(bool isJoint)
 {
     QDialog dlg(this);
+    double step = this->ui->debugStep->value();
     Ui::PointAdjustDialog ui;
     ui.setupUi(&dlg);
 
-    dlg.setWindowTitle(isJoint ? QStringLiteral("关节点位调整") : QStringLiteral("笛卡尔点位调整"));
-    dlg.setFixedSize(320, 480);
+    dlg.setWindowTitle(QStringLiteral("点位调整"));
+    dlg.setFixedSize(380, 400);
 
-    // 按行索引映射 .ui 控件
+    // 隐藏 "目标点位" GroupBox 标题(下面 J0/X 标签已足够清晰)
+    ui.groupBox->setTitle(QString());
+
+    // ===== 顶部插入一行:模式切换按钮 =====
+    // 单个按钮,点击后直接切换正解/逆解,文本显示当前模式
+    QPushButton* btnToggleMode = new QPushButton(&dlg);
+    btnToggleMode->setFixedHeight(24);
+    btnToggleMode->setMaximumWidth(140);
+    btnToggleMode->setCursor(Qt::PointingHandCursor);
+
+    // ★ 提前声明 lblAxis(供 updateModeButton lambda 捕获,刷新标签文字)
     QLabel* lblAxis[6] = {ui.lblAxis0, ui.lblAxis1, ui.lblAxis2, ui.lblAxis3, ui.lblAxis4, ui.lblAxis5};
+
+    // 刷新按钮文本/颜色 + 同步刷新轴标签
+    auto updateModeButton = [this, btnToggleMode, lblAxis] {
+        if (!m_robotController) {
+            btnToggleMode->setText(QStringLiteral("未连接"));
+            btnToggleMode->setStyleSheet(QStringLiteral(
+                "QPushButton{background:#9e9e9e;color:#fff;border:none;"
+                "border-radius:3px;font-size:11px;padding:2px 8px;}"));
+            return;
+        }
+        const bool isCart = m_robotController->isCartesianMode();
+        if (isCart) {
+            // 当前逆解,显示一个简短的下拉箭头提示"点击切换"
+            btnToggleMode->setText(QStringLiteral("逆解 (笛卡尔) ▾"));
+            btnToggleMode->setStyleSheet(QStringLiteral(
+                "QPushButton{background:#2e7d32;color:#fff;border:none;"
+                "border-radius:3px;font-size:11px;padding:2px 8px;}"
+                "QPushButton:hover{background:#1b5e20;}"));
+            // 逆解模式:标签 X Y Z A B C
+            const QString cartLabels[6] = {"X", "Y", "Z", "A", "B", "C"};
+            for (int i = 0; i < 6; ++i) lblAxis[i]->setText(cartLabels[i]);
+        } else {
+            // 当前正解
+            btnToggleMode->setText(QStringLiteral("正解 (关节) ▾"));
+            btnToggleMode->setStyleSheet(QStringLiteral(
+                "QPushButton{background:#1565c0;color:#fff;border:none;"
+                "border-radius:3px;font-size:11px;padding:2px 8px;}"
+                "QPushButton:hover{background:#0d47a1;}"));
+            // 正解模式:标签 J0..J5
+            const QString jointLabels[6] = {"J0", "J1", "J2", "J3", "J4", "J5"};
+            for (int i = 0; i < 6; ++i) lblAxis[i]->setText(jointLabels[i]);
+        }
+    };
+    updateModeButton();
+
+    // 插入到 dialog 最顶部
+    if (QVBoxLayout* mainLay = qobject_cast<QVBoxLayout*>(dlg.layout())) {
+        QHBoxLayout* modeRow = new QHBoxLayout();
+        modeRow->setContentsMargins(0, 0, 0, 0);
+        modeRow->addWidget(btnToggleMode);
+        mainLay->insertLayout(0, modeRow);
+    }
+
+    // 封装"切换到指定模式"的通用逻辑(无确认弹窗,直接切换)
+    auto switchMode = [this, updateModeButton](bool wantCart) -> bool {
+        if (!m_robotController || !m_robotController->isConnected()) {
+            return false;
+        }
+        const bool isCart = m_robotController->isCartesianMode();
+        if (isCart == wantCart) {
+            return true;  // 已是目标模式
+        }
+        const bool ok = wantCart
+            ? m_robotController->switchToCartesianMode()
+            : m_robotController->switchToJointMode();
+        if (ok) {
+            updateModeButton();
+            const QString modeName = wantCart
+                ? QStringLiteral("逆解模式(笛卡尔空间控制)")
+                : QStringLiteral("正解模式(关节空间控制)");
+            if (QMainWindow* mw = qobject_cast<QMainWindow*>(this)) {
+                mw->statusBar()->showMessage(QStringLiteral("已切换到 %1").arg(modeName));
+            }
+        }
+        return ok;
+    };
+
+    // 连接按钮:点一下 → 切到与当前相反的模式
+    // (switchMode 成功时会自动调 updateModeButton 刷新按钮文本/标签)
+    connect(btnToggleMode, &QPushButton::clicked, &dlg, [this, switchMode] {
+        if (!m_robotController) return;
+        const bool wantCart = !m_robotController->isCartesianMode();
+        switchMode(wantCart);
+    });
+
+    // lblAxis 已在前面提前声明(供 updateModeButton lambda 捕获)
     QDoubleSpinBox* spinAxis[6] = {ui.spinAxis0, ui.spinAxis1, ui.spinAxis2, ui.spinAxis3, ui.spinAxis4, ui.spinAxis5};
     QPushButton* btnMinus[6] = {ui.btnMinus0, ui.btnMinus1, ui.btnMinus2, ui.btnMinus3, ui.btnMinus4, ui.btnMinus5};
     QPushButton* btnPlus[6]  = {ui.btnPlus0,  ui.btnPlus1,  ui.btnPlus2,  ui.btnPlus3,  ui.btnPlus4,  ui.btnPlus5};
@@ -2142,46 +2303,153 @@ void MainWindow::showPointAdjustDialog(bool isJoint)
         ? QStringList{"J0", "J1", "J2", "J3", "J4", "J5"}
         : QStringList{"X",  "Y",  "Z",  "A",  "B",  "C"};
 
+    QList<QDoubleSpinBox*> spins;
     for (int i = 0; i < 6; ++i) {
         lblAxis[i]->setText(labels[i]);
-        spinAxis[i]->setSingleStep((isJoint || i < 3) ? 1.0 : 0.1);
-
-        QDoubleSpinBox* sp = spinAxis[i];
-        connect(btnMinus[i], &QPushButton::clicked, sp, [sp] { sp->stepDown(); });
-        connect(btnPlus[i],  &QPushButton::clicked, sp, [sp] { sp->stepUp();   });
+        spinAxis[i]->setSingleStep(step);
+        spinAxis[i]->setKeyboardTracking(false);
+        // prefix 缩短 + 字号适中 + 左右加 padding,让数字与边框有间距
+        spinAxis[i]->setPrefix(labels[i] + QStringLiteral(":"));
+        spinAxis[i]->setStyleSheet(QStringLiteral(
+            "QDoubleSpinBox{font-family:Consolas,'Microsoft YaHei UI';font-size:20px;"
+            "font-weight:bold;color:#1565c0;padding:0 10px;"
+            "qproperty-alignment:'AlignRight | AlignVCenter';}"));
+        // 给数据列留够宽度(防 6 位数被遮)
+        spinAxis[i]->setMinimumWidth(140);
+        spins.append(spinAxis[i]);
     }
 
-    // 采集 6 个 spin 指针用于 lambda 捕获
-    QList<QDoubleSpinBox*> spins;
-    for (int i = 0; i < 6; ++i)
-        spins.append(spinAxis[i]);
+    // 调整 [-]/[+] 按钮外观:蓝色填充圆角,与 SpinBox 视觉分离
+    const QString btnStyle = QStringLiteral(
+        "QPushButton{background:#1565c0;color:#fff;border:none;border-radius:6px;"
+        "font-size:22px;font-weight:bold;}"
+        "QPushButton:hover{background:#0d47a1;}"
+        "QPushButton:pressed{background:#0a3d8a;}");
+    for (int i = 0; i < 6; ++i) {
+        btnMinus[i]->setStyleSheet(btnStyle);
+        btnPlus[i]->setStyleSheet(btnStyle);
+        // 松绑最大尺寸限制,让 layout 自由分配(允许它们略大或略小)
+        btnMinus[i]->setMaximumSize(QSize(16777215, 16777215));  // QT 默认最大
+        btnPlus[i]->setMaximumSize(QSize(16777215, 16777215));
+        btnMinus[i]->setMinimumSize(QSize(44, 44));
+        btnPlus[i]->setMinimumSize(QSize(44, 44));
+    }
 
-    // "获取当前点位"
-    connect(ui.btnGetPoint, &QPushButton::clicked, &dlg, [this, isJoint, spins, &dlg] {
-        if (!m_robotController || !m_robotController->getState()) {
-            QMessageBox::warning(&dlg, QStringLiteral("提示"), QStringLiteral("请先连接控制器"));
-            return;
-        }
-        if (isJoint) {
-            QList<double> pos = m_robotController->getState()->getAllAxisPositions();
-            for (int i = 0; i < 6 && i < pos.size(); ++i) {
-                spins[i]->blockSignals(true);
-                spins[i]->setValue(pos[i]);
-                spins[i]->blockSignals(false);
-            }
-        } else {
+    // 编辑状态：每轴记录最后编辑时间，60 秒后自动恢复实时刷新
+    QVector<qint64> lastEditMs(6, 0);   // QDateTime::currentMSecsSinceEpoch()
+    const qint64 kEditTimeoutMs = 60000; // 60 秒
+
+    // 逐轴判断是否处于编辑态
+    auto isEditing = [&lastEditMs, spins](int i) -> bool {
+        if (spins[i]->hasFocus()) return true;
+        return lastEditMs[i] > 0 &&
+               (QDateTime::currentMSecsSinceEpoch() - lastEditMs[i]) < kEditTimeoutMs;
+    };
+
+    // 刷新全部轴显示(跳过编辑中的轴)
+    // 注意:刷新按"当前实际模式"决定显示关节坐标还是笛卡尔坐标,
+    //      这样用户在弹窗内切模式后,SpinBox 会自动跟着切换显示内容。
+    auto refreshPositions = [this, spins, &lastEditMs, &isEditing] {
+        if (!m_robotController || !m_robotController->isConnected()) return;
+        if (m_robotController->isCartesianMode()) {
+            // 逆解模式:显示笛卡尔坐标
             QList<double> pos = m_robotController->getState()->getAllCartesianPositions();
             for (int i = 0; i < 6 && i < pos.size(); ++i) {
+                if (isEditing(i)) continue;
                 double display = (i >= 3) ? normalizeAngle180(pos[i]) : pos[i];
                 spins[i]->blockSignals(true);
                 spins[i]->setValue(display);
                 spins[i]->blockSignals(false);
             }
+        } else {
+            // 正解模式:显示关节角度
+            QList<double> pos = m_robotController->getState()->getAllAxisPositions();
+            for (int i = 0; i < 6 && i < pos.size(); ++i) {
+                if (isEditing(i)) continue;
+                spins[i]->blockSignals(true);
+                spins[i]->setValue(pos[i]);
+                spins[i]->blockSignals(false);
+            }
         }
+    };
+
+    // 清除所有编辑状态（恢复全部实时刷新）
+    auto resetEditState = [&lastEditMs] {
+        for (int i = 0; i < 6; ++i) lastEditMs[i] = 0;
+    };
+
+    // 模式切换按钮连接(正解 btnModeJoint / 逆解 btnModeCart)已在前面 connect 完成
+
+    // ===== 实时刷新定时器（200ms） =====
+    QTimer timer(&dlg);
+    timer.setInterval(200);
+    QObject::connect(&timer, &QTimer::timeout, &dlg, refreshPositions);
+    timer.start();
+
+    // ===== 手动编辑检测 =====
+    // ★ 使用内部 QLineEdit::textEdited 检测用户输入（通过 findChild 获取）
+    for (int i = 0; i < 6; ++i) {
+        QLineEdit* le = spins[i]->findChild<QLineEdit*>();
+        if (le) {
+            QObject::connect(le, &QLineEdit::textEdited, &dlg, [&lastEditMs, i] {
+                lastEditMs[i] = QDateTime::currentMSecsSinceEpoch();
+            });
+        }
+    }
+
+    // ===== [-]/[+] 按钮:驱动机器人 ± 步长(非阻塞 jog,立即返回) =====
+    // 每次按下实时查询当前模式:在正解下点 -> jogJoint;在逆解下点 -> jogCart
+    for (int i = 0; i < 6; ++i) {
+        connect(btnMinus[i], &QPushButton::clicked, &dlg, [this, spins, step, i, &dlg, &lastEditMs] {
+            if (!m_robotController || !m_robotController->isConnected()) {
+                QMessageBox::warning(&dlg, QStringLiteral("提示"), QStringLiteral("请先连接控制器"));
+                return;
+            }
+            if (m_robotController->isCartesianMode()) {
+                // 逆解模式:取笛卡尔坐标,减步长
+                QList<double> pos = m_robotController->getState()->getAllCartesianPositions();
+                if (pos.size() <= i) return;
+                pos[i] -= step;
+                m_robotController->jogCart(pos, 25.0, 50.0, 60.0);
+            } else {
+                // 正解模式:取关节角度,减步长
+                QList<double> pos = m_robotController->getState()->getAllAxisPositions();
+                if (pos.size() <= i) return;
+                m_robotController->jogJoint(i, pos[i] - step, 25.0, 50.0, 60.0);
+            }
+            lastEditMs[i] = 0;
+        });
+
+        connect(btnPlus[i], &QPushButton::clicked, &dlg, [this, spins, step, i, &dlg, &lastEditMs] {
+            if (!m_robotController || !m_robotController->isConnected()) {
+                QMessageBox::warning(&dlg, QStringLiteral("提示"), QStringLiteral("请先连接控制器"));
+                return;
+            }
+            if (m_robotController->isCartesianMode()) {
+                // 逆解模式:取笛卡尔坐标,加步长
+                QList<double> pos = m_robotController->getState()->getAllCartesianPositions();
+                if (pos.size() <= i) return;
+                pos[i] += step;
+                m_robotController->jogCart(pos, 25.0, 50.0, 60.0);
+            } else {
+                // 正解模式:取关节角度,加步长
+                QList<double> pos = m_robotController->getState()->getAllAxisPositions();
+                if (pos.size() <= i) return;
+                m_robotController->jogJoint(i, pos[i] + step, 25.0, 50.0, 60.0);
+            }
+            lastEditMs[i] = 0;
+        });
+    }
+
+    // ===== "获取当前点位"：强制刷新，清除编辑态 =====
+    connect(ui.btnGetPoint, &QPushButton::clicked, &dlg, [resetEditState, refreshPositions] {
+        resetEditState();
+        refreshPositions();
     });
 
-    // "运行"
-    connect(ui.btnRun, &QPushButton::clicked, &dlg, [this, isJoint, spins, &dlg] {
+    // ===== "运行":按弹窗数值执行运动 → 恢复实时刷新 =====
+    // 根据"当前实际模式"决定调 moveJ 还是 moveL
+    connect(ui.btnRun, &QPushButton::clicked, &dlg, [this, spins, resetEditState, &dlg] {
         if (!m_robotController || !m_robotController->isConnected()) {
             QMessageBox::warning(&dlg, QStringLiteral("提示"), QStringLiteral("请先连接控制器"));
             return;
@@ -2190,13 +2458,16 @@ void MainWindow::showPointAdjustDialog(bool isJoint)
         for (int i = 0; i < 6; ++i)
             vals.append(spins[i]->value());
 
-        bool ok = isJoint
-            ? m_robotController->moveJ(vals, 25.0, 50.0, 60.0, 3000)
-            : m_robotController->moveL(vals, 25.0, 50.0, 60.0, 3000);
+        const bool isCart = m_robotController->isCartesianMode();
+        bool ok = isCart
+            ? m_robotController->moveL(vals, 25.0, 50.0, 60.0, 3000)
+            : m_robotController->moveJ(vals, 25.0, 50.0, 60.0, 3000);
+
+        resetEditState();  // 运行后恢复实时刷新
 
         if (ok) {
             QMessageBox::information(&dlg, QStringLiteral("运行"),
-                isJoint ? QStringLiteral("关节运动完成") : QStringLiteral("笛卡尔运动完成"));
+                isCart ? QStringLiteral("笛卡尔运动完成") : QStringLiteral("关节运动完成"));
         } else {
             QMessageBox::warning(&dlg, QStringLiteral("运行失败"),
                 QStringLiteral("请检查连接、目标点可达性、是否处于报警状态"));

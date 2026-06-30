@@ -4315,6 +4315,15 @@ ZmotionResult ZmotionAPI::startInverseKinematics(const QList<int>& jointAxes, co
     int count = qMin(jointAxes.size(), virtualAxes.size());
     QVector<int> jAxes(jointAxes.begin(), jointAxes.end());
     QVector<int> vAxes(virtualAxes.begin(), virtualAxes.end());
+
+    // 启用虚拟轴（否则 MoveAbs 返回成功但轴不动）
+    for (int axis : virtualAxes) {
+        int ret2 = ZAux_Direct_SetAxisEnable(m_handle, axis, 1);
+        if (ret2 != ERR_SUCCESS) {
+            qWarning() << "[ZmotionAPI] 虚拟轴" << axis << "使能失败，错误码:" << ret2;
+        }
+    }
+
     waitForAxesIdle(jointAxes, 500);
     int ret = ZAux_Direct_Connframe(m_handle, count, jAxes.data(), kFrame, 0, count, vAxes.data());
     if (ret != ERR_SUCCESS) {
