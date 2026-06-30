@@ -141,8 +141,6 @@ MainWindow::MainWindow(QWidget *parent)
  */
 MainWindow::~MainWindow()
 {
-    // 老化测试已禁用
-    // if (m_agingTimer) m_agingTimer->stop();
     delete ui;
 }
 
@@ -677,165 +675,7 @@ void MainWindow::on_pushButton_4_clicked()
 }
 
 
-/**
- * @brief 启动老化测试
- *
- * 在 3 个预设关节目标之间循环执行 MoveJ/MoveL，
- * 支持真实硬件和模拟器自动检测切换。
- */
-void MainWindow::on_pushButton_5_clicked()
-{
-    // ===== 老化测试已禁用 =====
-    ui->statusbar->showMessage(QStringLiteral("老化测试已禁用"));
-    Q_UNUSED(m_agingTimer);  // 保持成员引用占位,后续如需彻底删除可移除
-    Q_UNUSED(m_agingCycle);
-    Q_UNUSED(m_agingTargetIdx);
-    Q_UNUSED(m_agingStep);
-    Q_UNUSED(m_agingSimMode);
-    Q_UNUSED(m_agingJointTargets);
-    return;
-
-    // ----- 下方原始代码已注释 -----
-    /*
-    if (!m_robotController || !m_robotController->isConnected()) {
-        ui->statusbar->showMessage(QStringLiteral("请先连接控制器"));
-        return;
-    }
-
-    ui->pushButton_5->setEnabled(false);
-    setConnectionStatus(QStringLiteral("老化测试中..."), QStringLiteral("orange"));
-
-    m_agingJointTargets = {
-        {10.0,   0.0,   0.0,   0.0, 90.0,   0.0},
-        {30.0,  20.0, -10.0,  10.0, 90.0,   0.0},
-        {90.0, -20.0, -50.0,  30.0, 90.0,   0.0},
-    };
-    m_agingCycle = 1;
-    m_agingTargetIdx = 0;
-    m_agingStep = AgingStep::MoveJ;
-    m_agingSimMode = false;
-
-    if (!m_agingTimer) {
-        m_agingTimer = new QTimer(this);
-        connect(m_agingTimer, &QTimer::timeout, this, &MainWindow::onAgingTick);
-    }
-    m_agingTimer->start(50);
-    */
-}
-
-/**
- * @brief 老化测试定时器回调（每 50ms）
- *
- * 循环执行 MoveJ → MoveL 验证正逆解往返：
- * - 检测到轴不动时自动切换模拟器模式
- * - 500 轮后自动结束
- */
-void MainWindow::onAgingTick()
-{
-    // ===== 老化测试已禁用 =====
-    return;
-    // ----- 下方原始代码已注释 -----
-    /*
-    constexpr double MOVE_SPEED  = 80.0;
-    constexpr double MOVE_ACCEL  = 160.0;
-    constexpr double MOVE_DECEL  = 180.0;
-    constexpr int    MAX_CYCLES  = 500;
-    // 真实硬件等待3秒, 模拟器只等200ms
-    constexpr int TIMEOUT_REAL  = 3000;
-    constexpr int TIMEOUT_SIM   = 200;
-
-    int timeout = m_agingSimMode ? TIMEOUT_SIM : TIMEOUT_REAL;
-
-    if (!m_robotController || !m_robotController->isConnected()) {
-        finishAgingTest(false, QStringLiteral("控制器已断开"));
-        return;
-    }
-
-    if (m_agingCycle > MAX_CYCLES) {
-        finishAgingTest(true, QStringLiteral("老化测试完成"));
-        return;
-    }
-
-    if (m_agingSimMode) {
-        // 模拟器模式：快速轮转，不实际等待moveJ/moveL
-        if (m_agingStep == AgingStep::MoveL) {
-            m_agingTargetIdx++;
-            if (m_agingTargetIdx >= m_agingJointTargets.size()) {
-                m_agingTargetIdx = 0;
-                m_agingCycle++;
-            }
-        }
-        m_agingStep = (m_agingStep == AgingStep::MoveJ) ? AgingStep::MoveL : AgingStep::MoveJ;
-        ui->statusbar->showMessage(
-            QStringLiteral("老化测试: 第%1/%2轮 (模拟器)").arg(m_agingCycle).arg(MAX_CYCLES));
-        return;
-    }
-
-    const auto& jt = m_agingJointTargets[m_agingTargetIdx];
-
-    if (m_agingStep == AgingStep::MoveJ) {
-        QList<double> before = m_robotController->getState()->getAllAxisPositions();
-        m_robotController->switchToJointMode();
-        if (!m_robotController->moveJ(jt, MOVE_SPEED, MOVE_ACCEL, MOVE_DECEL, timeout)) {
-            QList<double> after = m_robotController->getState()->getAllAxisPositions();
-            if (before == after) {
-                m_agingSimMode = true;
-                qWarning() << "[Aging] 检测到模拟器模式";
-
-                // 立即进一次模拟器轮转
-                m_agingStep = AgingStep::MoveL;
-            } else {
-                finishAgingTest(false, QStringLiteral("moveJ 失败 (第%1轮, 目标%2)")
-                    .arg(m_agingCycle).arg(m_agingTargetIdx + 1));
-                return;
-            }
-        } else {
-            m_agingStep = AgingStep::MoveL;
-        }
-    } else {
-        // 真实硬件: 读完整笛卡尔坐标 → moveL验证FK/IK往返
-        QList<double> cart = m_robotController->getState()->getAllCartesianPositions();
-        m_robotController->switchToCartesianMode();
-        if (!m_robotController->moveL(cart, MOVE_SPEED, MOVE_ACCEL, MOVE_DECEL, timeout)) {
-            finishAgingTest(false, QStringLiteral("moveL 失败 (第%1轮, 目标%2)")
-                .arg(m_agingCycle).arg(m_agingTargetIdx + 1));
-            return;
-        }
-
-        m_agingTargetIdx++;
-        if (m_agingTargetIdx >= m_agingJointTargets.size()) {
-            m_agingTargetIdx = 0;
-            m_agingCycle++;
-        }
-        m_agingStep = AgingStep::MoveJ;
-    }
-
-    ui->statusbar->showMessage(
-        QStringLiteral("老化测试: 第%1/%2轮").arg(m_agingCycle).arg(MAX_CYCLES));
-    */
-}
-
-/**
- * @brief 结束老化测试
- *
- * @param success true=正常完成，false=异常终止
- * @param message 结束原因描述
- */
-void MainWindow::finishAgingTest(bool success, const QString& message)
-{
-    // ===== 老化测试已禁用 =====
-    Q_UNUSED(success);
-    Q_UNUSED(message);
-    return;
-    // ----- 下方原始代码已注释 -----
-    /*
-    m_agingTimer->stop();
-    setConnectionStatus(success ? QStringLiteral("老化测试完成") : QStringLiteral("老化测试失败"),
-                      success ? QStringLiteral("green") : QStringLiteral("red"));
-    ui->statusbar->showMessage(message);
-    ui->pushButton_5->setEnabled(true);
-    */
-}
+// 老化测试已彻底删除(2026-06-30)
 
 
 /**
@@ -870,10 +710,6 @@ void MainWindow::onBtnStop()
         m_robotController->stopMotion();
     }
 
-    // 老化测试已禁用
-    // if (m_agingTimer && m_agingTimer->isActive()) {
-    //     finishAgingTest(false, QStringLiteral("用户已停止老化测试"));
-    // }
     ui->statusbar->showMessage(QStringLiteral("已发送停止指令"));
 }
 
@@ -1857,6 +1693,9 @@ void MainWindow::initManualProgUI()
         spC->setButtonSymbols(QAbstractSpinBox::NoButtons);
         spJ->setMinimumHeight(36);
         spC->setMinimumHeight(36);
+        // ★ 只读:点动控制只是显示位置,不让用户修改(否则会被"手动调试发送"读走当 moveJ 目标)
+        spJ->setReadOnly(true);
+        spC->setReadOnly(true);
         // 不限制最大宽度,让 SpinBox 在拉伸列里尽量占满
         spJ->setMinimumWidth(0);
         spC->setMinimumWidth(0);
@@ -2040,6 +1879,7 @@ void MainWindow::initManualProgUI()
     rightLay->addWidget(instrGroup);
 
     // 2. 编程控制台区域（中部）
+    // 内部布局:工具栏 | 编辑器 + 点位区域(上下分区)
     QGroupBox* progGroup = new QGroupBox(QStringLiteral("编程控制台"));
     progGroup->setStyleSheet(
         QStringLiteral(
@@ -2050,7 +1890,7 @@ void MainWindow::initManualProgUI()
     QVBoxLayout* progLay = new QVBoxLayout(progGroup);
     progLay->setContentsMargins(0, 0, 0, 0);
     progLay->setSpacing(0);
-    
+
     // 将 .ui 的 progEditor 替换为 CodeEditor（带行号），保留原内容
     CodeEditor* codeEditor = new CodeEditor();
     codeEditor->setObjectName(QStringLiteral("progEditor"));
@@ -2066,7 +1906,49 @@ void MainWindow::initManualProgUI()
 
     // 将工具栏添加到编程控制台区域顶部
     progLay->addWidget(ui->progToolBar);
-    progLay->addWidget(codeEditor);
+
+    // 编辑器 + 点位区域:左右分区(左编辑流程,右点位数据)
+    QSplitter* progSplit = new QSplitter(Qt::Horizontal, progGroup);
+    progSplit->setChildrenCollapsible(false);
+    progSplit->setHandleWidth(4);
+
+    // 左:代码编辑器(编程流程)
+    QWidget* editorWrap = new QWidget(progSplit);
+    QVBoxLayout* editorWrapLay = new QVBoxLayout(editorWrap);
+    editorWrapLay->setContentsMargins(0, 0, 0, 0);
+    editorWrapLay->setSpacing(0);
+    QLabel* editorLbl = new QLabel(QStringLiteral("编辑流程"), editorWrap);
+    editorLbl->setStyleSheet(QStringLiteral("color:#666;font-size:11px;padding:2px 4px;"));
+    editorWrapLay->addWidget(editorLbl);
+    editorWrapLay->addWidget(codeEditor);
+
+    // 右:点位数据显示区
+    QWidget* targetWrap = new QWidget(progSplit);
+    QVBoxLayout* targetWrapLay = new QVBoxLayout(targetWrap);
+    targetWrapLay->setContentsMargins(0, 0, 0, 0);
+    targetWrapLay->setSpacing(0);
+    QLabel* targetLbl = new QLabel(QStringLiteral("点位数据"), targetWrap);
+    targetLbl->setStyleSheet(QStringLiteral("color:#666;font-size:11px;padding:2px 4px;"));
+    targetWrapLay->addWidget(targetLbl);
+
+    QPlainTextEdit* progTargets = new QPlainTextEdit(targetWrap);
+    progTargets->setObjectName(QStringLiteral("progTargets"));  // ★ 关键:UiController 通过这个 name 找到
+    progTargets->setReadOnly(true);  // 只读,数据由 UiController 自动写入
+    progTargets->setStyleSheet(QStringLiteral(
+        "QPlainTextEdit{background:#fafbfc;color:#1565c0;"
+        "border-top:1px solid #e0e0e0;border-left:1px solid #e0e0e0;border-right:none;border-bottom:none;"
+        "font-family:Consolas,'Microsoft YaHei UI';font-size:11px;"
+        "padding:4px 6px;selection-background:#264f78;}"));
+    targetWrapLay->addWidget(progTargets);
+
+    progSplit->addWidget(editorWrap);
+    progSplit->addWidget(targetWrap);
+    // 初始比例:编辑器 70%, 点位 30%
+    progSplit->setStretchFactor(0, 7);
+    progSplit->setStretchFactor(1, 3);
+    progSplit->setSizes({600, 250});
+
+    progLay->addWidget(progSplit, 1);
     rightLay->addWidget(progGroup, 1);  // 可拉伸
 
     // 3. 输出控制台区域（底部）
@@ -2299,17 +2181,18 @@ void MainWindow::showPointAdjustDialog(bool isJoint)
     QPushButton* btnMinus[6] = {ui.btnMinus0, ui.btnMinus1, ui.btnMinus2, ui.btnMinus3, ui.btnMinus4, ui.btnMinus5};
     QPushButton* btnPlus[6]  = {ui.btnPlus0,  ui.btnPlus1,  ui.btnPlus2,  ui.btnPlus3,  ui.btnPlus4,  ui.btnPlus5};
 
-    const QStringList labels = isJoint
-        ? QStringList{"J0", "J1", "J2", "J3", "J4", "J5"}
-        : QStringList{"X",  "Y",  "Z",  "A",  "B",  "C"};
+    const QStringList labels = m_robotController && m_robotController->isCartesianMode()
+        ? QStringList{"X", "Y", "Z", "A", "B", "C"}
+        : QStringList{"J0", "J1", "J2", "J3", "J4", "J5"};
 
     QList<QDoubleSpinBox*> spins;
     for (int i = 0; i < 6; ++i) {
-        lblAxis[i]->setText(labels[i]);
+        // 隐藏左侧标签(只要 6 行纯数据,不显示 J0/X 等名称)
+        lblAxis[i]->hide();
         spinAxis[i]->setSingleStep(step);
         spinAxis[i]->setKeyboardTracking(false);
-        // prefix 缩短 + 字号适中 + 左右加 padding,让数字与边框有间距
-        spinAxis[i]->setPrefix(labels[i] + QStringLiteral(":"));
+        // 不设置 prefix —— 用户只要纯数据
+        spinAxis[i]->setPrefix(QString());
         spinAxis[i]->setStyleSheet(QStringLiteral(
             "QDoubleSpinBox{font-family:Consolas,'Microsoft YaHei UI';font-size:20px;"
             "font-weight:bold;color:#1565c0;padding:0 10px;"
@@ -2419,7 +2302,9 @@ void MainWindow::showPointAdjustDialog(bool isJoint)
             }
             lastEditMs[i] = 0;
         });
+    }
 
+    for (int i = 0; i < 6; ++i) {
         connect(btnPlus[i], &QPushButton::clicked, &dlg, [this, spins, step, i, &dlg, &lastEditMs] {
             if (!m_robotController || !m_robotController->isConnected()) {
                 QMessageBox::warning(&dlg, QStringLiteral("提示"), QStringLiteral("请先连接控制器"));
@@ -2441,10 +2326,25 @@ void MainWindow::showPointAdjustDialog(bool isJoint)
         });
     }
 
-    // ===== "获取当前点位"：强制刷新，清除编辑态 =====
-    connect(ui.btnGetPoint, &QPushButton::clicked, &dlg, [resetEditState, refreshPositions] {
+    // ===== "获取当前点位":插入 MOVEJ/MOVEL 指令到编程页 =====
+    // 根据当前模式选 J 还是 L,同时强制刷新 SpinBox 显示
+    connect(ui.btnGetPoint, &QPushButton::clicked, &dlg, [this, resetEditState, refreshPositions] {
         resetEditState();
         refreshPositions();
+
+        // 按当前模式插入对应指令到编程页
+        if (!m_uiController || !m_robotController || !m_robotController->isConnected()) {
+            this->ui->statusbar->showMessage(QStringLiteral("已刷新,未连接控制器,无法插入指令"));
+            return;
+        }
+        const bool isCart = m_robotController->isCartesianMode();
+        if (isCart) {
+            m_uiController->onProgInsertMoveL();
+            this->ui->statusbar->showMessage(QStringLiteral("已插入 MOVEL 指令"));
+        } else {
+            m_uiController->onProgInsertMoveJ();
+            this->ui->statusbar->showMessage(QStringLiteral("已插入 MOVEJ 指令"));
+        }
     });
 
     // ===== "运行":按弹窗数值执行运动 → 恢复实时刷新 =====

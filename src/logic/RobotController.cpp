@@ -491,14 +491,13 @@ bool RobotController::moveJ(const QList<double>& jointPos, double speed, double 
     }
 
     m_state->setStatus(RobotState::StatusMoving);
-    // 对比DPOS与目标位置判断到位，不依赖IDLE（物理轴的IDLE检测更可靠时也可保留）
-    result = api->waitForAxesReachTarget(axes, targets, timeoutMs);
+    // 等待关节轴物理停止（IDLE检测，CONNREFRAME 下 GetDpos 不可靠）
+    result = api->waitForAxesIdle(axes, timeoutMs);
     m_state->setStatus(RobotState::StatusIdle);
 
     if (!result.success) {
         qWarning() << "[moveJ] 等待运动到位超时，命令已发出";
-        if (result.errorCode == -4)
-            return false;
+        return false;
     }
     return true;
 }

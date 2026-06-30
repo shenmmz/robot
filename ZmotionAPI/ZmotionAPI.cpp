@@ -1721,6 +1721,9 @@ ZmotionResult ZmotionAPI::setAxisAccel(const QList<int>& axes, const QList<doubl
         int firstErrorCode = 0;
         QString firstErrorMessage;
         
+        static QSet<QPair<int, double>> loggedPairs;
+        bool hasNewPair = false;
+        
         // 遍历每个轴进行设置
         for (int i = 0; i < axes.size(); ++i) {
             int axis = axes.at(i);
@@ -1743,7 +1746,11 @@ ZmotionResult ZmotionAPI::setAxisAccel(const QList<int>& axes, const QList<doubl
             if (result == 0) {
                 // 设置成功
                 successAxes << QString("轴%1(值:%2)").arg(axis).arg(accelValue);
-                ZINFO << QString("成功设置轴%1的加速度为%2 units/s/s").arg(axis).arg(accelValue);
+                if (!loggedPairs.contains({axis, accelValue})) {
+                    loggedPairs.insert({axis, accelValue});
+                    ZINFO << QString("成功设置轴%1的加速度为%2 units/s/s").arg(axis).arg(accelValue);
+                    hasNewPair = true;
+                }
             } else {
                 // 设置失败
                 QString errorDesc = getErrorDescription(result);
@@ -1759,7 +1766,9 @@ ZmotionResult ZmotionAPI::setAxisAccel(const QList<int>& axes, const QList<doubl
         // 根据执行结果返回相应的状态
         if (failedAxes.isEmpty()) {
             // 所有轴都成功设置
-            ZINFO << QString("成功设置所有轴的加速度：%1").arg(successAxes.join(", "));
+            if (hasNewPair) {
+                ZINFO << QString("成功设置所有轴的加速度：%1").arg(successAxes.join(", "));
+            }
             return ZmotionResult(true, 0, QString("成功设置所有轴的加速度：%1").arg(successAxes.join(", ")));
         } else {
             // 部分轴设置失败
@@ -1818,6 +1827,9 @@ ZmotionResult ZmotionAPI::setAxisDecel(const QList<int>& axes, const QList<doubl
         int firstErrorCode = 0;
         QString firstErrorMessage;
         
+        static QSet<QPair<int, double>> loggedPairs;
+        bool hasNewPair = false;
+        
         // 遍历每个轴进行设置
         for (int i = 0; i < axes.size(); ++i) {
             int axis = axes.at(i);
@@ -1840,7 +1852,11 @@ ZmotionResult ZmotionAPI::setAxisDecel(const QList<int>& axes, const QList<doubl
             if (result == 0) {
                 // 设置成功
                 successAxes << QString("轴%1(值:%2)").arg(axis).arg(decelValue);
-                ZINFO << QString("成功设置轴%1的减速度为%2 units/s/s").arg(axis).arg(decelValue);
+                if (!loggedPairs.contains({axis, decelValue})) {
+                    loggedPairs.insert({axis, decelValue});
+                    ZINFO << QString("成功设置轴%1的减速度为%2 units/s/s").arg(axis).arg(decelValue);
+                    hasNewPair = true;
+                }
             } else {
                 // 设置失败
                 QString errorDesc = getErrorDescription(result);
@@ -1856,7 +1872,9 @@ ZmotionResult ZmotionAPI::setAxisDecel(const QList<int>& axes, const QList<doubl
         // 根据执行结果返回相应的状态
         if (failedAxes.isEmpty()) {
             // 所有轴都成功设置
-            ZINFO << QString("成功设置所有轴的减速度：%1").arg(successAxes.join(", "));
+            if (hasNewPair) {
+                ZINFO << QString("成功设置所有轴的减速度：%1").arg(successAxes.join(", "));
+            }
             return ZmotionResult(true, 0, QString("成功设置所有轴的减速度：%1").arg(successAxes.join(", ")));
         } else {
             // 部分轴设置失败
@@ -1915,6 +1933,9 @@ ZmotionResult ZmotionAPI::setAxisSpeed(const QList<int>& axes, const QList<doubl
         int firstErrorCode = 0;
         QString firstErrorMessage;
         
+        static QSet<QPair<int, double>> loggedPairs;
+        bool hasNewPair = false;
+        
         // 遍历每个轴进行设置
         for (int i = 0; i < axes.size(); ++i) {
             int axis = axes.at(i);
@@ -1938,7 +1959,11 @@ ZmotionResult ZmotionAPI::setAxisSpeed(const QList<int>& axes, const QList<doubl
             if (result == 0) {
                 // 设置成功
                 successAxes << QString("轴%1(值:%2)").arg(axis).arg(speedValue);
-                ZINFO << QString("成功设置轴%1的速度为%2 units/s").arg(axis).arg(speedValue);
+                if (!loggedPairs.contains({axis, speedValue})) {
+                    loggedPairs.insert({axis, speedValue});
+                    ZINFO << QString("成功设置轴%1的速度为%2 units/s").arg(axis).arg(speedValue);
+                    hasNewPair = true;
+                }
             } else {
                 // 设置失败
                 QString errorDesc = getErrorDescription(result);
@@ -1955,7 +1980,9 @@ ZmotionResult ZmotionAPI::setAxisSpeed(const QList<int>& axes, const QList<doubl
         // 根据执行结果返回相应的状态
         if (failedAxes.isEmpty()) {
             // 所有轴都成功设置
-            ZINFO << QString("成功设置所有轴的速度：%1").arg(successAxes.join(", "));
+            if (hasNewPair) {
+                ZINFO << QString("成功设置所有轴的速度：%1").arg(successAxes.join(", "));
+            }
             return ZmotionResult(true, 0, QString("成功设置所有轴的速度：%1").arg(successAxes.join(", ")));
         } else {
             // 部分轴设置失败
@@ -4324,11 +4351,45 @@ ZmotionResult ZmotionAPI::startInverseKinematics(const QList<int>& jointAxes, co
         }
     }
 
+    ZAux_Direct_SetParam(m_handle, "WDOG", -1, 1.0f);
+    for (int axis : jointAxes) {
+        int ret2 = ZAux_Direct_SetAxisEnable(m_handle, axis, 1);
+        if (ret2 != ERR_SUCCESS) {
+            qWarning() << "[ZmotionAPI] 关节轴" << axis << "使能失败，错误码:" << ret2;
+        }
+    }
+
     waitForAxesIdle(jointAxes, 500);
     int ret = ZAux_Direct_Connframe(m_handle, count, jAxes.data(), kFrame, 0, count, vAxes.data());
     if (ret != ERR_SUCCESS) {
         return {false, ret, QString("Connframe失败: %1").arg(getErrorDescription(ret))};
     }
+
+    // WAITLOADED: 等待 Connframe 加载完成，关节轴 MTYPE 应变为 33
+    {
+        int elapsed = 0;
+        const int interval = 50;
+        const int timeout = 3000;
+        while (elapsed < timeout) {
+            bool allReady = true;
+            for (int axis : jointAxes) {
+                int mtype = 0;
+                if (ZAux_Direct_GetMtype(m_handle, axis, &mtype) != ERR_SUCCESS || mtype != 33) {
+                    allReady = false;
+                    break;
+                }
+            }
+            if (allReady) break;
+            QCoreApplication::processEvents();
+            QThread::msleep(interval);
+            elapsed += interval;
+        }
+        if (elapsed >= timeout) {
+            qWarning() << "[ZmotionAPI] WAITLOADED 超时 (逆解模式 Connframe, " << timeout
+                       << "ms), 关节轴 MTYPE 未变为 33, jointAxes:" << jointAxes;
+        }
+    }
+
     m_currentMotionMode = 1;
     qDebug() << "[ZmotionAPI] 逆解模式(Connframe)启动成功"
              << "jointAxes:" << jointAxes << "virtualAxes:" << virtualAxes;
@@ -4345,10 +4406,43 @@ ZmotionResult ZmotionAPI::startForwardKinematics(const QList<int>& jointAxes, co
     QVector<int> jAxes(jointAxes.begin(), jointAxes.end());
     QVector<int> vAxes(virtualAxes.begin(), virtualAxes.end());
     waitForAxesIdle(jointAxes, 500);
+    ZAux_Direct_SetParam(m_handle, "WDOG", -1, 1.0f);
+    for (int axis : jointAxes) {
+        int ret2 = ZAux_Direct_SetAxisEnable(m_handle, axis, 1);
+        if (ret2 != ERR_SUCCESS) {
+            qWarning() << "[ZmotionAPI] 关节轴" << axis << "使能失败，错误码:" << ret2;
+        }
+    }
     int ret = ZAux_Direct_Connreframe(m_handle, count, vAxes.data(), kFrame, 0, count, jAxes.data());
     if (ret != ERR_SUCCESS) {
         return {false, ret, QString("Connreframe失败: %1").arg(getErrorDescription(ret))};
     }
+
+    // WAITLOADED: 等待 Connreframe 加载完成，虚拟轴 MTYPE 应变为 34
+    {
+        int elapsed = 0;
+        const int interval = 50;
+        const int timeout = 3000;
+        while (elapsed < timeout) {
+            bool allReady = true;
+            for (int axis : virtualAxes) {
+                int mtype = 0;
+                if (ZAux_Direct_GetMtype(m_handle, axis, &mtype) != ERR_SUCCESS || mtype != 34) {
+                    allReady = false;
+                    break;
+                }
+            }
+            if (allReady) break;
+            QCoreApplication::processEvents();
+            QThread::msleep(interval);
+            elapsed += interval;
+        }
+        if (elapsed >= timeout) {
+            qWarning() << "[ZmotionAPI] WAITLOADED 超时 (正解模式 Connreframe, " << timeout
+                       << "ms), 虚拟轴 MTYPE 未变为 34, virtualAxes:" << virtualAxes;
+        }
+    }
+
     m_currentMotionMode = 0;
     return {true, 0, "正解模式启动成功"};
 }
