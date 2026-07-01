@@ -1,0 +1,13 @@
+TARGET Target1 = {J0: 0.000, J1: 0.000, J2: 0.000, J3: 0.000, J4: 87.207, J5: 0.000}
+TARGET Target2 = {X: 309.001, Y: 0.000, Z: 400.000, A: 180.000, B: 2.793, C: 180.000}
+TARGET Target3 = {X: 400.000, Y: 200.000, Z: 400.000, A: 180.000, B: 2.793, C: 180.000}
+TARGET Target4 = {X: 400.000, Y: 0.000, Z: 400.000, A: 180.000, B: 2.793, C: 180.000}
+TARGET Target5 = {X: 200.000, Y: 0.000, Z: 400.000, A: 180.000, B: 2.793, C: 180.000}
+TARGET Target6 = {X: 200.000, Y: 200.000, Z: 400.000, A: 180.000, B: 2.793, C: 180.000}
+---
+MOVEJ(Target1, speed=125, acc=250, dec=300)
+MOVEL(Target2, speed=125, acc=250, dec=300)
+MOVEL(Target3, speed=125, acc=250, dec=300)
+MOVEL(Target4, speed=125, acc=250, dec=300)
+MOVEL(Target5, speed=125, acc=250, dec=300)
+MOVEL(Target6, speed=125, acc=250, dec=300)

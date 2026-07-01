@@ -463,8 +463,10 @@ bool RobotController::moveJ(const QList<double>& jointPos, double speed, double 
 
     // 取消 CONNREFRAME 绑定，使关节轴回到独立轴模式
     api->executeCommand("CANCEL");
+    // CANCEL 后必须等待轴停止，对应 RTBasic 的 WAIT IDLE
+    api->waitForAxesIdle(axes, 2000);// 等待轴停止，防止后续指令出错
 
-    ZmotionResult result = api->directMoveAbsolute(axes, targets, static_cast<float>(speed), static_cast<float>(accel), static_cast<float>(decel));
+    ZmotionResult result = api->directMoveAbsolute(axes, targets, static_cast<float>(speed), static_cast<float>(accel), static_cast<float>(decel));// 直接绝对移动，触发正解模式
     if (!result.success) {
         emit operationFailed(QStringLiteral("moveJ"), result.errorMessage);
         return false;
@@ -573,10 +575,10 @@ bool RobotController::moveL(const QList<double>& cartPos, double speed, double a
     }
 
     m_state->setStatus(RobotState::StatusMoving);
-    // 等待关节轴运动停止(CONNFRAME 模式下虚拟轴会先到位,关节轴后到位)
+    // 等待虚拟轴运动停止(CONNFRAME 模式下虚拟轴先到位后关节轴跟随到位)
     QList<int> jointAxes = m_config->getJointAxisList();
-    result = api->waitForAxesIdle(jointAxes, timeoutMs);
-    m_state->setStatus(RobotState::StatusIdle);
+    result = api->waitForAxesIdle(virtualAxes, timeoutMs);
+    m_state->setStatus(RobotState::StatusIdle);// 运动完成后设置状态为空闲
 
     if (!result.success) {
         qWarning() << "[moveL] 等待运动到位超时,命令已发出";

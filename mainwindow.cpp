@@ -2095,8 +2095,8 @@ void MainWindow::showPointAdjustDialog(bool isJoint)
     // ===== 顶部插入一行:模式切换按钮 =====
     // 单个按钮,点击后直接切换正解/逆解,文本显示当前模式
     QPushButton* btnToggleMode = new QPushButton(&dlg);
-    btnToggleMode->setFixedHeight(24);
-    btnToggleMode->setMaximumWidth(140);
+    btnToggleMode->setFixedHeight(42);  // 固定高度,适配紧凑布局
+    btnToggleMode->setMaximumWidth(160);// 最大宽度,避免过长
     btnToggleMode->setCursor(Qt::PointingHandCursor);
 
     // ★ 提前声明 lblAxis(供 updateModeButton lambda 捕获,刷新标签文字)
