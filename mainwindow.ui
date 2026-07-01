@@ -3001,7 +3001,7 @@ QGroupBox::title{subcontrol-origin:margin;left:14px;padding:0 8px;}</string>
               <string>QPlainTextEdit{
   background:#1e1e2e;color:#d4d4d4;border:1px solid #d0d5dd;
   border-radius:6px;font-family:Consolas,'Microsoft YaHei UI';font-size:13px;
-  padding:8px;selection-background:#264f78;
+  padding:8px;selection-background-color:#264f78;
 }</string>
              </property>
              <property name="tabChangesFocus">

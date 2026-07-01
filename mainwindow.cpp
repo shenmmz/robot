@@ -1452,10 +1452,14 @@ void MainWindow::initManualProgUI()
         };
         auto compactSpin = [](QDoubleSpinBox* sp) {
             sp->setFixedHeight(24);
-            sp->setMinimumWidth(50);
-            sp->setMaximumWidth(60);
+            sp->setMinimumWidth(60);
+            sp->setMaximumWidth(85);
             sp->setButtonSymbols(QAbstractSpinBox::NoButtons);
-            sp->setStyleSheet(QStringLiteral("QDoubleSpinBox{border:1px solid #d0d5dd;border-radius:3px;padding:1px 2px;font-size:14px;}"));
+            sp->setStyleSheet(QStringLiteral(
+                "QDoubleSpinBox{border:1px solid #d0d5dd;border-radius:3px;"
+                "padding:1px 2px;font-size:14px;}"
+                "QDoubleSpinBox:focus{border-color:#1565c0;}"
+            ));
         };
 
         compactLabel(ui->label_15); compactLabel(ui->label_16);
@@ -1938,7 +1942,7 @@ void MainWindow::initManualProgUI()
         "QPlainTextEdit{background:#fafbfc;color:#1565c0;"
         "border-top:1px solid #e0e0e0;border-left:1px solid #e0e0e0;border-right:none;border-bottom:none;"
         "font-family:Consolas,'Microsoft YaHei UI';font-size:11px;"
-        "padding:4px 6px;selection-background:#264f78;}"));
+        "padding:4px 6px;selection-background-color:#264f78;}"));
     targetWrapLay->addWidget(progTargets);
 
     progSplit->addWidget(editorWrap);
@@ -2057,7 +2061,7 @@ void MainWindow::initManualProgUI()
     bottomLay->addWidget(rightPanel, 2);  // 右侧权重2，尽可能宽
 
     // 左侧面板固定宽度（收窄，给右侧更多空间）
-    leftPanel->setFixedWidth(260);
+    leftPanel->setFixedWidth(290);
     leftPanel->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Expanding);
 
     // 注释掉组最大宽度限制，面板已加宽到260
@@ -2081,6 +2085,9 @@ void MainWindow::initManualProgUI()
  */
 void MainWindow::showPointAdjustDialog(bool isJoint)
 {
+    // 仅调试模式下可打开点位调整
+    if (!ui->chkDebugMode->isChecked()) return;
+
     QDialog dlg(this);
     double step = this->ui->debugStep->value();
     Ui::PointAdjustDialog ui;
