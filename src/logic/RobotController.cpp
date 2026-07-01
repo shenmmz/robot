@@ -287,29 +287,6 @@ bool RobotController::initRobotModel()
         ret = api->setAxisDpos(virtualAxes, zeroDpos);
         if (!ret.success) { emit modelInitFailed(ret.errorCode); return false; }
     }
-
-    // // ===== 4. 回读验证 TABLE 写入（调试用，已注释） =====
-    // QVector<float> readBack;
-    // ret = api->getTable(0, 25, readBack);
-    // if (ret.success) {
-    //     qDebug() << "[initRobotModel] TABLE回读验证:";
-    //     qDebug() << "  DH几何:"
-    //              << QString("LargeZ=%1").arg(readBack[0])
-    //              << QString("Alpha=%1").arg(readBack[1])
-    //              << QString("L2=%1").arg(readBack[2])
-    //              << QString("Theta=%1").arg(readBack[3])
-    //              << QString("L4=%1").arg(readBack[4])
-    //              << QString("D5=%1").arg(readBack[5]);
-    //     qDebug() << "  脉冲数:"
-    //              << QString("J0=%1 J1=%2 J2=%3 J3=%4 J4=%5 J5=%6")
-    //                 .arg(readBack[6]).arg(readBack[7]).arg(readBack[8])
-    //                 .arg(readBack[9]).arg(readBack[10]).arg(readBack[11]);
-    //     qDebug() << "  PulesVR:" << readBack[12];
-    //     qDebug() << "  末端SmallLZ:" << readBack[15];
-    // } else {
-    //     qWarning() << "[initRobotModel] TABLE回读失败:" << ret.errorMessage;
-    // }
-
     qDebug() << "[initRobotModel] 六轴串联机器人模型配置完成";
     emit modelInitSuccess();
     return true;
@@ -483,6 +460,9 @@ bool RobotController::moveJ(const QList<double>& jointPos, double speed, double 
     QList<int> axes = m_config->getJointAxisList();
     QList<float> targets;
     for (double pos : jointPos) targets.append(static_cast<float>(pos));
+
+    // 取消 CONNREFRAME 绑定，使关节轴回到独立轴模式
+    api->executeCommand("CANCEL");
 
     ZmotionResult result = api->directMoveAbsolute(axes, targets, static_cast<float>(speed), static_cast<float>(accel), static_cast<float>(decel));
     if (!result.success) {
