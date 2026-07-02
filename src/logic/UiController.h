@@ -44,6 +44,15 @@ public slots:
     /// 运行单行文本（单步调试）
     void runText(const QString& fullText, const QString& sourceLine);
 
+    /// 退出单步会话（在"运行"/"停止"按钮回调里调用，使 finish 后走正常分支）
+    void exitStepMode() { m_stepMode = false; }
+
+    /// 单步执行一条指令：
+    ///   - fullText   完整脚本文本（含 TARGET 定义与指令）
+    ///   - startLine  -1 = 继续 TaskExecutor 当前的 m_currentIdx；>=0 = 从指定源行号开始
+    /// 连续调用本函数即可实现"点一次走一步"。
+    void runStep(const QString& fullText, int startLine);
+
     /// 插入文本到编辑器光标，自动换行
     void insertAtCursor(const QString& text);
 
@@ -127,6 +136,7 @@ private:
     QHash<QString, QList<double>> m_targets;  // 目标名 → 6个坐标值
     bool m_syncTargetsBusy = false;           // syncTargets 防重入
     int m_currentExecLine = -1;               // 当前执行源代码行号（-1=无）
+    bool m_stepMode = false;                   // 当前是否处于单步会话中（用于决定 finish 后是否自动重置）
 
     // 辅助方法
     void setIOIndicator(const QString& frameName, bool active);

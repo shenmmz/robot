@@ -638,6 +638,70 @@ void UiController::runText(const QString& text, const QString& sourceLine)
 }
 
 /**
+ * @brief 单步执行：解析整脚本，设置指令队列，然后调用 TaskExecutor::stepOnce()。
+ *
+ * 行为：
+ *   - 首次调用（startLine >= 0）清空控制台，解析脚本，把 m_currentIdx 跳到包含
+ *     startLine 的那条指令；连续点击会从下一条继续（startLine = -1）。
+ *   - 当前已有任务在跑时直接返回，避免抢占。
+ *   - 如果给定点位后没有可执行指令，错误提示且不启动。
+ *
+ * @param fullText   完整脚本（含 TARGET 定义与指令）
+ * @param startLine  起始源代码行号，-1 = 继续上次的进度
+ */
+void UiController::runStep(const QString& fullText, int startLine)
+{
+    if (!m_robotController || !m_robotController->isConnected()) {
+        QMessageBox::warning(nullptr, QStringLiteral("未连接"), QStringLiteral("请先连接控制器"));
+        return;
+    }
+    if (m_taskExecutor->isRunning() || m_taskExecutor->isPaused()) {
+        // 已有任务在跑，单步模式不能并行
+        return;
+    }
+
+    QString fileName = m_currentScriptPath.isEmpty()
+        ? QStringLiteral("未命名.rbt") : QFileInfo(m_currentScriptPath).fileName();
+
+    // 首次进入：清控制台、解析整脚本
+    if (startLine >= 0) {
+        auto* console = m_mainWindow->findChild<QPlainTextEdit*>(QStringLiteral("progConsoleOutput"));
+        if (console) console->clear();
+        ZmotionAPI::setVerbose(false);
+
+        m_targets.clear();
+        QList<ScriptCommand> commands = parseScript(fullText);
+        if (commands.isEmpty()) {
+            appendConsole(QStringLiteral("✘ 无法解析脚本"));
+            return;
+        }
+        m_taskExecutor->setTargets(m_targets);
+        m_taskExecutor->setScriptName(fileName);
+        m_taskExecutor->setScriptPath(m_currentScriptPath);
+        m_taskExecutor->setCommands(commands);
+
+        appendConsole(QStringLiteral("══════════════════════════════"));
+        appendConsole(QStringLiteral("▶ 单步模式: %1").arg(fileName));
+
+        // 把 m_currentIdx 定位到 startLine 对应的指令
+        int targetIdx = -1;
+        for (int i = 0; i < commands.size(); ++i) {
+            if (commands[i].sourceLineNo >= startLine) { targetIdx = i; break; }
+        }
+        if (targetIdx < 0) {
+            appendConsole(QStringLiteral("⚠ 指定行号不在指令列表内，从头开始"));
+            targetIdx = 0;
+        }
+        m_taskExecutor->setStartIndex(targetIdx);
+    }
+
+    // 关闭 ZmotionAPI 详细日志在首次打开；后续由 runStep 进入不会重复设置
+    ZmotionAPI::setVerbose(false);
+    m_stepMode = true;
+    m_taskExecutor->stepOnce();
+}
+
+/**
  * @brief 将脚本文本解析为 ScriptCommand 列表（脚本指令的词法/语法解析核心函数）
  *
  * 支持的指令类型：
@@ -1908,6 +1972,9 @@ void UiController::onTaskResumed(int current, int total)
 
 /**
  * @brief 任务完成回调：恢复按钮文本、恢复日志详细输出、打印完成提示、刷新状态
+ *
+ * 单步模式（m_stepMode=true）下：自动 reset TaskExecutor 到第 0 条，提示"已重置，可继续单步"，
+ * 不打"任务执行完毕"——避免与"已重置"提示混在一起。下次再点单步按钮即从头重跑。
  */
 void UiController::onTaskFinished()
 {
@@ -1918,14 +1985,24 @@ void UiController::onTaskFinished()
     m_robotController->getMotionController()->updateState();
     emit jogCompleted();
 
+    // 清空编辑器行高亮
+    m_currentExecLine = -1;
+    highlightCurrentLine(-1);
+
+    if (m_stepMode) {
+        // 单步模式走完末尾：清变量/循环栈，把 m_currentIdx 复位为 0，m_stepMode 保留以便继续
+        m_taskExecutor->reset();
+        appendConsole(QStringLiteral("✔ 单步执行完毕，已重置；再按\"单步\"从头开始"));
+        appendConsole(QStringLiteral("══════════════════════════════"));
+        if (auto* sb = m_mainWindow->findChild<QStatusBar*>(QStringLiteral("statusbar")))
+            sb->showMessage(QStringLiteral("单步已重置"));
+        return;
+    }
+
     appendConsole(QStringLiteral("✔ 任务执行完毕"));
     appendConsole(QStringLiteral("══════════════════════════════"));
     if (auto* sb = m_mainWindow->findChild<QStatusBar*>(QStringLiteral("statusbar")))
         sb->showMessage(QStringLiteral("所有任务执行完毕"));
-
-    // 清空编辑器行高亮
-    m_currentExecLine = -1;
-    highlightCurrentLine(-1);
 }
 
 /**
@@ -1957,6 +2034,19 @@ void UiController::onCurrentLineChanged(int line)
 {
     m_currentExecLine = line;
     highlightCurrentLine(line);
+
+    // 单步调试/正常执行通用：把编辑器光标移到该行，保证可见
+    if (line >= 0) {
+        if (auto* editor = getEditor()) {
+            QTextCursor c = editor->textCursor();
+            c.movePosition(QTextCursor::Start);
+            c.movePosition(QTextCursor::Down, QTextCursor::MoveAnchor, line);
+            c.movePosition(QTextCursor::EndOfBlock);
+            c.clearSelection();
+            editor->setTextCursor(c);
+            editor->ensureCursorVisible();
+        }
+    }
 }
 
 /**

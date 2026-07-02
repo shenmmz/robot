@@ -43,6 +43,8 @@
 #include <QSplitter>
 #include <QStackedWidget>
 #include <QTextEdit>
+#include <QTextDocument>
+#include <QTextBlock>
 #include <memory>
 #include <QDir>
 #include <QFileInfo>
@@ -1988,38 +1990,97 @@ void MainWindow::initManualProgUI()
     btnRunStep->setStyleSheet(
         QStringLiteral("QPushButton{background:#ede7f6;color:#4527a0;border:1px solid #b39ddb;border-radius:4px;"
             "padding:2px 10px;font-weight:bold;font-size:13px;}QPushButton:hover{background:#d1c4e9;}"));
-    connect(btnRunStep, &QPushButton::clicked, this, [this, lastFocusedEditor, codeEditor] {
-        if (!m_uiController || m_uiController->isTaskRunning()) return;
+    // 单步会话状态：-1 表示尚未开始（或刚被运行/停止清掉），>=0 表示首次点击时的源行号
+    auto stepState = std::make_shared<int>(-1);
+    connect(btnRunStep, &QPushButton::clicked, this, [this, lastFocusedEditor, codeEditor, stepState] {
+        if (!m_uiController) return;
+        // TaskExecutor 正在运行或处于单步执行链中时，禁止并发点击
+        if (m_uiController->isTaskRunning()) return;
+
         QPlainTextEdit* src = *lastFocusedEditor;
         if (!src) src = codeEditor;
-        QTextCursor cursor = src->textCursor();
-        cursor.select(QTextCursor::LineUnderCursor);
-        QString line = cursor.selectedText().trimmed();
-        if (line.isEmpty() || line.startsWith(QChar::fromLatin1('#')) || line.startsWith(QStringLiteral("--")))
-            return;
-        // 清除上一个高亮
-        if (m_lastHighlightedEditor)
-            m_lastHighlightedEditor->setExtraSelections({});
-        // setTextCursor 会触发 cursorPositionChanged→误清高亮，先置空
-        m_lastHighlightedEditor = nullptr;
-        src->setTextCursor(cursor);
-        src->ensureCursorVisible();
-        QTextEdit::ExtraSelection sel;
-        sel.format.setForeground(QColor(65, 105, 225));
-        sel.cursor = cursor;
-        src->setExtraSelections({sel});
-        m_lastHighlightedEditor = src;
-        m_uiController->syncTargets();
+
         QString text;
         auto* targetEd = findChild<QPlainTextEdit*>(QStringLiteral("progTargets"));
         if (targetEd) text += targetEd->toPlainText() + QStringLiteral("\n");
-        text += line;
-        m_uiController->runText(text, line);
+        text += src->toPlainText();
+
+        // 先同步点位表（无论是否首次点击都需要），并清掉旧高亮
+        m_uiController->syncTargets();
+        if (m_lastHighlightedEditor)
+            m_lastHighlightedEditor->setExtraSelections({});
+        m_lastHighlightedEditor = nullptr;
+
+        if (*stepState < 0) {
+            // 首次进入：从光标所在行开始
+            QTextCursor cur = src->textCursor();
+            int srcLine = cur.blockNumber();
+            // 跳过注释/空行，找下一条可执行行
+            QTextDocument* doc = src->document();
+            int totalLines = doc->blockCount();
+            int effectiveLine = -1;
+            for (int i = srcLine; i < totalLines; ++i) {
+                QString t = doc->findBlockByNumber(i).text().trimmed();
+                if (t.isEmpty() || t.startsWith(QChar::fromLatin1('#')) || t.startsWith(QStringLiteral("--")))
+                    continue;
+                effectiveLine = i;
+                break;
+            }
+            if (effectiveLine < 0) {
+                if (auto* c = findChild<QPlainTextEdit*>(QStringLiteral("progConsoleOutput")))
+                    c->appendPlainText(QStringLiteral("⚠ 未找到可执行的指令行"));
+                return;
+            }
+            *stepState = effectiveLine;
+
+            // 把光标移到该行首，便于用户追踪进度
+            QTextCursor nc = src->textCursor();
+            nc.movePosition(QTextCursor::Start);
+            nc.movePosition(QTextCursor::Down, QTextCursor::MoveAnchor, effectiveLine);
+            src->setTextCursor(nc);
+            src->ensureCursorVisible();
+
+            // 在该行加蓝色高亮
+            QTextEdit::ExtraSelection sel;
+            sel.format.setForeground(QColor(65, 105, 225));
+            QTextCursor hlCur = src->textCursor();
+            hlCur.movePosition(QTextCursor::StartOfBlock);
+            hlCur.movePosition(QTextCursor::EndOfBlock, QTextCursor::KeepAnchor);
+            sel.cursor = hlCur;
+            src->setExtraSelections({sel});
+            m_lastHighlightedEditor = src;
+
+            // 给这一行加蓝条块（轻微背景）
+            QList<QTextEdit::ExtraSelection> extras = src->extraSelections();
+            QTextEdit::ExtraSelection hl;
+            hl.format.setBackground(QColor(65, 105, 225, 40));
+            hl.format.setProperty(QTextFormat::FullWidthSelection, true);
+            hl.cursor = hlCur;
+            extras << hl;
+            src->setExtraSelections(extras);
+
+            m_uiController->runStep(text, effectiveLine);
+        } else {
+            // 后续点击：从 TaskExecutor 当前 m_currentIdx 续走一条
+            // 高亮由 currentLineChanged 信号负责刷新，这里只发请求
+            m_uiController->runStep(text, -1);
+        }
     });
     ui->progToolLayout->addWidget(btnRunStep);
 
-    // "运行"时清除单步高亮
-    connect(ui->btnProgRun, &QPushButton::clicked, this, [this] {
+    // "运行"按钮：清空单步状态 + 高亮，并通知 UiController 退出单步模式
+    connect(ui->btnProgRun, &QPushButton::clicked, this, [this, stepState] {
+        *stepState = -1;
+        if (m_uiController) m_uiController->exitStepMode();
+        if (m_lastHighlightedEditor) {
+            m_lastHighlightedEditor->setExtraSelections({});
+            m_lastHighlightedEditor = nullptr;
+        }
+    });
+    // "停止"按钮：同样清空单步状态（按一次结束单步会话）
+    connect(ui->btnProgStop, &QPushButton::clicked, this, [this, stepState] {
+        *stepState = -1;
+        if (m_uiController) m_uiController->exitStepMode();
         if (m_lastHighlightedEditor) {
             m_lastHighlightedEditor->setExtraSelections({});
             m_lastHighlightedEditor = nullptr;
@@ -2094,7 +2155,8 @@ void MainWindow::showPointAdjustDialog(bool isJoint)
     ui.setupUi(&dlg);
 
     dlg.setWindowTitle(QStringLiteral("点位调整"));
-    dlg.setFixedSize(380, 400);
+    dlg.resize(380, 400);
+    dlg.setMinimumSize(300, 320);
 
     // 隐藏 "目标点位" GroupBox 标题(下面 J0/X 标签已足够清晰)
     ui.groupBox->setTitle(QString());
@@ -2203,7 +2265,7 @@ void MainWindow::showPointAdjustDialog(bool isJoint)
         spinAxis[i]->setStyleSheet(QStringLiteral(
             "QDoubleSpinBox{font-family:Consolas,'Microsoft YaHei UI';font-size:20px;"
             "font-weight:bold;color:#1565c0;padding:0 10px;"
-            "qproperty-alignment:'AlignRight | AlignVCenter';}"));
+            "qproperty-alignment:AlignCenter;}"));
         // 给数据列留够宽度(防 6 位数被遮)
         spinAxis[i]->setMinimumWidth(140);
         spins.append(spinAxis[i]);
@@ -2300,12 +2362,18 @@ void MainWindow::showPointAdjustDialog(bool isJoint)
                 QList<double> pos = m_robotController->getState()->getAllCartesianPositions();
                 if (pos.size() <= i) return;
                 pos[i] -= step;
-                m_robotController->jogCart(pos, 25.0, 50.0, 60.0);
+                m_robotController->jogCart(pos,
+                    this->ui->debugSpeed->value(),
+                    this->ui->debugAccel->value(),
+                    this->ui->debugDecel->value());
             } else {
                 // 正解模式:取关节角度,减步长
                 QList<double> pos = m_robotController->getState()->getAllAxisPositions();
                 if (pos.size() <= i) return;
-                m_robotController->jogJoint(i, pos[i] - step, 25.0, 50.0, 60.0);
+                m_robotController->jogJoint(i, pos[i] - step,
+                    this->ui->debugSpeed->value(),
+                    this->ui->debugAccel->value(),
+                    this->ui->debugDecel->value());
             }
             lastEditMs[i] = 0;
         });
@@ -2322,12 +2390,18 @@ void MainWindow::showPointAdjustDialog(bool isJoint)
                 QList<double> pos = m_robotController->getState()->getAllCartesianPositions();
                 if (pos.size() <= i) return;
                 pos[i] += step;
-                m_robotController->jogCart(pos, 25.0, 50.0, 60.0);
+                m_robotController->jogCart(pos,
+                    this->ui->debugSpeed->value(),
+                    this->ui->debugAccel->value(),
+                    this->ui->debugDecel->value());
             } else {
                 // 正解模式:取关节角度,加步长
                 QList<double> pos = m_robotController->getState()->getAllAxisPositions();
                 if (pos.size() <= i) return;
-                m_robotController->jogJoint(i, pos[i] + step, 25.0, 50.0, 60.0);
+                m_robotController->jogJoint(i, pos[i] + step,
+                    this->ui->debugSpeed->value(),
+                    this->ui->debugAccel->value(),
+                    this->ui->debugDecel->value());
             }
             lastEditMs[i] = 0;
         });
@@ -2367,8 +2441,14 @@ void MainWindow::showPointAdjustDialog(bool isJoint)
 
         const bool isCart = m_robotController->isCartesianMode();
         bool ok = isCart
-            ? m_robotController->moveL(vals, 25.0, 50.0, 60.0, 3000)
-            : m_robotController->moveJ(vals, 25.0, 50.0, 60.0, 3000);
+            ? m_robotController->moveL(vals,
+                this->ui->debugSpeed->value(),
+                this->ui->debugAccel->value(),
+                this->ui->debugDecel->value(), 3000)
+            : m_robotController->moveJ(vals,
+                this->ui->debugSpeed->value(),
+                this->ui->debugAccel->value(),
+                this->ui->debugDecel->value(), 3000);
 
         resetEditState();  // 运行后恢复实时刷新
 

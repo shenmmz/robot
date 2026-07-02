@@ -32,10 +32,20 @@ public:
     // ===== 任务管理 =====
     /// 设置指令列表（替代旧的 setTaskList）
     void setCommands(const QList<ScriptCommand>& commands);
+    /// 单步模式首次进入时设置起点（仅 m_currentIdx）
+    void setStartIndex(int idx) { m_currentIdx = idx; }
     void start();
     void pause();
     void resume();
     void stop();
+
+    /// 单步执行：先准备好任务（设指令列表），仅执行一条命令后停在 Idle。
+    /// 等价于内部把 m_state 设为 Running，但 executeNext 在执行完一条后清掉 Running 标志，不再续行。
+    /// 重复调用 stepOnce() 会从当前指令后继续往下走一条。
+    void stepOnce();
+
+    /// 重置到起始位置：m_currentIdx=0、清变量表、清循环栈。用于单步模式走完末尾后"从头再来"。
+    void reset();
 
     // ===== 参数 =====
     void setSpeed(double s)  { m_speed = s; }
@@ -82,6 +92,9 @@ private:
     /// 求值表达式（支持 + - * / 四则运算和变量替换）
     static double evaluateExpr(const QString& expr, const QMap<QString, double>& vars);
 
+    /// 单步/正常模式统一的续行调度：单步则停在 Idle，正常则 singleShot 排队 executeNext
+    void scheduleNext();
+
     /// 阻塞等待一组舵机通道全部到位（支持暂停 / 超时）
     void waitForServoIdle(ServoController* servo, const QList<int>& channels, int timeoutMs = 30000);
 
@@ -118,6 +131,9 @@ private:
     QString m_scriptName;
     /// 主脚本完整路径（用于 CALL 子脚本时在同目录查找）
     QString m_scriptPath;
+
+    /// 单步模式：executeNext 在执行完一条命令后清掉 Running，不再续行
+    bool m_stepOnce = false;
 };
 
 #endif // TASKEXECUTOR_H
