@@ -4,17 +4,24 @@
  */
 #include "ServoTestWidget.h"
 #include "../hardware/ServoController.h"
+#include "../logic/UiController.h"
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QGridLayout>
 #include <QLabel>
 #include <QGroupBox>
 #include <QFrame>
+#include <QMessageBox>
+#include <QStatusBar>
+#include <QMainWindow>
+#include <QShowEvent>
+#include <QtGlobal>
 #include <QDebug>
 
-ServoTestWidget::ServoTestWidget(ServoController* servo, QWidget *parent)
+ServoTestWidget::ServoTestWidget(ServoController* servo, UiController* ui, QWidget *parent)
     : QWidget(parent)
     , m_servo(servo)
+    , m_ui(ui)
 {
     setupUI();
 
@@ -26,6 +33,38 @@ ServoTestWidget::ServoTestWidget(ServoController* servo, QWidget *parent)
 
 ServoTestWidget::~ServoTestWidget()
 {
+}
+
+/**
+ * @brief 弹窗每次显示时同步一次 ServoController 当前角度到 UI（标签+滑块+spinbox）
+ *
+ * 行为：
+ *   - 读 m_servo->getCurrentAngle(0..5) 写回 6 路"当前角度"标签
+ *   - 未勾选通道：滑块/spinbox 也回写（让"角度"列显示实际位置）
+ *   - 已勾选通道：保持用户编辑的值不动，避免打断
+ *
+ * 注意：ServoController::currentAngle 是软件推算值（速度×dt 累加），初始为 90°。
+ *       如需硬件真实位置，需要扩展 Rs485Controller 读寄存器功能——本次仅同步已有缓存。
+ */
+void ServoTestWidget::showEvent(QShowEvent* event)
+{
+    QWidget::showEvent(event);
+
+    if (!m_servo) return;
+    for (int i = 0; i < 6; ++i) {
+        float cur = m_servo->getCurrentAngle(i);
+        // 1. 始终刷新"当前角度"标签
+        m_currentLabels[i]->setText(QString("%1°").arg(cur, 0, 'f', 1));
+        // 2. 未勾选通道：把滑块/spinbox 同步到 currentAngle（让"角度"列与实际位置一致）
+        if (!m_checkedChannels[i]) {
+            m_angleSliders[i]->blockSignals(true);
+            m_angleSpins[i]->blockSignals(true);
+            m_angleSliders[i]->setValue(qBound(0, static_cast<int>(cur), 180));
+            m_angleSpins[i]->setValue(cur);
+            m_angleSliders[i]->blockSignals(false);
+            m_angleSpins[i]->blockSignals(false);
+        }
+    }
 }
 
 /**
@@ -131,9 +170,9 @@ void ServoTestWidget::setupUI()
         m_speedSpins[i] = new QDoubleSpinBox(this);
         m_speedSpins[i]->setMinimum(1);
         m_speedSpins[i]->setMaximum(180);
-        m_speedSpins[i]->setValue(10);   // 默认速度 10°/s
+        m_speedSpins[i]->setValue(1);    // 默认速度 1°/s（用户偏好：更慢，便于手动观察）
         m_speedSpins[i]->setSuffix(" °/s");
-        m_speedSpins[i]->setSingleStep(5);
+        m_speedSpins[i]->setSingleStep(1);
         m_speedSpins[i]->setMinimumWidth(100);
         m_speedSpins[i]->setStyleSheet("font-size:16px;font-weight:bold;");
         rowLayout->addWidget(m_speedSpins[i]);
@@ -191,6 +230,49 @@ void ServoTestWidget::setupUI()
                 this, &ServoTestWidget::onAngleChanged);
     }
 
+    // ===== 底部操作条：插入 SERVO 到编辑器 =====
+    QFrame* line2 = new QFrame(this);
+    line2->setFrameShape(QFrame::HLine);
+    line2->setStyleSheet("background-color: #cccccc; min-height: 2px; margin-top: 8px;");
+    mainLayout->addWidget(line2);
+
+    QHBoxLayout* actionRow = new QHBoxLayout();
+    actionRow->setSpacing(12);
+
+    QLabel* actionHint = new QLabel(QStringLiteral("勾选要插入的通道 → 设置时间 → 点击插入"), this);
+    actionHint->setStyleSheet("color:#666;font-size:12px;");
+    actionRow->addWidget(actionHint);
+    actionRow->addStretch();
+
+    QLabel* timeLabel = new QLabel(QStringLiteral("T (ms):"), this);
+    timeLabel->setStyleSheet("font-size:13px;font-weight:bold;color:#444;");
+    actionRow->addWidget(timeLabel);
+
+    m_insertTimeSpin = new QDoubleSpinBox(this);
+    m_insertTimeSpin->setMinimum(20);
+    m_insertTimeSpin->setMaximum(30000);
+    m_insertTimeSpin->setValue(500);
+    m_insertTimeSpin->setSingleStep(100);
+    m_insertTimeSpin->setSuffix(" ms");
+    m_insertTimeSpin->setMinimumWidth(110);
+    m_insertTimeSpin->setToolTip(QStringLiteral("生成 SERVO 时间模式的时间参数（ms），≥20 走软插值"));
+    actionRow->addWidget(m_insertTimeSpin);
+
+    // 插入到编辑器按钮：按勾选通道生成 SERVO(ch=ang:Tms,...) 多路表达式
+    QPushButton* btnInsert = new QPushButton(QStringLiteral("📋 插入 SERVO 到编辑器"), this);
+    btnInsert->setMinimumSize(180, 36);
+    btnInsert->setStyleSheet(
+        QStringLiteral(
+            "QPushButton{background:#1565c0;color:#fff;border:1px solid #0d47a1;"
+            "border-radius:4px;font-weight:bold;font-size:13px;padding:4px 12px;}"
+            "QPushButton:hover{background:#0d47a1;}"
+            "QPushButton:pressed{background:#0a3d8a;}"));
+    btnInsert->setToolTip(QStringLiteral("按勾选通道生成 SERVO 指令并插入到主编辑器（多路用逗号分隔）"));
+    connect(btnInsert, &QPushButton::clicked, this, &ServoTestWidget::onInsertToEditor);
+    actionRow->addWidget(btnInsert);
+
+    mainLayout->addLayout(actionRow);
+
     // 去掉底部弹性空间，界面紧凑贴合内容
 }
 
@@ -243,4 +325,53 @@ void ServoTestWidget::updateChannelLockState(int channel)
               "QDoubleSpinBox{font-family:Consolas,'Microsoft YaHei UI';font-size:16px;"
               "padding:1px 2px;border:1px solid #e0e0e0;border-radius:3px;background:#f0f1f3;color:#aaa;}");
     m_angleSpins[channel]->setStyleSheet(angleStyle);
+}
+
+/**
+ * @brief "📋 插入 SERVO 到编辑器"槽：按勾选顺序生成 SERVO(ch=ang:Tms, ...) 并插入主编辑器
+ *
+ * 行为：
+ *   - 仅处理勾选的通道（按通道号 0..5 升序）
+ *   - 角度使用每行 angleSpin 的当前值（即用户拖动滑块后、或弹窗打开时由 showEvent 同步的当前角度）
+ *   - 时间使用底部 m_insertTimeSpin，单位 ms
+ *   - 生成 SERVO(0=130:T500, 1=30:T500) 这种多路表达式，插入到主编辑器光标处
+ *   - m_ui 空时只把文本打到控制台，不报错弹窗（便于脱机测试）
+ */
+void ServoTestWidget::onInsertToEditor()
+{
+    QStringList parts;
+    int timeMs = m_insertTimeSpin ? static_cast<int>(m_insertTimeSpin->value()) : 500;
+    if (timeMs < 20) timeMs = 20;   // 与脚本 SERVO 时间模式规则对齐
+
+    for (int i = 0; i < 6; ++i) {
+        if (!m_checkedChannels[i]) continue;
+        float ang = static_cast<float>(m_angleSpins[i]->value());
+        // 用整型角度，更贴近实际硬件刻度；非整数也保留 1 位小数便于精调
+        QString angStr = (qFuzzyCompare(ang, qRound(ang) * 1.0f))
+                         ? QString::number(qRound(ang))
+                         : QString::number(ang, 'f', 1);
+        parts << QStringLiteral("%1=%2:T%3").arg(i).arg(angStr).arg(timeMs);
+    }
+
+    if (parts.isEmpty()) {
+        QMessageBox::information(this, QStringLiteral("未勾选通道"),
+                                 QStringLiteral("请先勾选要插入 SERVO 的通道"));
+        return;
+    }
+
+    QString text = QStringLiteral("SERVO(%1)").arg(parts.join(QStringLiteral(", ")));
+
+    if (!m_ui) {
+        // 没有 UiController：调试用，打印到 qDebug，避免硬错误弹窗
+        qDebug() << "[ServoTestWidget] generated SERVO line (no UiController):" << text;
+        return;
+    }
+
+    m_ui->insertAtCursor(text);
+    // 状态栏提示：弹窗本身是 QDialog，没有 statusBar。沿 parentWidget 链向上找 QMainWindow
+    QWidget* p = parentWidget();
+    while (p && !qobject_cast<QMainWindow*>(p)) p = p->parentWidget();
+    if (auto* mw = qobject_cast<QMainWindow*>(p)) {
+        mw->statusBar()->showMessage(QStringLiteral("已插入: %1").arg(text), 3000);
+    }
 }
