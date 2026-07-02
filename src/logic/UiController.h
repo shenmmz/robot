@@ -95,6 +95,9 @@ private slots:
     /// 当前执行行变化（编辑器绿色高亮 + 圆点）
     void onCurrentLineChanged(int line);
 
+    /// 点位编辑器文本变化回调：把 TARGET 行增量解析进 m_targets（已存在则覆盖值）
+    void onTargetEditorChanged();
+
     // === 报警日志 ===
     void onRobotError(int errorCode, const QString& errorMsg);
     void onHardwareError(int errorCode, const QString& errorMsg);

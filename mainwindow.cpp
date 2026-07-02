@@ -1849,7 +1849,8 @@ void MainWindow::initManualProgUI()
         lay->setContentsMargins(0, 0, 0, 0);
 
         // 复用已有的 ServoTestWidget（6通道勾选+滑块+角度+速度+应用/初始化/停止）
-        ServoTestWidget* w = new ServoTestWidget(servo, dlg);
+        // 注入 UiController 指针，使弹窗内的"插入 SERVO 到编辑器"按钮可用
+        ServoTestWidget* w = new ServoTestWidget(servo, m_uiController, dlg);
         lay->addWidget(w);
 
         // 记录指针以便下次点击按钮时做防重复判断
@@ -1939,12 +1940,18 @@ void MainWindow::initManualProgUI()
 
     QPlainTextEdit* progTargets = new QPlainTextEdit(targetWrap);
     progTargets->setObjectName(QStringLiteral("progTargets"));  // ★ 关键:UiController 通过这个 name 找到
-    progTargets->setReadOnly(true);  // 只读,数据由 UiController 自动写入
+    // 可编辑：用户可手动改 TARGET 行（如 J0: 90 → J0: 45），编辑后 UiController 自动回写到 m_targets
+    progTargets->setReadOnly(false);
+    progTargets->setToolTip(QStringLiteral(
+        "点位定义区：可手动编辑 TARGET P1 = {J0: 0, J1: 0, ...} 中的数值；\n"
+        "修改会在程序运行/单步时被解析到 m_targets（已存在则覆盖）。\n"
+        "新增点位使用运行后自动编号（P1/P2/...），顺序按程序区引用顺序重排。"));
     progTargets->setStyleSheet(QStringLiteral(
-        "QPlainTextEdit{background:#fafbfc;color:#1565c0;"
+        "QPlainTextEdit{background:#ffffff;color:#1565c0;"
         "border-top:1px solid #e0e0e0;border-left:1px solid #e0e0e0;border-right:none;border-bottom:none;"
         "font-family:Consolas,'Microsoft YaHei UI';font-size:11px;"
-        "padding:4px 6px;selection-background-color:#264f78;}"));
+        "padding:4px 6px;selection-background-color:#264f78;}"
+        "QPlainTextEdit:focus{border-top:1px solid #1565c0;background:#fcfdff;}"));
     targetWrapLay->addWidget(progTargets);
 
     progSplit->addWidget(editorWrap);

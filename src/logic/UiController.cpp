@@ -216,6 +216,19 @@ void UiController::init()
     connect(syncTimer, &QTimer::timeout, this, &UiController::syncTargets);
     if (auto* progEd = getEditor())
         connect(progEd, &QPlainTextEdit::textChanged, this, [syncTimer] { syncTimer->start(); });
+
+    // === 点位编辑器文字变化 → 100ms 去抖后同步到 m_targets 缓存 ===
+    // 作用：用户手动改 TARGET P1 = {J0: 90, ...} 中的数值时，让"运行/单步"能立即看到新值
+    // 实现：只解析 TARGET 行，**增量覆盖**（已存在则更新值），不删除/重排
+    auto* targetSyncTimer = new QTimer(this);
+    targetSyncTimer->setSingleShot(true);
+    targetSyncTimer->setInterval(100);
+    if (auto* targetEd = getTargetEditor())
+        connect(targetEd, &QPlainTextEdit::textChanged, this, [this, targetSyncTimer] {
+            // 正在 syncTargets() 写回时跳过（防止与重排逻辑抢着改 m_targets）
+            if (!m_syncTargetsBusy) targetSyncTimer->start();
+        });
+    connect(targetSyncTimer, &QTimer::timeout, this, &UiController::onTargetEditorChanged);
 }
 
 // ==================== IO 监控 ====================
@@ -557,6 +570,61 @@ void UiController::syncTargets()
 }
 
 /**
+ * @brief 点位编辑器文本变化回调（用户手动编辑 TARGET 行）
+ *
+ * 行为：增量解析点位编辑器所有 TARGET 行，覆盖到 m_targets[name] = vals。
+ *   - 已存在的 name → 覆盖值
+ *   - 不存在的 name → 新增
+ *   - 不删除任何 name（避免用户编辑过程中误删）
+ *   - 不重排序（syncTargets 才负责重排）
+ *
+ * 调用链：progTargets->textChanged → 100ms 去抖 → 本函数 → m_targets[name]=vals
+ *         → 下次 runText/parseScript 时会读到最新值
+ */
+void UiController::onTargetEditorChanged()
+{
+    auto* targetEd = getTargetEditor();
+    if (!targetEd) return;
+
+    QStringList lines = targetEd->toPlainText().split(QChar::fromLatin1('\n'), Qt::SkipEmptyParts);
+    for (const QString& rawLine : lines) {
+        QString line = rawLine.trimmed();
+        if (!line.startsWith(QStringLiteral("TARGET "), Qt::CaseInsensitive)) continue;
+        int eq = line.indexOf(QChar::fromLatin1('='));
+        int br = line.indexOf(QChar::fromLatin1('{'));
+        if (eq < 0 || br < 0) continue;
+        QString name = line.mid(7, eq - 7).trimmed();
+        if (name.isEmpty()) continue;
+        int e = line.indexOf(QChar::fromLatin1('}'), br);
+        if (e < 0) continue;
+        QString raw = line.mid(br + 1, e - br - 1);
+        QList<double> vals;
+        bool ok = true;
+        for (const auto& p : raw.split(QChar::fromLatin1(','), Qt::SkipEmptyParts)) {
+            QString t = p.trimmed();
+            int colon = t.indexOf(QChar::fromLatin1(':'));
+            QString numStr = (colon >= 0) ? t.mid(colon + 1).trimmed() : t;
+            bool convOk = false;
+            double v = numStr.toDouble(&convOk);
+            if (!convOk) { ok = false; break; }
+            vals.append(v);
+        }
+        // 至少 6 个值（关节 J0-J5 或笛卡尔 X/Y/Z/A/B/C）才算合法点位
+        if (!ok || vals.size() < 6) continue;
+
+        // 覆盖式更新（用户编辑就是合法源）
+        m_targets[name] = vals;
+        // 顺手更新 m_targetCounter，确保下次自动生成的点位名不冲突
+        QRegularExpression numRe(QStringLiteral("(\\d+)"));
+        auto m = numRe.match(name);
+        if (m.hasMatch()) {
+            int n = m.captured(1).toInt();
+            if (n > m_targetCounter) m_targetCounter = n;
+        }
+    }
+}
+
+/**
  * @brief "运行"按钮回调：解析脚本并交给 TaskExecutor 逐条执行
  *
  * 流程：
@@ -760,8 +828,9 @@ QList<ScriptCommand> UiController::parseScript(const QString& text)
                 vals.append(t.mid(colon + 1).trimmed().toDouble());
             }
             if (vals.size() >= 6) {
+                // 已存在的 name 也覆盖（用户手动编辑点位 → onTargetEditorChanged 已写入，
+                // 此处再次"覆盖"即最新值；首次发现则插入）。覆盖逻辑天然兼容两种情况。
                 if (!m_targets.contains(name)) {
-                    m_targets.insert(name, vals);
                     QRegularExpression numRe(QStringLiteral("(\\d+)"));
                     auto m = numRe.match(name);
                     if (m.hasMatch()) {
@@ -769,6 +838,7 @@ QList<ScriptCommand> UiController::parseScript(const QString& text)
                         if (n > m_targetCounter) m_targetCounter = n;
                     }
                 }
+                m_targets[name] = vals;   // 直接覆盖/插入，覆盖路径兼容"用户编辑"
             }
         } else if (line.startsWith(QStringLiteral("MOVEJ("), Qt::CaseInsensitive)) {
             cmd.type = ScriptCmdType::MoveJ;
