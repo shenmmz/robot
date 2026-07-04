@@ -73,6 +73,9 @@ public slots:
     /// 弹出点位编辑对话框：列出当前流程引用的所有 TARGET，可逐个修改坐标值
     void showTargetEditDialog();
 
+    /// 同步程序注释：扫描点位编辑器中 TARGET 的行尾注释，追加到程序编辑器引用该点位的 MOVEJ/MOVEL 行
+    void syncProgramComments();
+
     // === 新增指令 ===
     void onProgInsertMoveOff();
     void onProgInsertMoveLOff();
@@ -141,6 +144,7 @@ private:
     int m_targetCounter = 0;           // 目标编号自增
     QHash<QString, QList<double>> m_targets;  // 目标名 → 6个坐标值
     bool m_syncTargetsBusy = false;           // syncTargets 防重入
+    bool m_syncingComments = false;          // syncProgramComments 防重入
     int m_currentExecLine = -1;               // 当前执行源代码行号（-1=无）
     bool m_stepMode = false;                   // 当前是否处于单步会话中（用于决定 finish 后是否自动重置）
 

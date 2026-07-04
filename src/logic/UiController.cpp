@@ -651,6 +651,9 @@ void UiController::onTargetEditorChanged()
             if (n > m_targetCounter) m_targetCounter = n;
         }
     }
+
+    // 点位变更后自动同步注释到程序编辑器
+    syncProgramComments();
 }
 
 /** @brief 弹出对话框编辑当前流程中引用的所有点位 */
@@ -975,7 +978,77 @@ void UiController::showTargetEditDialog()
         m_taskExecutor->setTargets(m_targets);
 }
 
+/**
+ * @brief 同步程序注释：将点位编辑器中的 TARGET 行尾注释同步到程序编辑器
+ *
+ * 扫描点位编辑器的 TARGET 行，提取 `// 注释` 部分，建立 name→comment 映射。
+ * 然后遍历程序编辑器，对每条 MOVEJ/MOVEL/MOVEJOFF/MOVELOFF 指令，
+ * 若引用的目标点位有注释且该行尚未包含注释，则追加行尾注释。
+ */
+void UiController::syncProgramComments()
+{
+    if (m_syncingComments) return;
+    auto* targetEd = getTargetEditor();
+    auto* progEd = getEditor();
+    if (!targetEd || !progEd) return;
 
+    m_syncingComments = true;
+
+    // 1. 从点位编辑器提取 name → comment 映射
+    QHash<QString, QString> targetComments;
+    const QStringList targetLines = targetEd->toPlainText().split(QChar::fromLatin1('\n'), Qt::SkipEmptyParts);
+    for (const QString& line : targetLines) {
+        QString trimmed = line.trimmed();
+        if (!trimmed.startsWith(QStringLiteral("TARGET "), Qt::CaseInsensitive)) continue;
+        int eq = trimmed.indexOf(QChar::fromLatin1('='));
+        if (eq < 0) continue;
+        QString name = trimmed.mid(7, eq - 7).trimmed();
+        int br = trimmed.indexOf(QChar::fromLatin1('{'), eq);
+        int e = (br >= 0) ? trimmed.indexOf(QChar::fromLatin1('}'), br) : -1;
+        QString tail = (e >= 0) ? trimmed.mid(e + 1) : trimmed.mid(eq + 1);
+        int commentIdx = tail.indexOf(QStringLiteral("//"));
+        if (commentIdx >= 0)
+            targetComments[name] = tail.mid(commentIdx + 2).trimmed();
+    }
+
+    if (targetComments.isEmpty()) return;
+
+    // 2. 扫描程序编辑器，追加注释到引用有点位注释的 MOVE 行
+    const QStringList progLines = progEd->toPlainText().split(QChar::fromLatin1('\n'));
+    QStringList result;
+    QRegularExpression moveRe(
+        QStringLiteral("\\b(MOVEJ|MOVEL|MOVEJOFF|MOVELOFF)\\s*\\(\\s*(\\w+)"),
+        QRegularExpression::CaseInsensitiveOption);
+
+    for (int i = 0; i < progLines.size(); ++i) {
+        const QString& line = progLines[i];
+        QString trimmed = line.trimmed();
+        auto m = moveRe.match(trimmed);
+        if (m.hasMatch()) {
+            QString targetName = m.captured(2);
+            if (targetComments.contains(targetName) && !trimmed.contains(QStringLiteral("//")))
+                result.append(line + QStringLiteral("// %1").arg(targetComments[targetName]));
+            else
+                result.append(line);
+        } else {
+            result.append(line);
+        }
+    }
+
+    // 3. 写回程序编辑器（仅内容有变化时，避免触发不必要的 textChanged）
+    QString newText = result.join(QChar::fromLatin1('\n'));
+    if (newText == progEd->toPlainText()) {
+        m_syncingComments = false;
+        return;
+    }
+    QTextCursor cursor = progEd->textCursor();
+    int oldPos = cursor.position();
+    progEd->setPlainText(newText);
+    int newLen = progEd->toPlainText().length();
+    cursor.setPosition(qMin(oldPos, newLen));
+    progEd->setTextCursor(cursor);
+    m_syncingComments = false;
+}
 
 
 /**
