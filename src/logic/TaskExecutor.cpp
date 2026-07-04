@@ -530,7 +530,10 @@ bool TaskExecutor::executeCommand(const ScriptCommand& cmd)
     switch (cmd.type) {
     case ScriptCmdType::MoveJ: {
         QList<double> targets;
-        if (!cmd.targetRaw.isEmpty()) {
+        // 动态解析：优先从 m_targets 实时取最新点位，改点位即生效
+        if (!cmd.targetName.isEmpty() && m_targets.contains(cmd.targetName)) {
+            targets = m_targets[cmd.targetName];
+        } else if (!cmd.targetRaw.isEmpty()) {
             for (int i = 0; i < cmd.targetRaw.size(); ++i)
                 targets.append(resolveValue(cmd.targetRaw[i], m_variables));
         } else {
@@ -556,7 +559,10 @@ bool TaskExecutor::executeCommand(const ScriptCommand& cmd)
     }
     case ScriptCmdType::MoveL: {
         QList<double> targets;
-        if (!cmd.targetRaw.isEmpty()) {
+        // 动态解析：优先从 m_targets 实时取最新点位，改点位即生效
+        if (!cmd.targetName.isEmpty() && m_targets.contains(cmd.targetName)) {
+            targets = m_targets[cmd.targetName];
+        } else if (!cmd.targetRaw.isEmpty()) {
             for (int i = 0; i < cmd.targetRaw.size(); ++i)
                 targets.append(resolveValue(cmd.targetRaw[i], m_variables));
         } else {

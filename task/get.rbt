@@ -1,0 +1,22 @@
+TARGET Target1 = { J0:0.000, J1:0.000, J2:0.000, J3:0.000, J4:0.000, J5:94.996 }
+TARGET Target2 = { X:359.590, Y:0.000, Z:400.000, A:90.000, B:-4.996, C:90.000 }
+TARGET Target8 = { X:359.590, Y:52.000, Z:400.000, A:90.000, B:-4.996, C:90.000 }
+TARGET Target3 = { X:285.000, Y:51.427, Z:160.000, A:90.000, B:-4.996, C:90.000 }
+TARGET Target4 = { X:410.272, Y:57.000, Z:160.000, A:90.000, B:-4.996, C:90.000 }
+TARGET Target5 = { X:410.304, Y:57.003, Z:550.000, A:89.998, B:-4.974, C:90.004 }
+TARGET Target6 = { X:410.306, Y:57.006, Z:160.000, A:89.997, B:-4.952, C:90.006 }
+TARGET Target7 = { X:410.306, Y:57.006, Z:400.000, A:89.997, B:-4.952, C:90.006 }// 抬起点位
+---
+SERVO(0=140:T5,1=140:T5,2=20:T5,3=140:T5,4=20:T5,5=140:T5)
+MOVEJ(Target1, speed=25, acc=50, dec=60)
+SERVO(0=50:T5,1=140:T5,2=20:T5,3=140:T5,4=20:T5,5=140:T5)
+MOVEL(Target2, speed=25, acc=50, dec=60)
+MOVEL(Target8, speed=25, acc=50, dec=60)
+MOVEL(Target3, speed=25, acc=50, dec=60)
+MOVEL(Target4, speed=25, acc=50, dec=60)
+SERVO(0=50:T10,1=109:T10,2=78:T10,3=82:T10,4=84:T10,5=94:T10,)
+MOVEL(Target5, speed=25, acc=50, dec=60)
+MOVEL(Target6, speed=25, acc=50, dec=60)
+SERVO(0=50:T5,1=140:T5,2=20:T5,3=140:T5,4=20:T5,5=140:T5)
+MOVEL(Target7, speed=25, acc=50, dec=60)
+MOVEJ(Target1, speed=25, acc=50, dec=60)

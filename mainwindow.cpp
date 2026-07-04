@@ -1940,12 +1940,11 @@ void MainWindow::initManualProgUI()
 
     QPlainTextEdit* progTargets = new QPlainTextEdit(targetWrap);
     progTargets->setObjectName(QStringLiteral("progTargets"));  // ★ 关键:UiController 通过这个 name 找到
-    // 可编辑：用户可手动改 TARGET 行（如 J0: 90 → J0: 45），编辑后 UiController 自动回写到 m_targets
-    progTargets->setReadOnly(false);
+    // 只读展示：所有点位修改统一通过"点位管理"按钮弹出的对话框完成
+    progTargets->setReadOnly(true);
     progTargets->setToolTip(QStringLiteral(
-        "点位定义区：可手动编辑 TARGET P1 = {J0: 0, J1: 0, ...} 中的数值；\n"
-        "修改会在程序运行/单步时被解析到 m_targets（已存在则覆盖）。\n"
-        "新增点位使用运行后自动编号（P1/P2/...），顺序按程序区引用顺序重排。"));
+        "点位定义区（只读）：显示当前 TARGET 定义；\n"
+        "如需修改请点击上方「点位管理」按钮。"));
     progTargets->setStyleSheet(QStringLiteral(
         "QPlainTextEdit{background:#ffffff;color:#1565c0;"
         "border-top:1px solid #e0e0e0;border-left:1px solid #e0e0e0;border-right:none;border-bottom:none;"
@@ -2007,13 +2006,19 @@ void MainWindow::initManualProgUI()
         QPlainTextEdit* src = *lastFocusedEditor;
         if (!src) src = codeEditor;
 
+        // 先同步点位表（无论是否首次点击都需要），确保 m_targets 包含用户编辑的最新点位
+        m_uiController->syncTargets();
+        
         QString text;
         auto* targetEd = findChild<QPlainTextEdit*>(QStringLiteral("progTargets"));
         if (targetEd) text += targetEd->toPlainText() + QStringLiteral("\n");
+        
+        // 关键修复：如果 lastFocusedEditor 指向了点位编辑器，则强制回退到程序编辑器
+        // 否则组装文本时会丢失所有 MOVEJ/MOVEL 指令，点位值自然不生效
+        if (src == targetEd) src = codeEditor;
         text += src->toPlainText();
 
-        // 先同步点位表（无论是否首次点击都需要），并清掉旧高亮
-        m_uiController->syncTargets();
+        // 清掉旧高亮
         if (m_lastHighlightedEditor)
             m_lastHighlightedEditor->setExtraSelections({});
         m_lastHighlightedEditor = nullptr;
@@ -2066,7 +2071,10 @@ void MainWindow::initManualProgUI()
             extras << hl;
             src->setExtraSelections(extras);
 
-            m_uiController->runStep(text, effectiveLine);
+            // effectiveLine 是 codeEditor 内部行号，runStep 内 parseScript 使用完整文本
+            // (progTargets + codeEditor) 的绝对行号，需要加上点位表的行数偏移
+            int targetLineOffset = targetEd ? (targetEd->document()->blockCount() + 1) : 0;
+            m_uiController->runStep(text, effectiveLine + targetLineOffset);
         } else {
             // 后续点击：从 TaskExecutor 当前 m_currentIdx 续走一条
             // 高亮由 currentLineChanged 信号负责刷新，这里只发请求
@@ -2093,6 +2101,17 @@ void MainWindow::initManualProgUI()
             m_lastHighlightedEditor = nullptr;
         }
     });
+
+    // "点位管理"按钮：弹出当前流程中所有引用点位的编辑对话框
+    QPushButton* btnEditTargets = new QPushButton(QStringLiteral("点位管理"));
+    btnEditTargets->setMinimumSize(72, 36);
+    btnEditTargets->setStyleSheet(
+        QStringLiteral("QPushButton{background:#fff3e0;color:#e65100;border:1px solid #ffcc80;border-radius:4px;"
+            "padding:2px 10px;font-weight:bold;font-size:13px;}QPushButton:hover{background:#ffe0b2;}"));
+    connect(btnEditTargets, &QPushButton::clicked, this, [this] {
+        if (m_uiController) m_uiController->showTargetEditDialog();
+    });
+    ui->progToolLayout->addWidget(btnEditTargets);
 
     // 控制台标题栏加清除按钮
     QLabel* consoleTitle = ui->progConsole->findChild<QLabel*>(QStringLiteral("label_103"));

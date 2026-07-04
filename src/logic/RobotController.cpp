@@ -444,11 +444,14 @@ bool RobotController::moveAxis(int axisIndex, double targetPos, double speed, do
 bool RobotController::moveJ(const QList<double>& jointPos, double speed, double accel, double decel, int timeoutMs)
 {
     if (!isConnected()) {
+        qCritical() << "[moveJ] 硬件未连接";
         emit operationFailed(QStringLiteral("moveJ"), QStringLiteral("硬件未连接"));
         return false;
     }
 
     if (jointPos.size() != m_config->getAxisCount()) {
+        qCritical() << "[moveJ] 关节数量不匹配: 传入" << jointPos.size()
+                     << "期望" << m_config->getAxisCount();
         emit operationFailed(QStringLiteral("moveJ"), QStringLiteral("关节数量不匹配"));
         return false;
     }
@@ -468,17 +471,19 @@ bool RobotController::moveJ(const QList<double>& jointPos, double speed, double 
 
     ZmotionResult result = api->directMoveAbsolute(axes, targets, static_cast<float>(speed), static_cast<float>(accel), static_cast<float>(decel));// 直接绝对移动，触发正解模式
     if (!result.success) {
+        qCritical() << "[moveJ] directMoveAbsolute 失败:" << result.errorMessage;
         emit operationFailed(QStringLiteral("moveJ"), result.errorMessage);
         return false;
     }
 
     m_state->setStatus(RobotState::StatusMoving);
+    qDebug() << "[moveJ] 运动已启动, targets=" << targets << "speed=" << speed << "timeout=" << timeoutMs;
     // 等待关节轴物理停止（IDLE检测，CONNREFRAME 下 GetDpos 不可靠）
     result = api->waitForAxesIdle(axes, timeoutMs);
     m_state->setStatus(RobotState::StatusIdle);
 
     if (!result.success) {
-        qWarning() << "[moveJ] 等待运动到位超时，命令已发出";
+        qCritical() << "[moveJ] 等待运动到位超时:" << result.errorMessage << "超时=" << timeoutMs << "ms";
         return false;
     }
     return true;
@@ -651,9 +656,17 @@ bool RobotController::jogCart(const QList<double>& cartTarget,
     QList<int> virtualAxes = m_config->getVirtualAxisList();
     QList<int> jointAxes   = m_config->getJointAxisList();
 
-    // ===== 在 SetDpos 之前,先给关节轴设速度/加速度/减速度 =====
-    // 原因:CONNFRAME 模式下 SetDpos 覆盖虚拟轴 DPOS 后,控制器通过 IK 解算驱动关节轴跟随;
-    //      关节轴 SPEED/ACCEL/DECEL 沿用默认小值会极慢,显式设 25/50/60 后正常。
+    // 给虚拟轴设速度/加速度/减速度（虚拟轴 UNITS=10000 对应 mm）
+    {
+        QList<double> vSpeeds(virtualAxes.size(), static_cast<double>(speed));
+        QList<double> vAccels(virtualAxes.size(), static_cast<double>(accel));
+        QList<double> vDecels(virtualAxes.size(), static_cast<double>(decel));
+        api->setAxisSpeed(virtualAxes, vSpeeds);
+        api->setAxisAccel(virtualAxes, vAccels);
+        api->setAxisDecel(virtualAxes, vDecels);
+    }
+
+    // 同时给关节轴设运动参数（CONNFRAME 模式下关节轴也要遵守）
     {
         QList<double> speeds(jointAxes.size(), static_cast<double>(speed));
         QList<double> accels(jointAxes.size(), static_cast<double>(accel));
@@ -663,8 +676,11 @@ bool RobotController::jogCart(const QList<double>& cartTarget,
         api->setAxisDecel(jointAxes, decels);
     }
 
-    // 虚拟轴无运动规划器，用 SetDpos 直设位置触发 CONNFRAME IK
-    api->setAxisDpos(virtualAxes, cartTarget);
+    // 用 directMoveAbsolute 替代 setAxisDpos，带运动规划平滑加减速
+    QList<float> targets;
+    for (double pos : cartTarget) targets.append(static_cast<float>(pos));
+    api->directMoveAbsolute(virtualAxes, targets, static_cast<float>(speed),
+                            static_cast<float>(accel), static_cast<float>(decel));
     return true;
 }
 

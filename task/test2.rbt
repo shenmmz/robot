@@ -1,0 +1,9 @@
+TARGET Target1 = { J0:0.000, J1:0.000, J2:0.000, J3:0.000, J4:0.000, J5:94.996 }
+TARGET Target2 = { X:359.590, Y:0.000, Z:659.628, A:90.000, B:-4.996, C:90.000 }
+TARGET Target3 = { X:359.598, Y:0.000, Z:160.000, A:90.004, B:-4.996, C:90.000 }
+TARGET Target4 = { J0:0.000, J1:0.000, J2:0.000, J3:0.000, J4:0.000, J5:94.996 }
+---
+MOVEJ(Target1, speed=25, acc=50, dec=60)
+MOVEL(Target2, speed=25, acc=50, dec=60)
+MOVEL(Target3, speed=25, acc=50, dec=60)
+MOVEJ(Target4, speed=25, acc=50, dec=60)

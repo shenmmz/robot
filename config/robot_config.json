@@ -3,7 +3,7 @@
   "controllerIP": "192.168.0.123",
   "axisCount": 6,
   "stateUpdateIntervalMs": 100,
-  "homePosition": [84.999, 68.620, -50.944, 8.229, 50.0, -125.0],
+  "homePosition": [84.999, 68.620, -51.944, 8.229, 71.0, -125.0],
   "homeMoveSpeed": 60.0,
   "homeMoveAccel": 80.0,
   "homeMoveDecel": 100.0,
