@@ -34,6 +34,13 @@
 #include <QFile>
 #include <QTextStream>
 #include <QFileDialog>
+#include <QVBoxLayout>
+#include <QHBoxLayout>
+#include <QFormLayout>
+#include <QScrollArea>
+#include <QGroupBox>
+#include <QGridLayout>
+#include <QHeaderView>
 #include <QMessageBox>
 #include <QInputDialog>
 #include <QRegularExpression>
@@ -43,6 +50,7 @@
 #include <QDir>
 #include <QFileInfo>
 #include <utility>
+#include <functional>
 
 // ==================== 构造 / 析构 / 初始化 ====================
 
@@ -539,28 +547,49 @@ void UiController::syncTargets()
         }
     }
 
-    // 2. 读取点位编辑器所有 TARGET 行，建立 name→line 的哈希
+    // 2. 读取点位编辑器所有 TARGET 行，建立 name→line+comment（行尾格式）
     QStringList targetLines = targetEd->toPlainText().split(QChar::fromLatin1('\n'), Qt::SkipEmptyParts);
-    QHash<QString, QString> targetMap;  // name → full line
+    QHash<QString, QString> targetMap;   // name → TARGET line（不含注释）
+    QHash<QString, QString> commentMap;  // name → comment
     for (const QString& line : targetLines) {
         QString trimmed = line.trimmed();
         if (!trimmed.startsWith(QStringLiteral("TARGET "), Qt::CaseInsensitive)) continue;
         int eq = trimmed.indexOf(QChar::fromLatin1('='));
         if (eq < 0) continue;
-        // "TARGET <name> = ..." → 取出 name
         QString name = trimmed.mid(7, eq - 7).trimmed();
-        targetMap.insert(name, trimmed);
+        // 提取 } 之后 // 注释
+        int br = trimmed.indexOf(QChar::fromLatin1('{'), eq);
+        int e = (br >= 0) ? trimmed.indexOf(QChar::fromLatin1('}'), br) : -1;
+        QString tail = (e >= 0) ? trimmed.mid(e + 1) : QString();
+        int commentIdx = tail.indexOf(QStringLiteral("//"));
+        QString comment = (commentIdx >= 0) ? tail.mid(commentIdx + 2).trimmed() : QString();
+        // 去掉注释后存 targetMap
+        QString lineWithoutComment = (commentIdx >= 0)
+            ? trimmed.left(trimmed.size() - (tail.size() - commentIdx)).trimmed()
+            : trimmed;
+        targetMap.insert(name, lineWithoutComment);
+        if (!comment.isEmpty())
+            commentMap.insert(name, comment);
     }
 
-    // 3. 按引用顺序重排（被引用的放前面，未引用的放末尾保留）
+    // 3. 按引用顺序重排（被引用的放前面，未引用的放末尾保留），附注释在行尾
     QStringList result;
     for (const QString& name : refOrder) {
-        if (targetMap.contains(name))
-            result.append(targetMap.take(name));
+        if (targetMap.contains(name)) {
+            QString line = targetMap.take(name);
+            if (commentMap.contains(name))
+                line += QStringLiteral("// %1").arg(commentMap[name]);
+            result.append(line);
+        }
     }
     // 保留未被引用但已存在的（放在末尾）
-    for (auto it2 = targetMap.begin(); it2 != targetMap.end(); ++it2)
-        result.append(it2.value());
+    for (auto it2 = targetMap.begin(); it2 != targetMap.end(); ++it2) {
+        QString name = it2.key();
+        QString line = it2.value();
+        if (commentMap.contains(name))
+            line += QStringLiteral("// %1").arg(commentMap[name]);
+        result.append(line);
+    }
 
     // 4. 写回（阻止 textChanged 再次触发，防止递归）
     targetEd->blockSignals(true);
@@ -624,6 +653,331 @@ void UiController::onTargetEditorChanged()
     }
 }
 
+/** @brief 弹出对话框编辑当前流程中引用的所有点位 */
+void UiController::showTargetEditDialog()
+{
+    auto* progEd = getEditor();
+    auto* targetEd = getTargetEditor();
+    if (!progEd || !targetEd) return;
+
+    // 1. 先从点位编辑器解析所有 TARGET 行
+    struct TargetInfo {
+        QString name;
+        QMap<QString, double> values;
+        QStringList labelOrder;
+        QString rawBody;  // 大括号内的原始字符串
+        QString comment;  // 行尾注释（} 之后 // 的内容）
+    };
+    QHash<QString, TargetInfo> infoMap;
+    QStringList targetLines = targetEd->toPlainText().split(
+        QChar::fromLatin1('\n'), Qt::SkipEmptyParts);
+    QStringList allTargetNames;
+    for (const QString& line : targetLines) {
+        QString trimmed = line.trimmed();
+        if (!trimmed.startsWith(QStringLiteral("TARGET "), Qt::CaseInsensitive)) continue;
+        int eq = trimmed.indexOf(QChar::fromLatin1('='));
+        int br = trimmed.indexOf(QChar::fromLatin1('{'));
+        if (eq < 0 || br < 0) continue;
+        QString name = trimmed.mid(7, eq - 7).trimmed();
+        int e = trimmed.indexOf(QChar::fromLatin1('}'), br);
+        if (e < 0) continue;
+        QString body = trimmed.mid(br + 1, e - br - 1);
+        // 提取 } 之后 // 注释
+        QString tail = trimmed.mid(e + 1);
+        int commentIdx = tail.indexOf(QStringLiteral("//"));
+        QString comment = (commentIdx >= 0)
+            ? tail.mid(commentIdx + 2).trimmed() : QString();
+        TargetInfo info;
+        info.name = name;
+        info.rawBody = body.trimmed();
+        info.comment = comment;
+        for (const auto& part : body.split(QChar::fromLatin1(','), Qt::SkipEmptyParts)) {
+            QString p = part.trimmed();
+            int colon = p.indexOf(QChar::fromLatin1(':'));
+            if (colon < 0) continue;
+            QString label = p.left(colon).trimmed();
+            double val = p.mid(colon + 1).trimmed().toDouble();
+            info.values[label] = val;
+            info.labelOrder.append(label);
+        }
+        if (info.values.size() >= 6) {
+            infoMap[name] = info;
+            allTargetNames.append(name);
+        }
+    }
+
+    // 2. 从程序区提取被引用的点位名
+    QString progText = progEd->toPlainText();
+    QRegularExpression refRe(QStringLiteral("\\b(?:MOVEJ|MOVEL|MOVEJOFF|MOVELOFF)\\(\\s*(\\w+)"));
+    QSet<QString> seen;
+    QStringList refOrder;
+    auto it = refRe.globalMatch(progText);
+    while (it.hasNext()) {
+        auto m = it.next();
+        QString name = m.captured(1);
+        if (!seen.contains(name) && infoMap.contains(name)) {
+            seen.insert(name);
+            refOrder.append(name);
+        }
+    }
+
+    // 3. 程序区无引用时，展示全部点位
+    if (refOrder.isEmpty()) {
+        if (allTargetNames.isEmpty()) {
+            QMessageBox::information(m_mainWindow,
+                QStringLiteral("无点位"),
+                QStringLiteral("点位编辑器中无有效 TARGET 定义。"));
+            return;
+        }
+        refOrder = allTargetNames;
+    }
+
+    // 4. 对话框：方格排布 — 每个点位一个分组，支持复制/增加/删除
+    QDialog dlg(m_mainWindow);
+    dlg.setWindowTitle(QStringLiteral("点位管理"));
+    dlg.setMinimumWidth(700);
+
+    auto* mainLayout = new QVBoxLayout(&dlg);
+
+    // "增加"按钮放在顶部
+    auto* topBar = new QHBoxLayout;
+    auto* addBtn = new QPushButton(QStringLiteral("＋ 增加点位"));
+    addBtn->setStyleSheet(QStringLiteral(
+        "QPushButton{background:#e8f5e9;color:#2e7d32;border:1px solid #a5d6a7;border-radius:4px;"
+        "padding:4px 14px;font-size:13px;font-weight:bold;}"
+        "QPushButton:hover{background:#c8e6c9;}"));
+    topBar->addWidget(addBtn);
+    topBar->addStretch();
+    mainLayout->addLayout(topBar);
+
+    auto* scroll = new QScrollArea(&dlg);
+    scroll->setWidgetResizable(true);
+    auto* scrollContent = new QWidget;
+    auto* groupsLayout = new QVBoxLayout(scrollContent);
+    groupsLayout->setSpacing(8);
+
+    // 每组的数据
+    struct TargetGroup {
+        QString name;
+        QStringList labelOrder;  // 标签显示顺序，写回时按此遍历（QHash 顺序不可靠）
+        QGroupBox* box = nullptr;
+        QHash<QString, QLineEdit*> edits;
+        QLineEdit* commentEdit = nullptr;
+    };
+    QVector<TargetGroup> groups;
+
+    // 生成新点位名
+    int nextId = m_targetCounter;
+    auto nextName = [&nextId]() -> QString {
+        return QStringLiteral("Target%1").arg(++nextId);
+    };
+
+    // 辅助：创建一组控件（先声明 std::function，避免 auto lambda 自引用）
+    std::function<TargetGroup(const QString&, const QHash<QString, double>&,
+                              const QStringList&, const QString&, int)> createGroup;
+    createGroup = [&](const QString& name,
+                           const QHash<QString, double>& vals,
+                           const QStringList& labels,
+                           const QString& comment,
+                           int insertIndex = -1) -> TargetGroup {
+        auto* groupBox = new QGroupBox(name, scrollContent);
+        auto* boxLayout = new QVBoxLayout(groupBox);
+        boxLayout->setSpacing(6);
+
+        // 注释行
+        auto* commentRow = new QHBoxLayout;
+        auto* commentLabel = new QLabel(QStringLiteral("注释:"), groupBox);
+        commentLabel->setStyleSheet(QStringLiteral("color:#888; font-size:12px;"));
+        auto* commentEdit = new QLineEdit(groupBox);
+        commentEdit->setPlaceholderText(QStringLiteral("如：原点、取料点、拍照位…"));
+        commentEdit->setStyleSheet(QStringLiteral(
+            "QLineEdit{background:#fafafa; border:1px dashed #ccc; padding:2px 6px; font-size:12px;}"
+            "QLineEdit:focus{background:#fff; border:1px solid #90caf9;}"));
+        commentEdit->setText(comment);
+        commentRow->addWidget(commentLabel);
+        commentRow->addWidget(commentEdit);
+        boxLayout->addLayout(commentRow);
+
+        // 坐标方格
+        auto* grid = new QGridLayout;
+        grid->setSpacing(4);
+        QHash<QString, QLineEdit*> edits;
+        int n = labels.size();
+        for (int c = 0; c < n; ++c) {
+            const QString& label = labels[c];
+            double val = vals.value(label, 0.0);
+
+            auto* lblWidget = new QLabel(label, groupBox);
+            lblWidget->setAlignment(Qt::AlignCenter);
+            lblWidget->setStyleSheet(QStringLiteral(
+                "background:#eee; border:1px solid #ccc; padding:2px 8px; font-weight:bold;"));
+            grid->addWidget(lblWidget, 0, c);
+
+            auto* edit = new QLineEdit(groupBox);
+            edit->setText(QString::number(val, 'f', 3));
+            edit->setAlignment(Qt::AlignCenter);
+            edit->setFixedWidth(90);
+            grid->addWidget(edit, 1, c);
+            edits.insert(label, edit);
+        }
+        grid->setColumnStretch(n, 1);
+        boxLayout->addLayout(grid);
+
+        // 操作按钮行
+        auto* btnRow = new QHBoxLayout;
+        btnRow->addStretch();
+        auto* copyBtn = new QPushButton(QStringLiteral("复制"), groupBox);
+        auto* delBtn = new QPushButton(QStringLiteral("删除"), groupBox);
+        QString btnStyle = QStringLiteral(
+            "QPushButton{background:#fff; border:1px solid #ccc; border-radius:3px;"
+            "padding:2px 10px; font-size:12px;}"
+            "QPushButton:hover{background:#f5f5f5;}");
+        copyBtn->setStyleSheet(btnStyle);
+        delBtn->setStyleSheet(btnStyle);
+        btnRow->addWidget(copyBtn);
+        btnRow->addWidget(delBtn);
+        boxLayout->addLayout(btnRow);
+
+        TargetGroup g{name, labels, groupBox, edits, commentEdit};
+
+        // 复制按钮 — 按值捕获 edits / commentEdit / 标签顺序，避免引用悬空和 QHash 乱序
+        auto capturedEdits = edits;
+        auto* capturedComment = commentEdit;
+        QStringList capturedLabels = labels;
+        QObject::connect(copyBtn, &QPushButton::clicked, &dlg, [&dlg, &groups, &groupsLayout,
+                groupBox, capturedEdits, capturedComment, capturedLabels, &nextName, &createGroup] {
+            QHash<QString, double> curVals;
+            for (const QString& label : capturedLabels)
+                curVals[label] = capturedEdits.value(label)->text().toDouble();
+            QString curComment = capturedComment->text();
+            int idx = groupsLayout->indexOf(groupBox);
+            auto newGroup = createGroup(nextName(), curVals, capturedLabels, curComment, idx + 1);
+            // 同步插入 groups 向量，保持与布局顺序一致
+            int vecIdx = idx + 1;
+            if (vecIdx >= groups.size())
+                groups.append(newGroup);
+            else
+                groups.insert(vecIdx, newGroup);
+        });
+
+        // 删除按钮
+        QObject::connect(delBtn, &QPushButton::clicked, &dlg, [&groups, &groupsLayout, groupBox] {
+            if (groups.size() <= 1) return;  // 至少保留一个
+            groupsLayout->removeWidget(groupBox);
+            groupBox->deleteLater();
+            groups.erase(std::remove_if(groups.begin(), groups.end(),
+                [&](const TargetGroup& t) { return t.box == groupBox; }), groups.end());
+        });
+
+        // 插入到指定位置
+        if (insertIndex >= 0 && insertIndex < groupsLayout->count())
+            groupsLayout->insertWidget(insertIndex, groupBox);
+        else
+            groupsLayout->addWidget(groupBox);
+
+        return g;
+    };
+
+    // 默认标签（新增点位和 infoMap 缺失时使用）
+    QStringList defaultLabels{QStringLiteral("J0"), QStringLiteral("J1"), QStringLiteral("J2"),
+                              QStringLiteral("J3"), QStringLiteral("J4"), QStringLiteral("J5")};
+    QStringList activeLabels = defaultLabels;
+    if (!infoMap.isEmpty())
+        activeLabels = infoMap.begin().value().labelOrder;
+
+    // 依据 refOrder 创建现有分组，每个点位用自己的 labelOrder
+    for (const QString& name : refOrder) {
+        QHash<QString, double> vals;
+        QString comment;
+        QStringList labels = activeLabels;
+        if (infoMap.contains(name)) {
+            const auto& info = infoMap[name];
+            labels = info.labelOrder;
+            for (auto it = info.values.begin(); it != info.values.end(); ++it)
+                vals[it.key()] = it.value();
+            comment = info.comment;
+        }
+        groups.append(createGroup(name, vals, labels, comment, -1));
+    }
+
+    // "增加"按钮：在末尾追加一个空白点位（沿用 activeLabels）
+    QObject::connect(addBtn, &QPushButton::clicked, &dlg, [&] {
+        QHash<QString, double> zeros;
+        for (const QString& l : activeLabels) zeros[l] = 0.0;
+        groups.append(createGroup(nextName(), zeros, activeLabels, QString(), -1));
+    });
+
+    groupsLayout->addStretch();
+
+    scroll->setWidget(scrollContent);
+    mainLayout->addWidget(scroll);
+
+    auto* btnLayout = new QHBoxLayout;
+    btnLayout->addStretch();
+    auto* okBtn = new QPushButton(QStringLiteral("确定"));
+    auto* cancelBtn = new QPushButton(QStringLiteral("取消"));
+    btnLayout->addWidget(okBtn);
+    btnLayout->addWidget(cancelBtn);
+    mainLayout->addLayout(btnLayout);
+
+    QObject::connect(okBtn, &QPushButton::clicked, &dlg, &QDialog::accept);
+    QObject::connect(cancelBtn, &QPushButton::clicked, &dlg, &QDialog::reject);
+
+    if (dlg.exec() != QDialog::Accepted) return;
+
+    // 5. 写回点位编辑器 — 先收集分组数据，再与原有非TARGET行合并
+    QHash<QString, QString> groupOutput;  // name → "TARGET name = { ... }// comment"
+    for (const auto& g : groups) {
+        if (!g.box) continue;
+        QStringList pairs;
+        for (const QString& label : g.labelOrder) {
+            auto* edit = g.edits.value(label);
+            double val = edit ? edit->text().toDouble() : 0.0;
+            pairs.append(QStringLiteral("%1:%2").arg(label).arg(val, 0, 'f', 3));
+        }
+        QString comment = g.commentEdit->text().trimmed();
+        groupOutput[g.name] = QStringLiteral("TARGET %1 = { %2 }%3").arg(g.name,
+            pairs.join(QStringLiteral(", ")))
+            .arg(comment.isEmpty() ? QString() : QStringLiteral("// %1").arg(comment));
+    }
+
+    // 构建原有的 TARGET 名集合
+    QSet<QString> oldTargetNames;
+    for (const QString& t : refOrder) oldTargetNames.insert(t);
+
+    // 合并：原有行中的 TARGET 替换为 groupOutput，非 TARGET 行保留
+    QStringList newTargetLines;
+    for (const QString& oldLine : targetLines) {
+        QString trimmed = oldLine.trimmed();
+        if (trimmed.startsWith(QStringLiteral("TARGET "), Qt::CaseInsensitive)) {
+            int eq = trimmed.indexOf(QChar::fromLatin1('='));
+            if (eq > 7) {
+                QString name = trimmed.mid(7, eq - 7).trimmed();
+                if (groupOutput.contains(name)) {
+                    newTargetLines.append(groupOutput.take(name));
+                    continue;
+                }
+            }
+        }
+        newTargetLines.append(oldLine);
+    }
+    // 追加新增点位（对话框中新增的，不在原 targetLines 中）
+    for (const auto& g : groups) {
+        if (!g.box) continue;
+        if (groupOutput.contains(g.name))
+            newTargetLines.append(groupOutput[g.name]);
+        // 从 oldTargetNames 中跳过的不再追加
+    }
+
+    targetEd->setPlainText(newTargetLines.join(QChar::fromLatin1('\n')));
+    onTargetEditorChanged();
+    if (m_taskExecutor)
+        m_taskExecutor->setTargets(m_targets);
+}
+
+
+
+
 /**
  * @brief "运行"按钮回调：解析脚本并交给 TaskExecutor 逐条执行
  *
@@ -677,7 +1031,7 @@ void UiController::runText(const QString& text, const QString& sourceLine)
     if (console) console->clear();
 
     // 清除旧点位缓存，由 parseScript 重新解析（m_targetCounter 也会重新计算）
-    m_targets.clear();
+    // m_targets.clear();  // 注释：单步模式保留 onTargetEditorChanged 已同步的实时点位
     QList<ScriptCommand> commands = parseScript(text);
     if (commands.isEmpty()) {
         appendConsole(QStringLiteral("✘ 无法解析: %1").arg(sourceLine.isEmpty() ? text.trimmed() : sourceLine));

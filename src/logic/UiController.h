@@ -70,6 +70,9 @@ public slots:
     /// 读取当前位置并输出到控制台（关节 + 笛卡尔）
     void onProgReadPosition();
 
+    /// 弹出点位编辑对话框：列出当前流程引用的所有 TARGET，可逐个修改坐标值
+    void showTargetEditDialog();
+
     // === 新增指令 ===
     void onProgInsertMoveOff();
     void onProgInsertMoveLOff();
