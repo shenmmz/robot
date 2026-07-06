@@ -24,6 +24,9 @@
 
 class ServoController;
 class UiController;
+class ServoTestWidgetKeypad;
+class QLabel;
+class QTimer;
 
 class ServoTestWidget : public QWidget
 {
@@ -47,6 +50,11 @@ protected:
      * 回写到 6 路"当前"标签、滑块、spinbox（仅未勾选通道，避免打断用户输入）。
      */
     void showEvent(QShowEvent* event) override;
+
+    /**
+     * @brief 事件过滤器：捕获 spinbox 的 FocusIn 事件,弹出软键盘
+     */
+    bool eventFilter(QObject* watched, QEvent* event) override;
 
 private slots:
     /**
@@ -87,6 +95,26 @@ private:
 
     // 记录哪个通道被勾选
     bool m_checkedChannels[6];
+
+    // 数字软键盘(focusIn 时弹出)
+    ServoTestWidgetKeypad* m_keypad = nullptr;
+
+    // 操作反馈 toast(顶部居中浮层)
+    QLabel*    m_toastLabel = nullptr;
+    QTimer*    m_toastTimer = nullptr;
+
+private slots:
+    /**
+     * @brief 隐藏 toast 浮层(QTimer 超时回调)
+     */
+    void onToastTimeout();
+
+public:
+    /**
+     * @brief 在窗口顶部弹出临时提示,2 秒后自动消失
+     * @param text 提示文本(空字符串则立即隐藏)
+     */
+    void showToast(const QString& text);
 };
 
 #endif // SERVOTESTWIDGET_H

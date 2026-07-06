@@ -3,6 +3,7 @@
 
 add_library(robot_ui STATIC
     ServoTestWidget.cpp
+    ServoTestWidgetKeypad.cpp
 )
 
 target_include_directories(robot_ui PUBLIC
@@ -16,6 +17,7 @@ target_link_libraries(robot_ui PUBLIC
 
 target_sources(robot_ui PUBLIC
     ServoTestWidget.h
+    ServoTestWidgetKeypad.h
 )
 
 # 设置源文件编码为 UTF-8

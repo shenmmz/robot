@@ -3,6 +3,7 @@
  * @brief 舵机测试界面组件实现
  */
 #include "ServoTestWidget.h"
+#include "ServoTestWidgetKeypad.h"
 #include "../hardware/ServoController.h"
 #include "../logic/UiController.h"
 #include <QVBoxLayout>
@@ -15,6 +16,8 @@
 #include <QStatusBar>
 #include <QMainWindow>
 #include <QShowEvent>
+#include <QEvent>
+#include <QTimer>
 #include <QtGlobal>
 #include <QDebug>
 
@@ -25,6 +28,25 @@ ServoTestWidget::ServoTestWidget(ServoController* servo, UiController* ui, QWidg
 {
     setupUI();
 
+    // 数字软键盘(作为子控件但不加入布局,按需弹出)
+    m_keypad = new ServoTestWidgetKeypad(this);
+
+    // 操作反馈 toast 浮层(顶部居中)
+    m_toastLabel = new QLabel(this);
+    m_toastLabel->setAlignment(Qt::AlignCenter);
+    m_toastLabel->setWordWrap(true);
+    m_toastLabel->setStyleSheet(QStringLiteral(
+        "QLabel{background:rgba(21,101,192,0.92);color:#ffffff;font-size:15px;"
+        "font-weight:bold;padding:8px 18px;border-radius:6px;"
+        "font-family:'Microsoft YaHei UI','Microsoft YaHei',sans-serif;}"));
+    m_toastLabel->hide();
+    m_toastLabel->setMinimumHeight(36);
+
+    m_toastTimer = new QTimer(this);
+    m_toastTimer->setSingleShot(true);
+    m_toastTimer->setInterval(2000);
+    connect(m_toastTimer, &QTimer::timeout, this, &ServoTestWidget::onToastTimeout);
+
     // 初始化勾选状态
     for (int i = 0; i < 6; ++i) {
         m_checkedChannels[i] = false;
@@ -33,6 +55,51 @@ ServoTestWidget::ServoTestWidget(ServoController* servo, UiController* ui, QWidg
 
 ServoTestWidget::~ServoTestWidget()
 {
+}
+
+/**
+ * @brief 事件过滤器:捕获 QDoubleSpinBox 的 FocusIn,弹出数字软键盘
+ */
+bool ServoTestWidget::eventFilter(QObject* watched, QEvent* event)
+{
+    if (event && event->type() == QEvent::FocusIn) {
+        auto* spin = qobject_cast<QDoubleSpinBox*>(watched);
+        if (spin && m_keypad) {
+            // 控件禁用时不会获得焦点,因此这里只处理 enable 的输入框
+            m_keypad->showFor(spin);
+        }
+    }
+    return QWidget::eventFilter(watched, event);
+}
+
+/**
+ * @brief 在窗口顶部居中显示临时提示,2 秒后自动消失
+ */
+void ServoTestWidget::showToast(const QString& text)
+{
+    if (!m_toastLabel) return;
+    if (text.isEmpty()) {
+        m_toastLabel->hide();
+        return;
+    }
+    m_toastLabel->setText(text);
+    m_toastLabel->adjustSize();
+    // 顶部居中,留 12px 边距
+    const int w = qMin(m_toastLabel->sizeHint().width() + 24, width() - 24);
+    const int x = (width() - w) / 2;
+    m_toastLabel->setGeometry(x, 8, w, m_toastLabel->sizeHint().height());
+    m_toastLabel->raise();
+    m_toastLabel->show();
+    if (m_toastTimer) {
+        m_toastTimer->start();
+    }
+}
+
+void ServoTestWidget::onToastTimeout()
+{
+    if (m_toastLabel) {
+        m_toastLabel->hide();
+    }
 }
 
 /**
@@ -64,6 +131,16 @@ void ServoTestWidget::showEvent(QShowEvent* event)
             m_angleSliders[i]->blockSignals(false);
             m_angleSpins[i]->blockSignals(false);
         }
+    }
+
+    // 让 toast 跟着显示出来(若上次超时还没到就被关闭)
+    if (m_toastLabel && !m_toastLabel->text().isEmpty() && m_toastTimer && m_toastTimer->isActive()) {
+        // 重新计算位置(因为窗口尺寸可能变化了)
+        const int w = qMin(m_toastLabel->sizeHint().width() + 24, width() - 24);
+        const int x = (width() - w) / 2;
+        m_toastLabel->setGeometry(x, 8, w, m_toastLabel->sizeHint().height());
+        m_toastLabel->raise();
+        m_toastLabel->show();
     }
 }
 
@@ -151,6 +228,7 @@ void ServoTestWidget::setupUI()
         m_angleSpins[i]->setSingleStep(1);
         m_angleSpins[i]->setMinimumWidth(100);
         m_angleSpins[i]->setStyleSheet("font-size:16px;font-weight:bold;");
+        m_angleSpins[i]->installEventFilter(this);
         rowLayout->addWidget(m_angleSpins[i]);
 
         // 当前角度显示
@@ -175,6 +253,7 @@ void ServoTestWidget::setupUI()
         m_speedSpins[i]->setSingleStep(1);
         m_speedSpins[i]->setMinimumWidth(100);
         m_speedSpins[i]->setStyleSheet("font-size:16px;font-weight:bold;");
+        m_speedSpins[i]->installEventFilter(this);
         rowLayout->addWidget(m_speedSpins[i]);
 
         mainLayout->addLayout(rowLayout);
@@ -256,6 +335,7 @@ void ServoTestWidget::setupUI()
     m_insertTimeSpin->setSuffix(" ms");
     m_insertTimeSpin->setMinimumWidth(110);
     m_insertTimeSpin->setToolTip(QStringLiteral("生成 SERVO 时间模式的时间参数（ms），≥20 走软插值"));
+    m_insertTimeSpin->installEventFilter(this);
     actionRow->addWidget(m_insertTimeSpin);
 
     // 插入到编辑器按钮：按勾选通道生成 SERVO(ch=ang:Tms,...) 多路表达式
@@ -362,13 +442,18 @@ void ServoTestWidget::onInsertToEditor()
     QString text = QStringLiteral("SERVO(%1)").arg(parts.join(QStringLiteral(", ")));
 
     if (!m_ui) {
-        // 没有 UiController：调试用，打印到 qDebug，避免硬错误弹窗
+        // 没有 UiController:用 toast 提示,避免静默失败
+        showToast(QStringLiteral("插入失败:UiController 未初始化"));
         qDebug() << "[ServoTestWidget] generated SERVO line (no UiController):" << text;
         return;
     }
 
     m_ui->insertAtCursor(text);
-    // 状态栏提示：弹窗本身是 QDialog，没有 statusBar。沿 parentWidget 链向上找 QMainWindow
+
+    // 主路径:toast 提示(始终可见,与 statusBar 无关)
+    showToast(QStringLiteral("已插入: %1").arg(text));
+
+    // 兼容兜底:尝试同步到主窗口 statusBar(失败也不影响 toast)
     QWidget* p = parentWidget();
     while (p && !qobject_cast<QMainWindow*>(p)) p = p->parentWidget();
     if (auto* mw = qobject_cast<QMainWindow*>(p)) {
