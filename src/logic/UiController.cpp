@@ -812,14 +812,26 @@ void UiController::showTargetEditDialog()
 
             auto* lblWidget = new QLabel(label, groupBox);
             lblWidget->setAlignment(Qt::AlignCenter);
+            // 表头: 蓝底白字, 与数据行色彩协调
             lblWidget->setStyleSheet(QStringLiteral(
-                "background:#eee; border:1px solid #ccc; padding:2px 8px; font-weight:bold;"));
+                "background:#1565c0;color:#ffffff;border:1px solid #0d47a1;"
+                "padding:3px 8px;font-weight:bold;font-size:13px;"
+                "font-family:Consolas,'Microsoft YaHei UI';"));
+            lblWidget->setMinimumWidth(140);
             grid->addWidget(lblWidget, 0, c);
 
             auto* edit = new QLineEdit(groupBox);
             edit->setText(QString::number(val, 'f', 3));
             edit->setAlignment(Qt::AlignCenter);
-            edit->setFixedWidth(90);
+            // 与点动面板(J0~J5 SpinBox)视觉一致: 蓝粗体、Consolas、20px、居中、宽 140
+            edit->setStyleSheet(QStringLiteral(
+                "QLineEdit{font-family:Consolas,'Microsoft YaHei UI';font-size:20px;"
+                "font-weight:bold;color:#1565c0;padding:4px 10px;"
+                "border:1px solid #c0d4ee;border-radius:3px;background:#ffffff;"
+                "selection-background-color:#264f78;selection-color:#ffffff;}"
+                "QLineEdit:focus{border:1px solid #1565c0;background:#fcfdff;}"));
+            edit->setMinimumWidth(140);
+            edit->setMaximumWidth(180);
             grid->addWidget(edit, 1, c);
             edits.insert(label, edit);
         }
