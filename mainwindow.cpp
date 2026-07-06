@@ -1961,7 +1961,6 @@ void MainWindow::initManualProgUI()
     progSplit->setSizes({600, 250});
 
     progLay->addWidget(progSplit, 1);
-    rightLay->addWidget(progGroup, 1);  // 可拉伸
 
     // 3. 输出控制台区域（底部）
     QGroupBox* consoleGroup = new QGroupBox(QStringLiteral("输出控制台"));
@@ -1976,7 +1975,18 @@ void MainWindow::initManualProgUI()
     consoleLay->setContentsMargins(0, 0, 0, 0);
     consoleLay->setSpacing(0);
     consoleLay->addWidget(ui->progConsole);
-    rightLay->addWidget(consoleGroup);
+
+    // 编程控制台 + 输出控制台 上下分区(可拖动调整高度)
+    QSplitter* progConsoleSplit = new QSplitter(Qt::Vertical, rightPanel);
+    progConsoleSplit->setChildrenCollapsible(false);  // 不允许把任一块完全拖没
+    progConsoleSplit->setHandleWidth(4);
+    progConsoleSplit->addWidget(progGroup);
+    progConsoleSplit->addWidget(consoleGroup);
+    // 初始比例:编程控制台 4 : 输出控制台 1(让输出区更紧凑)
+    progConsoleSplit->setStretchFactor(0, 4);
+    progConsoleSplit->setStretchFactor(1, 1);
+    progConsoleSplit->setSizes({520, 130});
+    rightLay->addWidget(progConsoleSplit, 1);
 
     // 清除 UI 文件限制，允许自由拖动，但控制台不能完全消失
     ui->progConsole->setMinimumHeight(30);
