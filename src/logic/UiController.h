@@ -9,6 +9,7 @@
 #include <QTimer>
 #include <QHash>
 #include <functional>
+#include "TargetDef.h"   // MotionParams:点位级 speed/accel/decel/timeoutMs
 
 class QWidget;
 class QPlainTextEdit;
@@ -56,6 +57,10 @@ public slots:
     /// 插入文本到编辑器光标，自动换行
     void insertAtCursor(const QString& text);
 
+    /// 内部直接保存脚本到指定路径(不弹文件对话框),返回成功与否
+    /// 用于点位管理弹窗 OK 后自动保存场景
+    bool saveScriptToFile(const QString& filePath);
+
     // 编程-指令按钮（public，供 MainWindow 动态按钮连接）
     void onProgInsertWaitIdle();
     void onProgInsertDelay();
@@ -75,6 +80,10 @@ public slots:
 
     /// 同步程序注释：扫描点位编辑器中 TARGET 的行尾注释，追加到程序编辑器引用该点位的 MOVEJ/MOVEL 行
     void syncProgramComments();
+
+    /// 同步程序编辑器中 MOVEJ/MOVEL 行的 speed/acc/dec/timeout 关键字参数,
+    /// 把点位 m_targetMotion 的值同步过去,保证点位管理修改后编辑器行级参数同步
+    void syncMotionInMoveLines();
 
     // === 新增指令 ===
     void onProgInsertMoveOff();
@@ -143,6 +152,9 @@ private:
     QString m_currentScriptPath;       // 当前打开的文件路径
     int m_targetCounter = 0;           // 目标编号自增
     QHash<QString, QList<double>> m_targets;  // 目标名 → 6个坐标值
+    /// @brief 目标名 → 点位级运动参数(speed/accel/decel/timeoutMs,0 表示未设)
+    /// 与 m_targets 并行存在;在解析 TARGET 行 `}` 之后的 `#speed=..` 段时填入
+    QHash<QString, MotionParams> m_targetMotion;
     bool m_syncTargetsBusy = false;           // syncTargets 防重入
     bool m_syncingComments = false;          // syncProgramComments 防重入
     int m_currentExecLine = -1;               // 当前执行源代码行号（-1=无）
@@ -165,6 +177,16 @@ private:
 
     /// 读取默认运动参数（优先调试面板，否则设置页）
     void readDefaultMotionParams(double& speed, double& accel, double& decel, int& timeoutMs);
+
+    /// @brief 解析 TARGET 行 `}` 之后到行尾的 motion 后缀段
+    /// @param tail `}` 之后的全部字符串(可能含 `//` 注释)
+    /// @return 解析得到的 MotionParams;若不存在 motion 段则返回 hasAny()=false 的默认值
+    /// @note 期望格式:`// #speed=N acc=N dec=N tmo=N` 或 `#speed=N acc=N dec=N tmo=N`
+    ///       `#` 必须出现在 `}` 紧邻位置(允许之前有空白);`//` 注释里的 `#` 不会被识别
+    static MotionParams parseMotionSuffix(const QString& tail);
+
+    /// @brief 把 MotionParams 格式化为 `#speed=N acc=N dec=N tmo=N` 段;若全 0 则返回空串
+    static QString formatMotionSuffix(const MotionParams& mp);
 
     void insertAtCursor(QPlainTextEdit* editor, const QString& text);
 

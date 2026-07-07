@@ -15,6 +15,7 @@
 #include <QHash>
 #include <QMap>
 #include "ScriptCommand.h"
+#include "TargetDef.h"   // MotionParams:点位级 speed/accel/decel/timeoutMs
 
 class RobotController;
 class ServoController;
@@ -53,6 +54,9 @@ public:
     void setDecel(double d)  { m_decel = d; }
     void setTimeoutMs(int ms) { m_timeoutMs = ms; }
     void setTargets(const QHash<QString, QList<double>>& targets) { m_targets = targets; }
+    /// @brief 设置点位级运动参数(speed/accel/decel/timeoutMs)
+    /// 运行时优先级:点位 motion > 全局 SPEED/ACCEL/DECEL/TIMEOUT > 行级 cmd.speed > 自动估算
+    void setTargetMotion(const QHash<QString, MotionParams>& motion) { m_targetMotion = motion; }
     void setScriptName(const QString& name) { m_scriptName = name; }
     /// 设置主脚本完整路径，CALL 子脚本时优先在主脚本同目录查找
     void setScriptPath(const QString& path) { m_scriptPath = path; }
@@ -128,6 +132,9 @@ private:
 
     /// 点位表: 目标名 → 6个坐标值（来自 UiController）
     QHash<QString, QList<double>> m_targets;
+    /// 点位级运动参数表: 目标名 → MotionParams（来自 UiController）
+    /// 运行时在 MoveJ / MoveL 分支查询,优先级高于 m_globalXxx
+    QHash<QString, MotionParams> m_targetMotion;
     QString m_scriptName;
     /// 主脚本完整路径（用于 CALL 子脚本时在同目录查找）
     QString m_scriptPath;

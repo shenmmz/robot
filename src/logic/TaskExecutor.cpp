@@ -539,9 +539,14 @@ bool TaskExecutor::executeCommand(const ScriptCommand& cmd)
         } else {
             targets = cmd.targets;
         }
-        double spd = (m_globalSpeed > 0) ? m_globalSpeed : cmd.speed;
-        double acc = (m_globalAccel > 0) ? m_globalAccel : cmd.accel;
-        double dec = (m_globalDecel > 0) ? m_globalDecel : cmd.decel;
+        // 优先级链:点位 motion.speed > 全局 m_globalSpeed > 行级 cmd.speed
+        const MotionParams mp = m_targetMotion.value(cmd.targetName);
+        double spd = (mp.speed    > 0) ? mp.speed
+                    : (m_globalSpeed > 0) ? m_globalSpeed : cmd.speed;
+        double acc = (mp.accel    > 0) ? mp.accel
+                    : (m_globalAccel > 0) ? m_globalAccel : cmd.accel;
+        double dec = (mp.decel    > 0) ? mp.decel
+                    : (m_globalDecel > 0) ? m_globalDecel : cmd.decel;
         int tmo = cmd.timeoutMs;
         if (tmo <= 0 || (m_globalTimeout <= 0 && tmo == 5000)) {
             QList<double> cur = m_robotController->getState()->getAllAxisPositions();
@@ -551,6 +556,7 @@ bool TaskExecutor::executeCommand(const ScriptCommand& cmd)
             tmo = qMax(5000, static_cast<int>(maxDist / qMax(spd, 0.1) * 2000.0));
         }
         if (m_globalTimeout > 0) tmo = m_globalTimeout;
+        if (mp.timeoutMs > 0)    tmo = mp.timeoutMs;   // 点位 timeout 最高优先
         // 执行后同步全局参数，后续 MOVEJOFF/MOVELOFF 可继承速度
         m_globalSpeed = spd;
         m_globalAccel = acc;
@@ -568,9 +574,14 @@ bool TaskExecutor::executeCommand(const ScriptCommand& cmd)
         } else {
             targets = cmd.targets;
         }
-        double spd = (m_globalSpeed > 0) ? m_globalSpeed : cmd.speed;
-        double acc = (m_globalAccel > 0) ? m_globalAccel : cmd.accel;
-        double dec = (m_globalDecel > 0) ? m_globalDecel : cmd.decel;
+        // 优先级链:点位 motion > 全局 m_global* > 行级 cmd.*
+        const MotionParams mp = m_targetMotion.value(cmd.targetName);
+        double spd = (mp.speed    > 0) ? mp.speed
+                    : (m_globalSpeed > 0) ? m_globalSpeed : cmd.speed;
+        double acc = (mp.accel    > 0) ? mp.accel
+                    : (m_globalAccel > 0) ? m_globalAccel : cmd.accel;
+        double dec = (mp.decel    > 0) ? mp.decel
+                    : (m_globalDecel > 0) ? m_globalDecel : cmd.decel;
         int tmo = cmd.timeoutMs;
         if (tmo <= 0 || (m_globalTimeout <= 0 && tmo == 5000)) {
             QList<double> cur = m_robotController->getState()->getAllCartesianPositions();
@@ -580,6 +591,7 @@ bool TaskExecutor::executeCommand(const ScriptCommand& cmd)
             tmo = qMax(5000, static_cast<int>(maxDist / qMax(spd, 0.1) * 2000.0));
         }
         if (m_globalTimeout > 0) tmo = m_globalTimeout;
+        if (mp.timeoutMs > 0)    tmo = mp.timeoutMs;   // 点位 timeout 最高优先
         m_globalSpeed = spd;
         m_globalAccel = acc;
         m_globalDecel = dec;
