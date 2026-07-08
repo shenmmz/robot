@@ -12,7 +12,7 @@
 
 #include <QWidget>
 #include <QCheckBox>
-#include <QDoubleSpinBox>
+#include <QLineEdit>
 #include <QLabel>
 #include <QPushButton>
 #include <QSlider>
@@ -24,7 +24,6 @@
 
 class ServoController;
 class UiController;
-class ServoTestWidgetKeypad;
 class QLabel;
 class QTimer;
 
@@ -50,11 +49,6 @@ protected:
      * 回写到 6 路"当前"标签、滑块、spinbox（仅未勾选通道，避免打断用户输入）。
      */
     void showEvent(QShowEvent* event) override;
-
-    /**
-     * @brief 事件过滤器：捕获 spinbox 的 FocusIn 事件,弹出软键盘
-     */
-    bool eventFilter(QObject* watched, QEvent* event) override;
 
 private slots:
     /**
@@ -86,18 +80,15 @@ private:
     // UI组件
     QCheckBox* m_checkBoxes[6];       // 勾选框
     QSlider* m_angleSliders[6];        // 角度滑块
-    QDoubleSpinBox* m_angleSpins[6];   // 角度输入
-    QDoubleSpinBox* m_speedSpins[6];   // 速度输入
+    QLineEdit* m_angleSpins[6];        // 角度输入
+    QLineEdit* m_speedSpins[6];        // 速度输入
     QLabel* m_currentLabels[6];         // 当前角度显示
 
     // 插入到编辑器的时间参数（ms，默认 500）
-    QDoubleSpinBox* m_insertTimeSpin = nullptr;
+    QLineEdit* m_insertTimeSpin = nullptr;
 
     // 记录哪个通道被勾选
     bool m_checkedChannels[6];
-
-    // 数字软键盘(focusIn 时弹出)
-    ServoTestWidgetKeypad* m_keypad = nullptr;
 
     // 操作反馈 toast(顶部居中浮层)
     QLabel*    m_toastLabel = nullptr;

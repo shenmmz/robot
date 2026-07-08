@@ -113,29 +113,14 @@
        </widget>
       </item>
       <item row="0" column="2">
-       <widget class="QDoubleSpinBox" name="spinAxis0">
+       <widget class="QLineEdit" name="spinAxis0">
         <property name="minimumSize">
          <size>
           <width>0</width>
           <height>56</height>
          </size>
         </property>
-        <property name="decimals">
-         <number>3</number>
-        </property>
-        <property name="minimum">
-         <double>-9999.0</double>
-        </property>
-        <property name="maximum">
-         <double>9999.0</double>
-        </property>
-        <property name="singleStep">
-         <double>1.0</double>
-        </property>
-        <property name="buttonSymbols">
-         <enum>QAbstractSpinBox::NoButtons</enum>
-        </property>
-        <property name="styleSheet">
+<property name="styleSheet">
          <string>font-size:26px;font-weight:bold;color:#1565c0;</string>
         </property>
        </widget>
@@ -211,29 +196,14 @@
        </widget>
       </item>
       <item row="1" column="2">
-       <widget class="QDoubleSpinBox" name="spinAxis1">
+       <widget class="QLineEdit" name="spinAxis1">
         <property name="minimumSize">
          <size>
           <width>0</width>
           <height>56</height>
          </size>
         </property>
-        <property name="decimals">
-         <number>3</number>
-        </property>
-        <property name="minimum">
-         <double>-9999.0</double>
-        </property>
-        <property name="maximum">
-         <double>9999.0</double>
-        </property>
-        <property name="singleStep">
-         <double>1.0</double>
-        </property>
-        <property name="buttonSymbols">
-         <enum>QAbstractSpinBox::NoButtons</enum>
-        </property>
-        <property name="styleSheet">
+<property name="styleSheet">
          <string>font-size:26px;font-weight:bold;color:#1565c0;</string>
         </property>
        </widget>
@@ -309,29 +279,14 @@
        </widget>
       </item>
       <item row="2" column="2">
-       <widget class="QDoubleSpinBox" name="spinAxis2">
+       <widget class="QLineEdit" name="spinAxis2">
         <property name="minimumSize">
          <size>
           <width>0</width>
           <height>56</height>
          </size>
         </property>
-        <property name="decimals">
-         <number>3</number>
-        </property>
-        <property name="minimum">
-         <double>-9999.0</double>
-        </property>
-        <property name="maximum">
-         <double>9999.0</double>
-        </property>
-        <property name="singleStep">
-         <double>1.0</double>
-        </property>
-        <property name="buttonSymbols">
-         <enum>QAbstractSpinBox::NoButtons</enum>
-        </property>
-        <property name="styleSheet">
+<property name="styleSheet">
          <string>font-size:26px;font-weight:bold;color:#1565c0;</string>
         </property>
        </widget>
@@ -407,29 +362,14 @@
        </widget>
       </item>
       <item row="3" column="2">
-       <widget class="QDoubleSpinBox" name="spinAxis3">
+       <widget class="QLineEdit" name="spinAxis3">
         <property name="minimumSize">
          <size>
           <width>0</width>
           <height>56</height>
          </size>
         </property>
-        <property name="decimals">
-         <number>3</number>
-        </property>
-        <property name="minimum">
-         <double>-9999.0</double>
-        </property>
-        <property name="maximum">
-         <double>9999.0</double>
-        </property>
-        <property name="singleStep">
-         <double>1.0</double>
-        </property>
-        <property name="buttonSymbols">
-         <enum>QAbstractSpinBox::NoButtons</enum>
-        </property>
-        <property name="styleSheet">
+<property name="styleSheet">
          <string>font-size:26px;font-weight:bold;color:#1565c0;</string>
         </property>
        </widget>
@@ -505,29 +445,14 @@
        </widget>
       </item>
       <item row="4" column="2">
-       <widget class="QDoubleSpinBox" name="spinAxis4">
+       <widget class="QLineEdit" name="spinAxis4">
         <property name="minimumSize">
          <size>
           <width>0</width>
           <height>56</height>
          </size>
         </property>
-        <property name="decimals">
-         <number>3</number>
-        </property>
-        <property name="minimum">
-         <double>-9999.0</double>
-        </property>
-        <property name="maximum">
-         <double>9999.0</double>
-        </property>
-        <property name="singleStep">
-         <double>1.0</double>
-        </property>
-        <property name="buttonSymbols">
-         <enum>QAbstractSpinBox::NoButtons</enum>
-        </property>
-        <property name="styleSheet">
+<property name="styleSheet">
          <string>font-size:26px;font-weight:bold;color:#1565c0;</string>
         </property>
        </widget>
@@ -603,29 +528,14 @@
        </widget>
       </item>
       <item row="5" column="2">
-       <widget class="QDoubleSpinBox" name="spinAxis5">
+       <widget class="QLineEdit" name="spinAxis5">
         <property name="minimumSize">
          <size>
           <width>0</width>
           <height>56</height>
          </size>
         </property>
-        <property name="decimals">
-         <number>3</number>
-        </property>
-        <property name="minimum">
-         <double>-9999.0</double>
-        </property>
-        <property name="maximum">
-         <double>9999.0</double>
-        </property>
-        <property name="singleStep">
-         <double>1.0</double>
-        </property>
-        <property name="buttonSymbols">
-         <enum>QAbstractSpinBox::NoButtons</enum>
-        </property>
-        <property name="styleSheet">
+<property name="styleSheet">
          <string>font-size:26px;font-weight:bold;color:#1565c0;</string>
         </property>
        </widget>

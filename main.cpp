@@ -8,6 +8,7 @@
  * - 启动 Qt 事件循环
  */
 #include "mainwindow.h"
+#include "src/utils/OsKEventFilter.h"   // 全局系统屏幕键盘事件过滤器
 
 #include <QApplication>
 #include <QDebug>
@@ -50,6 +51,10 @@ int main(int argc, char *argv[])
 
     // qputenv("QT_DEBUG_PLUGINS", "1");//调试使用
     QApplication a(argc, argv);
+    // 安装全局系统屏幕键盘(TabTip/osk.exe)事件过滤器:
+    // 装到 qApp 后,所有 QAbstractSpinBox / QLineEdit 获得焦点都会弹系统键盘
+    auto* oskFilter = new OsKEventFilter(qApp);  // parent 跟应用,无需手动 delete
+    qApp->installEventFilter(oskFilter);
     MainWindow w;
     w.show();
     return a.exec();

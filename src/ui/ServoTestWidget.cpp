@@ -3,7 +3,6 @@
  * @brief 舵机测试界面组件实现
  */
 #include "ServoTestWidget.h"
-#include "ServoTestWidgetKeypad.h"
 #include "../hardware/ServoController.h"
 #include "../logic/UiController.h"
 #include <QVBoxLayout>
@@ -19,6 +18,7 @@
 #include <QEvent>
 #include <QTimer>
 #include <QtGlobal>
+#include <QDoubleValidator>
 #include <QDebug>
 
 ServoTestWidget::ServoTestWidget(ServoController* servo, UiController* ui, QWidget *parent)
@@ -28,8 +28,7 @@ ServoTestWidget::ServoTestWidget(ServoController* servo, UiController* ui, QWidg
 {
     setupUI();
 
-    // 数字软键盘(作为子控件但不加入布局,按需弹出)
-    m_keypad = new ServoTestWidgetKeypad(this);
+    // 屏幕键盘(TabTip/osk.exe)由全局 OsKEventFilter 统一接管,不再需要本地 Keypad
 
     // 操作反馈 toast 浮层(顶部居中)
     m_toastLabel = new QLabel(this);
@@ -55,21 +54,6 @@ ServoTestWidget::ServoTestWidget(ServoController* servo, UiController* ui, QWidg
 
 ServoTestWidget::~ServoTestWidget()
 {
-}
-
-/**
- * @brief 事件过滤器:捕获 QDoubleSpinBox 的 FocusIn,弹出数字软键盘
- */
-bool ServoTestWidget::eventFilter(QObject* watched, QEvent* event)
-{
-    if (event && event->type() == QEvent::FocusIn) {
-        auto* spin = qobject_cast<QDoubleSpinBox*>(watched);
-        if (spin && m_keypad) {
-            // 控件禁用时不会获得焦点,因此这里只处理 enable 的输入框
-            m_keypad->showFor(spin);
-        }
-    }
-    return QWidget::eventFilter(watched, event);
 }
 
 /**
@@ -127,7 +111,7 @@ void ServoTestWidget::showEvent(QShowEvent* event)
             m_angleSliders[i]->blockSignals(true);
             m_angleSpins[i]->blockSignals(true);
             m_angleSliders[i]->setValue(qBound(0, static_cast<int>(cur), 180));
-            m_angleSpins[i]->setValue(cur);
+            m_angleSpins[i]->setText(QString::number(cur, 'f', 1));
             m_angleSliders[i]->blockSignals(false);
             m_angleSpins[i]->blockSignals(false);
         }
@@ -220,15 +204,12 @@ void ServoTestWidget::setupUI()
         rowLayout->addWidget(m_angleSliders[i]);
 
         // 角度输入框
-        m_angleSpins[i] = new QDoubleSpinBox(this);
-        m_angleSpins[i]->setMinimum(0);
-        m_angleSpins[i]->setMaximum(180);
-        m_angleSpins[i]->setValue(90);
-        m_angleSpins[i]->setSuffix(" °");
-        m_angleSpins[i]->setSingleStep(1);
+        m_angleSpins[i] = new QLineEdit(this);
+        m_angleSpins[i]->setValidator(new QDoubleValidator(0.0, 180.0, 1, m_angleSpins[i]));
+        m_angleSpins[i]->setText("90.0");
+        m_angleSpins[i]->setAlignment(Qt::AlignCenter);
         m_angleSpins[i]->setMinimumWidth(100);
         m_angleSpins[i]->setStyleSheet("font-size:16px;font-weight:bold;");
-        m_angleSpins[i]->installEventFilter(this);
         rowLayout->addWidget(m_angleSpins[i]);
 
         // 当前角度显示
@@ -245,15 +226,12 @@ void ServoTestWidget::setupUI()
         rowLayout->addWidget(m_currentLabels[i]);
 
         // 速度输入框
-        m_speedSpins[i] = new QDoubleSpinBox(this);
-        m_speedSpins[i]->setMinimum(1);
-        m_speedSpins[i]->setMaximum(180);
-        m_speedSpins[i]->setValue(1);    // 默认速度 1°/s（用户偏好：更慢，便于手动观察）
-        m_speedSpins[i]->setSuffix(" °/s");
-        m_speedSpins[i]->setSingleStep(1);
+        m_speedSpins[i] = new QLineEdit(this);
+        m_speedSpins[i]->setValidator(new QDoubleValidator(1.0, 180.0, 1, m_speedSpins[i]));
+        m_speedSpins[i]->setText("1.0");    // 默认速度 1°/s（用户偏好：更慢，便于手动观察）
+        m_speedSpins[i]->setAlignment(Qt::AlignCenter);
         m_speedSpins[i]->setMinimumWidth(100);
         m_speedSpins[i]->setStyleSheet("font-size:16px;font-weight:bold;");
-        m_speedSpins[i]->installEventFilter(this);
         rowLayout->addWidget(m_speedSpins[i]);
 
         mainLayout->addLayout(rowLayout);
@@ -270,7 +248,7 @@ void ServoTestWidget::setupUI()
             if (!m_checkedChannels[i]) return;   // 未勾选：拖动无效
             // 同步角度输入框显示（用 blockSignals 避免触发 spin 的 valueChanged 死循环）
             m_angleSpins[i]->blockSignals(true);
-            m_angleSpins[i]->setValue(value);
+            m_angleSpins[i]->setText(QString::number(value, 'f', 1));
             m_angleSpins[i]->blockSignals(false);
             // 关键：setAngleDrag 走 50ms timer 批量下发 6 路，不卡
             m_servo->setAngleDrag(i, static_cast<float>(value));
@@ -280,23 +258,24 @@ void ServoTestWidget::setupUI()
         connect(m_angleSliders[i], &QSlider::sliderReleased, this, [this, i]() {
             if (!m_servo) return;
             if (!m_checkedChannels[i]) return;   // 未勾选：松手也不动
-            float angle = static_cast<float>(m_angleSpins[i]->value());
-            float speed = static_cast<float>(m_speedSpins[i]->value());
+            float angle = static_cast<float>(m_angleSpins[i]->text().toDouble());
+            float speed = static_cast<float>(m_speedSpins[i]->text().toDouble());
             m_servo->setAngleWithSpeed(i, angle, speed);
         });
 
-        // 角度输入框变化时同步滑块（不驱动舵机，避免拖动时死循环）
-        connect(m_angleSpins[i], QOverload<double>::of(&QDoubleSpinBox::valueChanged),
-                this, [this, i](double value) {
+        // 角度输入框编辑结束后同步滑块
+        connect(m_angleSpins[i], &QLineEdit::editingFinished,
+                this, [this, i]() {
             if (!m_checkedChannels[i]) return;   // 未勾选：改值也不动舵机
+            double value = m_angleSpins[i]->text().toDouble();
             m_angleSliders[i]->setValue(static_cast<int>(value));
         });
 
         // 速度输入框编辑结束后同步给舵机控制器作为默认速度
-        connect(m_speedSpins[i], &QDoubleSpinBox::editingFinished, this, [this, i]() {
+        connect(m_speedSpins[i], &QLineEdit::editingFinished, this, [this, i]() {
             if (!m_servo) return;
             if (!m_checkedChannels[i]) return;   // 未勾选：不同步默认速度
-            m_servo->setDefaultSpeed(i, static_cast<float>(m_speedSpins[i]->value()));
+            m_servo->setDefaultSpeed(i, static_cast<float>(m_speedSpins[i]->text().toDouble()));
         });
 
         // 初始化该行的锁定状态（默认未勾选 → 角度控件禁用）
@@ -327,15 +306,12 @@ void ServoTestWidget::setupUI()
     timeLabel->setStyleSheet("font-size:13px;font-weight:bold;color:#444;");
     actionRow->addWidget(timeLabel);
 
-    m_insertTimeSpin = new QDoubleSpinBox(this);
-    m_insertTimeSpin->setMinimum(20);
-    m_insertTimeSpin->setMaximum(30000);
-    m_insertTimeSpin->setValue(500);
-    m_insertTimeSpin->setSingleStep(100);
-    m_insertTimeSpin->setSuffix(" ms");
+    m_insertTimeSpin = new QLineEdit(this);
+    m_insertTimeSpin->setValidator(new QDoubleValidator(20.0, 30000.0, 0, m_insertTimeSpin));
+    m_insertTimeSpin->setText("500");
+    m_insertTimeSpin->setAlignment(Qt::AlignCenter);
     m_insertTimeSpin->setMinimumWidth(110);
     m_insertTimeSpin->setToolTip(QStringLiteral("生成 SERVO 时间模式的时间参数（ms），≥20 走软插值"));
-    m_insertTimeSpin->installEventFilter(this);
     actionRow->addWidget(m_insertTimeSpin);
 
     // 插入到编辑器按钮：按勾选通道生成 SERVO(ch=ang:Tms,...) 多路表达式
@@ -375,7 +351,7 @@ void ServoTestWidget::onAngleChanged(int channel, float angle)
     // 非移动：把实际角度回写到滑块和输入框（勾选通道不打断用户的输入）
     if (!m_checkedChannels[channel]) {
         m_angleSliders[channel]->setValue(static_cast<int>(angle));
-        m_angleSpins[channel]->setValue(angle);
+        m_angleSpins[channel]->setText(QString::number(angle, 'f', 1));
     }
 }
 
@@ -398,11 +374,11 @@ void ServoTestWidget::updateChannelLockState(int channel)
     const QString angleStyle =
         enabled
         ? QStringLiteral(
-              "QDoubleSpinBox{font-family:Consolas,'Microsoft YaHei UI';font-size:16px;"
+              "QLineEdit{font-family:Consolas,'Microsoft YaHei UI';font-size:16px;"
               "padding:1px 2px;border:1px solid #d0d5dd;border-radius:3px;background:#fafbfc;}"
-              "QDoubleSpinBox:focus{border-color:#1565c0;background:#fff;}")
+              "QLineEdit:focus{border-color:#1565c0;background:#fff;}")
         : QStringLiteral(
-              "QDoubleSpinBox{font-family:Consolas,'Microsoft YaHei UI';font-size:16px;"
+              "QLineEdit{font-family:Consolas,'Microsoft YaHei UI';font-size:16px;"
               "padding:1px 2px;border:1px solid #e0e0e0;border-radius:3px;background:#f0f1f3;color:#aaa;}");
     m_angleSpins[channel]->setStyleSheet(angleStyle);
 }
@@ -420,12 +396,12 @@ void ServoTestWidget::updateChannelLockState(int channel)
 void ServoTestWidget::onInsertToEditor()
 {
     QStringList parts;
-    int timeMs = m_insertTimeSpin ? static_cast<int>(m_insertTimeSpin->value()) : 500;
+    int timeMs = m_insertTimeSpin ? static_cast<int>(m_insertTimeSpin->text().toDouble()) : 500;
     if (timeMs < 20) timeMs = 20;   // 与脚本 SERVO 时间模式规则对齐
 
     for (int i = 0; i < 6; ++i) {
         if (!m_checkedChannels[i]) continue;
-        float ang = static_cast<float>(m_angleSpins[i]->value());
+        float ang = static_cast<float>(m_angleSpins[i]->text().toDouble());
         // 用整型角度，更贴近实际硬件刻度；非整数也保留 1 位小数便于精调
         QString angStr = (qFuzzyCompare(ang, qRound(ang) * 1.0f))
                          ? QString::number(qRound(ang))

@@ -12,7 +12,7 @@
 #include <QButtonGroup>
 #include <QTimer>
 #include <QByteArray>
-#include <QSpinBox>
+#include <QLineEdit>
 
 class RobotController;
 class UiController;
@@ -110,8 +110,8 @@ private:
     int m_visionConsecutiveCount = 0;
     static constexpr int kVisionConfirmCount = 10;
     ServoTestWidget* m_servoTestWidget = nullptr;  // 舵机测试界面
-    QList<QSpinBox*> m_servoSpins;   // 6通道舵机角度 spinbox
-    QList<QDoubleSpinBox*> m_servoSpeedSpins;  // 6通道舵机速度 spinbox (度/秒)
+    QList<QLineEdit*> m_servoSpins;   // 6通道舵机角度 QLineEdit（已废弃，由 ServoTestWidget 管理）
+    QList<QLineEdit*> m_servoSpeedSpins;  // 6通道舵机速度 QLineEdit（已废弃，由 ServoTestWidget 管理）
     QList<QLabel*> m_servoAngleLabels;  // 手动页舵机板块 6 通道只读角度显示（被动显示）
 
     QButtonGroup* m_navGroup;

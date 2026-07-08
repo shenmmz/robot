@@ -1,4 +1,4 @@
-/*
+﻿/*
  * @file UiController.cpp
  * @brief 实现 UiController 类，负责 IO 监控、报警日志、编程运行和设置页面逻辑。
  *
@@ -18,6 +18,7 @@
 #include <QPushButton>
 #include <QLineEdit>
 #include <QSpinBox>
+#include <QDoubleValidator>
 #include <QCheckBox>
 #include <QRegularExpression>
 #include <QFrame>
@@ -497,17 +498,17 @@ void UiController::readDefaultMotionParams(double& speed, double& accel, double&
     // 默认值兜底
     speed  = 25.0; accel = 50.0; decel = 60.0; timeoutMs = 5000;
     // 编程页默认速度/加速度
-    if (auto* sp = m_mainWindow->findChild<QSpinBox*>(QStringLiteral("spinDefaultSpeed")))
-        speed = sp->value();
-    if (auto* sp = m_mainWindow->findChild<QSpinBox*>(QStringLiteral("spinDefaultAccel")))
-        accel = sp->value();
+    if (auto* sp = m_mainWindow->findChild<QLineEdit*>(QStringLiteral("spinDefaultSpeed")))
+        speed = sp->text().toDouble();
+    if (auto* sp = m_mainWindow->findChild<QLineEdit*>(QStringLiteral("spinDefaultAccel")))
+        accel = sp->text().toDouble();
     // 调试面板的参数优先级更高（覆盖上面的默认值）
-    if (auto* sp = m_mainWindow->findChild<QDoubleSpinBox*>(QStringLiteral("debugSpeed")))
-        speed = sp->value();
-    if (auto* sp = m_mainWindow->findChild<QDoubleSpinBox*>(QStringLiteral("debugAccel")))
-        accel = sp->value();
-    if (auto* sp = m_mainWindow->findChild<QDoubleSpinBox*>(QStringLiteral("debugDecel")))
-        decel = sp->value();
+    if (auto* sp = m_mainWindow->findChild<QLineEdit*>(QStringLiteral("debugSpeed")))
+        speed = sp->text().toDouble();
+    if (auto* sp = m_mainWindow->findChild<QLineEdit*>(QStringLiteral("debugAccel")))
+        accel = sp->text().toDouble();
+    if (auto* sp = m_mainWindow->findChild<QLineEdit*>(QStringLiteral("debugDecel")))
+        decel = sp->text().toDouble();
 }
 
 /**
@@ -758,6 +759,17 @@ void UiController::onTargetEditorChanged()
 /** @brief 弹出对话框编辑当前流程中引用的所有点位 */
 void UiController::showTargetEditDialog()
 {
+    // 屏蔽点位管理中所有 SpinBox 的鼠标滚轮修改数值:
+    // 在弹窗打开期间拦截所有 wheel 事件(QSpinBox 默认 wheelFocus,
+    // 鼠标 hover 就会触发增减),避免用户误修改
+    class WheelBlocker : public QObject {
+    public:
+        using QObject::QObject;
+        bool eventFilter(QObject* obj, QEvent* ev) override {
+            if (ev->type() == QEvent::Wheel) return true;  // 吞掉
+            return QObject::eventFilter(obj, ev);
+        }
+    };
     auto* progEd = getEditor();
     auto* targetEd = getTargetEditor();
     if (!progEd || !targetEd) return;
@@ -929,9 +941,9 @@ void UiController::showTargetEditDialog()
         QHash<QString, QLineEdit*> edits;
         QLineEdit* commentEdit = nullptr;
         // 点位级运动参数控件(速度/加速度/减速度/超时)
-        QSpinBox* spinSpeed = nullptr;
-        QSpinBox* spinAccel = nullptr;
-        QSpinBox* spinDecel = nullptr;
+        QLineEdit* spinSpeed = nullptr;
+        QLineEdit* spinAccel = nullptr;
+        QLineEdit* spinDecel = nullptr;
         QSpinBox* spinTimeout = nullptr;
     };
     QVector<TargetGroup> groups;
@@ -1012,9 +1024,9 @@ void UiController::showTargetEditDialog()
 
         // === Motion 控件 (作为 grid 的列 6~8) ===
         // 只保留 速度/加速度/减速度 三个参数(去掉 超时 UI,改由 cmd.timeoutMs 兜底)
-        QSpinBox* spinSpeed   = nullptr;
-        QSpinBox* spinAccel   = nullptr;
-        QSpinBox* spinDecel   = nullptr;
+        QLineEdit* spinSpeed   = nullptr;
+        QLineEdit* spinAccel   = nullptr;
+        QLineEdit* spinDecel   = nullptr;
         QSpinBox* spinTimeout = nullptr;  // UI 不创建,保留变量以满足 TargetGroup 构造
         // 标签紧凑化 — 与 6 坐标标签风格一致(浅灰,居中,固定宽度 70)
         auto compactParamLabel = [](QLabel* lbl) {
@@ -1026,19 +1038,23 @@ void UiController::showTargetEditDialog()
                 "color:#555;font-weight:bold;font-size:13px;"
                 "font-family:Consolas,'Microsoft YaHei UI';"));
         };
-        // SpinBox 紧凑化 — 与 6 坐标 QLineEdit 完全同款(高 24, 宽 70~85, 字号 14)
-        auto compactParamSpin = [](QSpinBox* sp) {
-            sp->setFixedHeight(24);
-            sp->setMinimumWidth(70);
-            sp->setMaximumWidth(85);
-            sp->setButtonSymbols(QAbstractSpinBox::NoButtons);
-            sp->setStyleSheet(QStringLiteral(
-                "QSpinBox{border:1px solid #d0d5dd;border-radius:3px;"
+        // QLineEdit 紧凑化 — 与 6 坐标 QLineEdit 完全同款(高 24, 宽 70~85, 字号 14)
+        auto compactLineEdit = [](QLineEdit* edit, double minVal, double maxVal) {
+            edit->setFixedHeight(24);
+            edit->setMinimumWidth(70);
+            edit->setMaximumWidth(85);
+            edit->setAlignment(Qt::AlignCenter);
+            edit->setStyleSheet(QStringLiteral(
+                "QLineEdit{border:1px solid #d0d5dd;border-radius:3px;"
                 "padding:1px 2px;font-size:14px;background:#ffffff;}"
-                "QSpinBox:focus{border:1px solid #1565c0;}"));
+                "QLineEdit:focus{border:1px solid #1565c0;}"));
+            auto* validator = new QDoubleValidator(minVal, maxVal, 3, edit);
+            validator->setNotation(QDoubleValidator::StandardNotation);
+            edit->setValidator(validator);
+            // QLineEdit 默认 WA_InputMethodEnabled=true，无需额外设置
         };
         // 3 个参数 (去掉超时,改由 cmd.timeoutMs 自动估算兜底)
-        struct ParamCol { const char* label; int max; QSpinBox** slot; };
+        struct ParamCol { const char* label; int max; QLineEdit** slot; };
         ParamCol cols[] = {
             {QT_TR_NOOP("速度"),    10000,  &spinSpeed},
             {QT_TR_NOOP("加速度"),  10000,  &spinAccel},
@@ -1050,15 +1066,18 @@ void UiController::showTargetEditDialog()
             compactParamLabel(lbl);
             grid->addWidget(lbl, 0, n + mIdx);   // 列 n+mIdx (= 6+mIdx)
 
-            auto* sp = new QSpinBox(groupBox);
-            sp->setMinimum(0);
-            sp->setMaximum(c.max);
-            sp->setAlignment(Qt::AlignCenter);
-            compactParamSpin(sp);
-            grid->addWidget(sp, 1, n + mIdx);
-            *(c.slot) = sp;
+            auto* edit = new QLineEdit(groupBox);
+            edit->setText(QStringLiteral("0"));
+            compactLineEdit(edit, 0.0, static_cast<double>(c.max));
+            grid->addWidget(edit, 1, n + mIdx);
+            *(c.slot) = edit;
             ++mIdx;
         }
+
+        // motion QLineEdit 的 Windows 系统屏幕键盘由全局 OsKEventFilter 统一接管:
+        // 已在 main.cpp 装到 qApp 上,QLineEdit 默认 WA_InputMethodEnabled=true,
+        // 焦点进入时弹 TabTip,失焦时收起。无需在弹窗内重复安装。
+
         // 把 motion 列也设 stretch (让 motion 区域与 6 坐标等宽)
         // 注:grid 的最后几列 stretch 时,前 6 列也会受影响 — 仅当 stretch 列在末尾时,
         // 把 stretch 设给 motion 列让 motion 区域优先填充剩余宽度
@@ -1083,9 +1102,9 @@ void UiController::showTargetEditDialog()
         boxLayout->addLayout(btnRow);
 
         // 把 motion 值填入控件(0 = 留空)
-        spinSpeed->setValue(static_cast<int>(motion.speed));
-        spinAccel->setValue(static_cast<int>(motion.accel));
-        spinDecel->setValue(static_cast<int>(motion.decel));
+        spinSpeed->setText(QString::number(motion.speed, 'f', 3));
+        spinAccel->setText(QString::number(motion.accel, 'f', 3));
+        spinDecel->setText(QString::number(motion.decel, 'f', 3));
         // spinTimeout UI 控件已移除,保留局部变量以满足 TargetGroup 构造,
         // timeout 由 cmd.timeoutMs 自动估算兜底,用户如果需要可手写 #tmo=N
         if (spinTimeout) spinTimeout->setValue(motion.timeoutMs);
@@ -1106,9 +1125,9 @@ void UiController::showTargetEditDialog()
             QString curComment = capturedComment->text();
             // 复制 motion 段(同时复制点位自定义速度)
             MotionParams curMotion;
-            curMotion.speed     = spinSpeed->value();
-            curMotion.accel     = spinAccel->value();
-            curMotion.decel     = spinDecel->value();
+            curMotion.speed     = spinSpeed->text().toDouble();
+            curMotion.accel     = spinAccel->text().toDouble();
+            curMotion.decel     = spinDecel->text().toDouble();
             curMotion.timeoutMs = spinTimeout ? spinTimeout->value() : 0;
             int idx = groupsLayout->indexOf(groupBox);
             auto newGroup = createGroup(nextName(), curVals, capturedLabels,
@@ -1232,6 +1251,9 @@ void UiController::showTargetEditDialog()
     QObject::connect(okBtn, &QPushButton::clicked, &dlg, &QDialog::accept);
     QObject::connect(cancelBtn, &QPushButton::clicked, &dlg, &QDialog::reject);
 
+    // 注意:compactLineEdit 已替代 compactParamSpin,不再需要 wheelBlocker
+    // 这里不再需要 dlg.installEventFilter(SpinBox wheelEvent 不传播到 dlg)
+
     if (dlg.exec() != QDialog::Accepted) return;
 
     // 5. 写回点位编辑器 — 先收集分组数据，再与原有非TARGET行合并
@@ -1251,9 +1273,9 @@ void UiController::showTargetEditDialog()
         // - 运行时 TaskExecutor 从 MOVEJ 行读取行级参数(cmd.speed) — 因 m_targetMotion 全 0,
         //   不会覆盖 cmd.speed,正好用上同步过来的新值
         MotionParams mp;
-        mp.speed     = g.spinSpeed     ? g.spinSpeed->value()     : 0;
-        mp.accel     = g.spinAccel     ? g.spinAccel->value()     : 0;
-        mp.decel     = g.spinDecel     ? g.spinDecel->value()     : 0;
+        mp.speed     = g.spinSpeed     ? g.spinSpeed->text().toDouble()     : 0.0;
+        mp.accel     = g.spinAccel     ? g.spinAccel->text().toDouble()     : 0.0;
+        mp.decel     = g.spinDecel     ? g.spinDecel->text().toDouble()     : 0.0;
         mp.timeoutMs = g.spinTimeout   ? g.spinTimeout->value()   : 0;
         // 收集 motion 到 m_targetMotion(供 syncMotionInMoveLines + TaskExecutor 使用),
         // 但不写入 TARGET 行文本
@@ -2593,13 +2615,13 @@ void UiController::onLoadSettings()
     RobotConfig* config = m_robotController->getConfig();
     if (!config) return;
 
-    auto* spinSpeed = m_mainWindow->findChild<QSpinBox*>(QStringLiteral("spinDefaultSpeed"));
-    auto* spinAccel = m_mainWindow->findChild<QSpinBox*>(QStringLiteral("spinDefaultAccel"));
+    auto* spinSpeed = m_mainWindow->findChild<QLineEdit*>(QStringLiteral("spinDefaultSpeed"));
+    auto* spinAccel = m_mainWindow->findChild<QLineEdit*>(QStringLiteral("spinDefaultAccel"));
     auto* spinTimeout = m_mainWindow->findChild<QSpinBox*>(QStringLiteral("spinDefaultTimeout"));
     auto* editIP = m_mainWindow->findChild<QLineEdit*>(QStringLiteral("editControllerIP"));
 
-    if (spinSpeed) spinSpeed->setValue(static_cast<int>(config->getAxisConfig(0).maxSpeed));
-    if (spinAccel) spinAccel->setValue(static_cast<int>(config->getAxisConfig(0).maxAccel));
+    if (spinSpeed) spinSpeed->setText(QString::number(static_cast<int>(config->getAxisConfig(0).maxSpeed)));
+    if (spinAccel) spinAccel->setText(QString::number(static_cast<int>(config->getAxisConfig(0).maxAccel)));
     if (spinTimeout) spinTimeout->setValue(3000);
     if (editIP) editIP->setText(config->getControllerIP());
 }
@@ -2615,11 +2637,11 @@ void UiController::onSaveSettings()
     auto* editIP = m_mainWindow->findChild<QLineEdit*>(QStringLiteral("editControllerIP"));
     if (editIP) config->setControllerIP(editIP->text().trimmed());
 
-    auto* spinSpeed = m_mainWindow->findChild<QSpinBox*>(QStringLiteral("spinDefaultSpeed"));
-    auto* spinAccel = m_mainWindow->findChild<QSpinBox*>(QStringLiteral("spinDefaultAccel"));
+    auto* spinSpeed = m_mainWindow->findChild<QLineEdit*>(QStringLiteral("spinDefaultSpeed"));
+    auto* spinAccel = m_mainWindow->findChild<QLineEdit*>(QStringLiteral("spinDefaultAccel"));
 
-    int speed = spinSpeed ? spinSpeed->value() : 360;
-    int accel = spinAccel ? spinAccel->value() : 1000;
+    int speed = spinSpeed ? static_cast<int>(spinSpeed->text().toDouble()) : 360;
+    int accel = spinAccel ? static_cast<int>(spinAccel->text().toDouble()) : 1000;
 
     for (int i = 0; i < config->getAxisCount(); ++i) {
         RobotConfig::AxisConfig ac = config->getAxisConfig(i);
@@ -2661,10 +2683,10 @@ void UiController::onJogJoint(int axis, bool positive)
     // 从调试面板读取步长和运动参数
     double step   = 5.0;
     double speed  = 25.0, accel = 50.0, decel = 60.0;
-    if (auto* sp = m_mainWindow->findChild<QDoubleSpinBox*>(QStringLiteral("debugStep")))  step  = sp->value();
-    if (auto* sp = m_mainWindow->findChild<QDoubleSpinBox*>(QStringLiteral("debugSpeed"))) speed = sp->value();
-    if (auto* sp = m_mainWindow->findChild<QDoubleSpinBox*>(QStringLiteral("debugAccel"))) accel = sp->value();
-    if (auto* sp = m_mainWindow->findChild<QDoubleSpinBox*>(QStringLiteral("debugDecel"))) decel = sp->value();
+    if (auto* sp = m_mainWindow->findChild<QLineEdit*>(QStringLiteral("debugStep")))  step  = sp->text().toDouble();
+    if (auto* sp = m_mainWindow->findChild<QLineEdit*>(QStringLiteral("debugSpeed"))) speed = sp->text().toDouble();
+    if (auto* sp = m_mainWindow->findChild<QLineEdit*>(QStringLiteral("debugAccel"))) accel = sp->text().toDouble();
+    if (auto* sp = m_mainWindow->findChild<QLineEdit*>(QStringLiteral("debugDecel"))) decel = sp->text().toDouble();
 
     QList<double> joints = state->getAllAxisPositions();
     if (axis >= joints.size()) return;
@@ -2673,8 +2695,8 @@ void UiController::onJogJoint(int axis, bool positive)
 
     // 更新界面上的关节输入框
     QString spinName = QStringLiteral("spinManualJ%1").arg(axis);
-    if (auto* spin = m_mainWindow->findChild<QDoubleSpinBox*>(spinName))
-        spin->setValue(joints[axis]);
+    if (auto* spin = m_mainWindow->findChild<QLineEdit*>(spinName))
+        spin->setText(QString::number(joints[axis], 'f', 3));
 
     // Cancel → Move，不等待
     m_robotController->jogJoint(axis, joints[axis], speed, accel, decel);
@@ -2711,10 +2733,10 @@ void UiController::onJogCart(int index, bool positive)
     // 从调试面板读取步长和运动参数
     double step   = 5.0;
     double speed  = 25.0, accel = 50.0, decel = 60.0;
-    if (auto* sp = m_mainWindow->findChild<QDoubleSpinBox*>(QStringLiteral("debugStep")))  step  = sp->value();
-    if (auto* sp = m_mainWindow->findChild<QDoubleSpinBox*>(QStringLiteral("debugSpeed"))) speed = sp->value();
-    if (auto* sp = m_mainWindow->findChild<QDoubleSpinBox*>(QStringLiteral("debugAccel"))) accel = sp->value();
-    if (auto* sp = m_mainWindow->findChild<QDoubleSpinBox*>(QStringLiteral("debugDecel"))) decel = sp->value();
+    if (auto* sp = m_mainWindow->findChild<QLineEdit*>(QStringLiteral("debugStep")))  step  = sp->text().toDouble();
+    if (auto* sp = m_mainWindow->findChild<QLineEdit*>(QStringLiteral("debugSpeed"))) speed = sp->text().toDouble();
+    if (auto* sp = m_mainWindow->findChild<QLineEdit*>(QStringLiteral("debugAccel"))) accel = sp->text().toDouble();
+    if (auto* sp = m_mainWindow->findChild<QLineEdit*>(QStringLiteral("debugDecel"))) decel = sp->text().toDouble();
 
     QList<double> cart = state->getAllCartesianPositions();
     if (index >= cart.size()) return;
@@ -2724,9 +2746,9 @@ void UiController::onJogCart(int index, bool positive)
     // 更新界面上的笛卡尔输入框
     static const char* cartNames[] = {"X","Y","Z","Rx","Ry","Rz"};
     QString spinName = QStringLiteral("spinManual%1").arg(QLatin1String(cartNames[index]));
-    if (auto* spin = m_mainWindow->findChild<QDoubleSpinBox*>(spinName)) {
+    if (auto* spin = m_mainWindow->findChild<QLineEdit*>(spinName)) {
         double display = (index >= 3) ? normalizeAngle180(cart[index]) : cart[index];
-        spin->setValue(display);
+        spin->setText(QString::number(display, 'f', 3));
     }
 
     // 传入归一化后的目标值

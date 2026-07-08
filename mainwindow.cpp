@@ -771,8 +771,8 @@ void MainWindow::updatePositionDisplay()
 
     QLabel* jLabels[]  = {ui->lblPosJ0, ui->lblPosJ1, ui->lblPosJ2, ui->lblPosJ3, ui->lblPosJ4, ui->lblPosJ5};
     QLabel* cLabels[]  = {ui->lblPosCartX, ui->lblPosCartY, ui->lblPosCartZ, ui->lblPosCartRx, ui->lblPosCartRy, ui->lblPosCartRz};
-    QDoubleSpinBox* jSpins[] = {ui->spinManualJ0, ui->spinManualJ1, ui->spinManualJ2, ui->spinManualJ3, ui->spinManualJ4, ui->spinManualJ5};
-    QDoubleSpinBox* cSpins[] = {ui->spinManualX, ui->spinManualY, ui->spinManualZ, ui->spinManualRx, ui->spinManualRy, ui->spinManualRz};
+    QLineEdit* jSpins[] = {ui->spinManualJ0, ui->spinManualJ1, ui->spinManualJ2, ui->spinManualJ3, ui->spinManualJ4, ui->spinManualJ5};
+    QLineEdit* cSpins[] = {ui->spinManualX, ui->spinManualY, ui->spinManualZ, ui->spinManualRx, ui->spinManualRy, ui->spinManualRz};
 
     bool isCart = m_robotController->isCartesianMode();
 
@@ -790,7 +790,7 @@ void MainWindow::updatePositionDisplay()
 
         if (!m_jogJointUserInput) {
             jSpins[i]->blockSignals(true);
-            jSpins[i]->setValue(joints[i]);
+            jSpins[i]->setText(QString::number(joints[i], 'f', 3));
             jSpins[i]->blockSignals(false);
         }
 
@@ -802,7 +802,7 @@ void MainWindow::updatePositionDisplay()
 
             if (!m_jogCartUserInput) {
                 cSpins[i]->blockSignals(true);
-                cSpins[i]->setValue(display);
+                cSpins[i]->setText(QString::number(display, 'f', 3));
                 cSpins[i]->blockSignals(false);
             }
         }
@@ -835,8 +835,8 @@ void MainWindow::onSendJointMove()
     }
 
     QList<double> joints = {
-        ui->spinManualJ0->value(), ui->spinManualJ1->value(), ui->spinManualJ2->value(),
-        ui->spinManualJ3->value(), ui->spinManualJ4->value(), ui->spinManualJ5->value()
+        ui->spinManualJ0->text().toDouble(), ui->spinManualJ1->text().toDouble(), ui->spinManualJ2->text().toDouble(),
+        ui->spinManualJ3->text().toDouble(), ui->spinManualJ4->text().toDouble(), ui->spinManualJ5->text().toDouble()
     };
 
     bool ok = m_robotController->moveJ(joints, 25.0, 50.0, 60.0, 3000);
@@ -860,8 +860,8 @@ void MainWindow::onSendCartMove()
     }
 
     QList<double> cart = {
-        ui->spinManualX->value(), ui->spinManualY->value(), ui->spinManualZ->value(),
-        ui->spinManualRx->value(), ui->spinManualRy->value(), ui->spinManualRz->value()
+        ui->spinManualX->text().toDouble(), ui->spinManualY->text().toDouble(), ui->spinManualZ->text().toDouble(),
+        ui->spinManualRx->text().toDouble(), ui->spinManualRy->text().toDouble(), ui->spinManualRz->text().toDouble()
     };
 
     bool ok = m_robotController->moveL(cart, 25.0, 50.0, 60.0, 3000);
@@ -1106,7 +1106,7 @@ void MainWindow::onRs485AutoSendToggled(bool checked)
             connect(m_rs485AutoSendTimer, &QTimer::timeout, this, &MainWindow::onRs485AutoSendTick);
         }
 
-        int interval = ui->rs485SpinInterval->value();
+        int interval = ui->rs485SpinInterval->text().toDouble();
         m_rs485AutoSendTimer->start(interval);
         ui->rs485SpinInterval->setEnabled(false);
         qDebug() << "[RS485] 定时发送已启动，间隔:" << interval << "ms";
@@ -1452,15 +1452,15 @@ void MainWindow::initManualProgUI()
             lbl->setAlignment(Qt::AlignLeft | Qt::AlignVCenter);
             lbl->setStyleSheet(QStringLiteral("color:#888;font-size:13px;font-weight:bold;border:none;background:transparent;"));
         };
-        auto compactSpin = [](QDoubleSpinBox* sp) {
-            sp->setFixedHeight(24);
-            sp->setMinimumWidth(60);
-            sp->setMaximumWidth(85);
-            sp->setButtonSymbols(QAbstractSpinBox::NoButtons);
-            sp->setStyleSheet(QStringLiteral(
-                "QDoubleSpinBox{border:1px solid #d0d5dd;border-radius:3px;"
+        auto compactLineEdit = [](QLineEdit* le) {
+            le->setFixedHeight(24);
+            le->setMinimumWidth(60);
+            le->setMaximumWidth(85);
+            le->setAlignment(Qt::AlignCenter);
+            le->setStyleSheet(QStringLiteral(
+                "QLineEdit{border:1px solid #d0d5dd;border-radius:3px;"
                 "padding:1px 2px;font-size:14px;}"
-                "QDoubleSpinBox:focus{border-color:#1565c0;}"
+                "QLineEdit:focus{border-color:#1565c0;}"
             ));
         };
 
@@ -1471,15 +1471,10 @@ void MainWindow::initManualProgUI()
         ui->label_17->setText(QStringLiteral("加速度"));
         ui->label_18->setText(QStringLiteral("减速度"));
 
-        ui->debugStep->setSuffix(QString());
-        ui->debugSpeed->setSuffix(QString());
-        ui->debugAccel->setSuffix(QString());
-        ui->debugDecel->setSuffix(QString());
-
-        compactSpin(ui->debugStep);
-        compactSpin(ui->debugSpeed);
-        compactSpin(ui->debugAccel);
-        compactSpin(ui->debugDecel);
+        compactLineEdit(ui->debugStep);
+        compactLineEdit(ui->debugSpeed);
+        compactLineEdit(ui->debugAccel);
+        compactLineEdit(ui->debugDecel);
 
         // 2×2 QGridLayout
         QGridLayout* debugGrid = new QGridLayout();
@@ -1488,7 +1483,7 @@ void MainWindow::initManualProgUI()
         debugGrid->setColumnStretch(0, 1);
         debugGrid->setColumnStretch(1, 1);
 
-        struct { QLabel* label; QDoubleSpinBox* spin; } debugCells[] = {
+        struct { QLabel* label; QLineEdit* spin; } debugCells[] = {
             {ui->label_15, ui->debugStep},
             {ui->label_16, ui->debugSpeed},
             {ui->label_17, ui->debugAccel},
@@ -1521,13 +1516,13 @@ void MainWindow::initManualProgUI()
         lbl->setAlignment(Qt::AlignCenter);
         lbl->setStyleSheet(QStringLiteral("color:#999;font-size:12px;font-weight:bold;border:none;background:transparent;"));
     };
-    auto compactSpin = [](QDoubleSpinBox* sp) {
-        sp->setFixedHeight(26);
-        sp->setMinimumWidth(50);
-        sp->setMaximumWidth(68);
-        sp->setButtonSymbols(QAbstractSpinBox::NoButtons);
-        sp->setStyleSheet(QStringLiteral(
-            "QDoubleSpinBox{border:none;background:transparent;"
+    auto compactLineEdit2 = [](QLineEdit* le) {
+        le->setFixedHeight(26);
+        le->setMinimumWidth(50);
+        le->setMaximumWidth(68);
+        le->setAlignment(Qt::AlignCenter);
+        le->setStyleSheet(QStringLiteral(
+            "QLineEdit{border:none;background:transparent;"
             "font-family:Consolas,'Microsoft YaHei UI';font-size:12px;"
             "color:#1565c0;font-weight:bold;padding:2px 4px;}"));
     };
@@ -1540,11 +1535,11 @@ void MainWindow::initManualProgUI()
                             const QStringList& prefixes) -> QWidget*
     {
         QMap<QString, QLabel*> labelMap;
-        QMap<QString, QDoubleSpinBox*> spinMap;
+        QMap<QString, QLineEdit*> spinMap;
         for (QLabel* w : srcGroup->findChildren<QLabel*>()) {
             if (labelNames.contains(w->objectName())) labelMap[w->objectName()] = w;
         }
-        for (QDoubleSpinBox* w : srcGroup->findChildren<QDoubleSpinBox*>()) {
+        for (QLineEdit* w : srcGroup->findChildren<QLineEdit*>()) {
             if (spinNames.contains(w->objectName())) spinMap[w->objectName()] = w;
         }
         QPushButton* applyBtn = srcGroup->findChild<QPushButton*>(btnName);
@@ -1573,10 +1568,10 @@ void MainWindow::initManualProgUI()
         gridLay->setColumnStretch(1, 1);// 左右两列等宽，便于对齐
 
         for (int i = 0; i < spinNames.size(); ++i) {
-            QDoubleSpinBox* sp = spinMap.value(spinNames[i]);
+            QLineEdit* sp = spinMap.value(spinNames[i]);
             if (!sp) continue;
 
-            // 隐藏旧 label（不再使用，名称通过 prefix 内嵌到 SpinBox 中）
+            // 隐藏旧 label（不再使用，名称通过 placeholder 内嵌到 QLineEdit 中）
             QLabel* lbl = labelMap.value(labelNames[i]);
             if (lbl) lbl->hide();
 
@@ -1584,13 +1579,11 @@ void MainWindow::initManualProgUI()
             sp->setMinimumHeight(26);
             sp->setMinimumWidth(60);
             sp->setMaximumWidth(80);
-            sp->setButtonSymbols(QAbstractSpinBox::NoButtons);
-            sp->setPrefix(prefixes[i] + QStringLiteral(": "));
-      sp->setStyleSheet(QStringLiteral(
-                "QDoubleSpinBox{font-family:Consolas,'Microsoft YaHei UI';font-size:13px;"
+            sp->setPlaceholderText(prefixes[i] + QStringLiteral(": "));
+            sp->setStyleSheet(QStringLiteral(
+                "QLineEdit{font-family:Consolas,'Microsoft YaHei UI';font-size:13px;"
                 "padding:2px 6px;border:1px solid #d0d5dd;border-radius:4px;"
-                "background:#fafbfc;color:#1565c0;font-weight:bold;min-width:60px;max-width:80px;"
-                "qproperty-alignment:'AlignLeft | AlignVCenter';}"));
+                "background:#fafbfc;color:#1565c0;font-weight:bold;min-width:60px;max-width:80px;}"));
             sp->setAlignment(Qt::AlignLeft | Qt::AlignVCenter);      
 
             gridLay->addWidget(sp, i / 2, i % 2);
@@ -1630,11 +1623,11 @@ void MainWindow::initManualProgUI()
     ui->jogJointGroup->hide();
     ui->jogCartGroup->hide();
 
-    QDoubleSpinBox* spinJ[6] = {
+    QLineEdit* spinJ[6] = {
         ui->spinManualJ0, ui->spinManualJ1, ui->spinManualJ2,
         ui->spinManualJ3, ui->spinManualJ4, ui->spinManualJ5
     };
-    QDoubleSpinBox* spinC[6] = {
+    QLineEdit* spinC[6] = {
         ui->spinManualX,  ui->spinManualY,  ui->spinManualZ,
         ui->spinManualRx, ui->spinManualRy, ui->spinManualRz
     };
@@ -1677,26 +1670,23 @@ void MainWindow::initManualProgUI()
     // 关节列:0,1,2,3,4,5 | 分隔:6 | 笛卡尔列:7,8,9,10,11,12
     // 让关节列拉伸 1、笛卡尔列拉伸 1,中间不拉伸
     for (int i = 0; i < 6; ++i) {
-        QDoubleSpinBox* spJ = spinJ[i];
-        QDoubleSpinBox* spC = spinC[i];
+        QLineEdit* spJ = spinJ[i];
+        QLineEdit* spC = spinC[i];
 
         // SpinBox 重新设置 prefix(因为 buildJogPage 没跑过,SpinBox 仍是默认值)
         spJ->setParent(jogMergedGroup);
         spC->setParent(jogMergedGroup);
-        spJ->setPrefix(jointLabels[i] + QStringLiteral(": "));
-        spC->setPrefix(cartLabels[i]  + QStringLiteral(": "));
+        spJ->setPlaceholderText(jointLabels[i] + QStringLiteral(": "));
+        spC->setPlaceholderText(cartLabels[i]  + QStringLiteral(": "));
         // 加大字体 + 加大 padding,值更醒目
         const QString spinStyle = QStringLiteral(
-            "QDoubleSpinBox{font-family:Consolas,'Microsoft YaHei UI';font-size:17px;"
+            "QLineEdit{font-family:Consolas,'Microsoft YaHei UI';font-size:17px;"
             "padding:5px 8px;border:1px solid #d0d5dd;border-radius:4px;"
-            "background:#fafbfc;color:#1565c0;font-weight:bold;"
-            "qproperty-alignment:'AlignLeft | AlignVCenter';}");
+            "background:#fafbfc;color:#1565c0;font-weight:bold;}");
         spJ->setStyleSheet(spinStyle);
         spC->setStyleSheet(spinStyle);
         spJ->setAlignment(Qt::AlignLeft | Qt::AlignVCenter);
         spC->setAlignment(Qt::AlignLeft | Qt::AlignVCenter);
-        spJ->setButtonSymbols(QAbstractSpinBox::NoButtons);
-        spC->setButtonSymbols(QAbstractSpinBox::NoButtons);
         spJ->setMinimumHeight(36);
         spC->setMinimumHeight(36);
         // ★ 只读:点动控制只是显示位置,不让用户修改(否则会被"手动调试发送"读走当 moveJ 目标)
@@ -1741,7 +1731,7 @@ void MainWindow::initManualProgUI()
 
     // 调试模式控制点动可用性
     auto setJogEnabled = [this, jogMergedGroup](bool enabled) {
-        for (QDoubleSpinBox* sp : jogMergedGroup->findChildren<QDoubleSpinBox*>())
+        for (QLineEdit* sp : jogMergedGroup->findChildren<QLineEdit*>())
             sp->setReadOnly(!enabled);
         QString labelColor = enabled ? QStringLiteral("#000") : QStringLiteral("#666");
         QString labelSS = QStringLiteral("color:%1;font-size:16px;border:none;background:transparent;").arg(labelColor);
@@ -2186,7 +2176,7 @@ void MainWindow::showPointAdjustDialog(bool isJoint)
     if (!ui->chkDebugMode->isChecked()) return;
 
     QDialog dlg(this);
-    double step = this->ui->debugStep->value();
+    double step = this->ui->debugStep->text().toDouble();
     Ui::PointAdjustDialog ui;
     ui.setupUi(&dlg);
 
@@ -2282,7 +2272,7 @@ void MainWindow::showPointAdjustDialog(bool isJoint)
     });
 
     // lblAxis 已在前面提前声明(供 updateModeButton lambda 捕获)
-    QDoubleSpinBox* spinAxis[6] = {ui.spinAxis0, ui.spinAxis1, ui.spinAxis2, ui.spinAxis3, ui.spinAxis4, ui.spinAxis5};
+    QLineEdit* spinAxis[6] = {ui.spinAxis0, ui.spinAxis1, ui.spinAxis2, ui.spinAxis3, ui.spinAxis4, ui.spinAxis5};
     QPushButton* btnMinus[6] = {ui.btnMinus0, ui.btnMinus1, ui.btnMinus2, ui.btnMinus3, ui.btnMinus4, ui.btnMinus5};
     QPushButton* btnPlus[6]  = {ui.btnPlus0,  ui.btnPlus1,  ui.btnPlus2,  ui.btnPlus3,  ui.btnPlus4,  ui.btnPlus5};
 
@@ -2290,18 +2280,16 @@ void MainWindow::showPointAdjustDialog(bool isJoint)
         ? QStringList{"X", "Y", "Z", "A", "B", "C"}
         : QStringList{"J0", "J1", "J2", "J3", "J4", "J5"};
 
-    QList<QDoubleSpinBox*> spins;
+    QList<QLineEdit*> spins;
     for (int i = 0; i < 6; ++i) {
         // 隐藏左侧标签(只要 6 行纯数据,不显示 J0/X 等名称)
         lblAxis[i]->hide();
-        spinAxis[i]->setSingleStep(step);
-        spinAxis[i]->setKeyboardTracking(false);
-        // 不设置 prefix —— 用户只要纯数据
-        spinAxis[i]->setPrefix(QString());
+        spinAxis[i]->setValidator(new QDoubleValidator(-9999.0, 9999.0, 3, spinAxis[i]));
+        spinAxis[i]->setAlignment(Qt::AlignCenter);
         spinAxis[i]->setStyleSheet(QStringLiteral(
-            "QDoubleSpinBox{font-family:Consolas,'Microsoft YaHei UI';font-size:20px;"
-            "font-weight:bold;color:#1565c0;padding:0 10px;"
-            "qproperty-alignment:AlignCenter;}"));
+            "QLineEdit{font-family:Consolas,'Microsoft YaHei UI';font-size:20px;"
+            "font-weight:bold;color:#1565c0;padding:0 10px;}"));
+        spinAxis[i]->setText("0.000");
         // 给数据列留够宽度(防 6 位数被遮)
         spinAxis[i]->setMinimumWidth(140);
         spins.append(spinAxis[i]);
@@ -2346,7 +2334,7 @@ void MainWindow::showPointAdjustDialog(bool isJoint)
                 if (isEditing(i)) continue;
                 double display = (i >= 3) ? normalizeAngle180(pos[i]) : pos[i];
                 spins[i]->blockSignals(true);
-                spins[i]->setValue(display);
+                spins[i]->setText(QString::number(display, 'f', 3));
                 spins[i]->blockSignals(false);
             }
         } else {
@@ -2355,7 +2343,7 @@ void MainWindow::showPointAdjustDialog(bool isJoint)
             for (int i = 0; i < 6 && i < pos.size(); ++i) {
                 if (isEditing(i)) continue;
                 spins[i]->blockSignals(true);
-                spins[i]->setValue(pos[i]);
+                spins[i]->setText(QString::number(pos[i], 'f', 3));
                 spins[i]->blockSignals(false);
             }
         }
@@ -2377,12 +2365,9 @@ void MainWindow::showPointAdjustDialog(bool isJoint)
     // ===== 手动编辑检测 =====
     // ★ 使用内部 QLineEdit::textEdited 检测用户输入（通过 findChild 获取）
     for (int i = 0; i < 6; ++i) {
-        QLineEdit* le = spins[i]->findChild<QLineEdit*>();
-        if (le) {
-            QObject::connect(le, &QLineEdit::textEdited, &dlg, [&lastEditMs, i] {
-                lastEditMs[i] = QDateTime::currentMSecsSinceEpoch();
-            });
-        }
+        QObject::connect(spins[i], &QLineEdit::textEdited, &dlg, [&lastEditMs, i] {
+            lastEditMs[i] = QDateTime::currentMSecsSinceEpoch();
+        });
     }
 
     // ===== [-]/[+] 按钮:驱动机器人 ± 步长(非阻塞 jog,立即返回) =====
@@ -2399,17 +2384,17 @@ void MainWindow::showPointAdjustDialog(bool isJoint)
                 if (pos.size() <= i) return;
                 pos[i] -= step;
                 m_robotController->jogCart(pos,
-                    this->ui->debugSpeed->value(),
-                    this->ui->debugAccel->value(),
-                    this->ui->debugDecel->value());
+                    this->ui->debugSpeed->text().toDouble(),
+                    this->ui->debugAccel->text().toDouble(),
+                    this->ui->debugDecel->text().toDouble());
             } else {
                 // 正解模式:取关节角度,减步长
                 QList<double> pos = m_robotController->getState()->getAllAxisPositions();
                 if (pos.size() <= i) return;
                 m_robotController->jogJoint(i, pos[i] - step,
-                    this->ui->debugSpeed->value(),
-                    this->ui->debugAccel->value(),
-                    this->ui->debugDecel->value());
+                    this->ui->debugSpeed->text().toDouble(),
+                    this->ui->debugAccel->text().toDouble(),
+                    this->ui->debugDecel->text().toDouble());
             }
             lastEditMs[i] = 0;
         });
@@ -2427,17 +2412,17 @@ void MainWindow::showPointAdjustDialog(bool isJoint)
                 if (pos.size() <= i) return;
                 pos[i] += step;
                 m_robotController->jogCart(pos,
-                    this->ui->debugSpeed->value(),
-                    this->ui->debugAccel->value(),
-                    this->ui->debugDecel->value());
+                    this->ui->debugSpeed->text().toDouble(),
+                    this->ui->debugAccel->text().toDouble(),
+                    this->ui->debugDecel->text().toDouble());
             } else {
                 // 正解模式:取关节角度,加步长
                 QList<double> pos = m_robotController->getState()->getAllAxisPositions();
                 if (pos.size() <= i) return;
                 m_robotController->jogJoint(i, pos[i] + step,
-                    this->ui->debugSpeed->value(),
-                    this->ui->debugAccel->value(),
-                    this->ui->debugDecel->value());
+                    this->ui->debugSpeed->text().toDouble(),
+                    this->ui->debugAccel->text().toDouble(),
+                    this->ui->debugDecel->text().toDouble());
             }
             lastEditMs[i] = 0;
         });
@@ -2473,18 +2458,18 @@ void MainWindow::showPointAdjustDialog(bool isJoint)
         }
         QList<double> vals;
         for (int i = 0; i < 6; ++i)
-            vals.append(spins[i]->value());
+            vals.append(spins[i]->text().toDouble());
 
         const bool isCart = m_robotController->isCartesianMode();
         bool ok = isCart
             ? m_robotController->moveL(vals,
-                this->ui->debugSpeed->value(),
-                this->ui->debugAccel->value(),
-                this->ui->debugDecel->value(), 3000)
+                this->ui->debugSpeed->text().toDouble(),
+                this->ui->debugAccel->text().toDouble(),
+                this->ui->debugDecel->text().toDouble(), 3000)
             : m_robotController->moveJ(vals,
-                this->ui->debugSpeed->value(),
-                this->ui->debugAccel->value(),
-                this->ui->debugDecel->value(), 3000);
+                this->ui->debugSpeed->text().toDouble(),
+                this->ui->debugAccel->text().toDouble(),
+                this->ui->debugDecel->text().toDouble(), 3000);
 
         resetEditState();  // 运行后恢复实时刷新
 
