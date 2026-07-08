@@ -1476,6 +1476,11 @@ void MainWindow::initManualProgUI()
         compactLineEdit(ui->debugAccel);
         compactLineEdit(ui->debugDecel);
 
+        ui->debugStep->setText(QStringLiteral("1.0"));
+        ui->debugSpeed->setText(QStringLiteral("25.0"));
+        ui->debugAccel->setText(QStringLiteral("50.0"));
+        ui->debugDecel->setText(QStringLiteral("60.0"));
+
         // 2×2 QGridLayout
         QGridLayout* debugGrid = new QGridLayout();
         debugGrid->setSpacing(6);

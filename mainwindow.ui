@@ -4881,139 +4881,158 @@ QHeaderView::section{background:#f5f5f5;color:#666;font-weight:bold;padding:4px 
             </widget>
            </item>
            <item>
-            <widget class="QGroupBox" name="settingsMotion">
+            <widget class="QGroupBox" name="settingsHomePos">
              <property name="styleSheet">
               <string>QGroupBox{background:#ffffff;border:1px solid #d0d5dd;border-radius:8px;margin-top:14px;padding:14px 12px 12px 12px;font-weight:bold;font-size:13px;color:#1a1a2e;}
 QGroupBox::title{subcontrol-origin:margin;left:14px;padding:0 8px;}</string>
              </property>
              <property name="title">
-              <string>运动参数</string>
+              <string>回零原点位置</string>
              </property>
-             <layout class="QFormLayout" name="settingsMotionLayout">
+             <layout class="QGridLayout" name="settingsHomePosLayout">
               <property name="horizontalSpacing">
                <number>6</number>
               </property>
               <property name="verticalSpacing">
-               <number>6</number>
+               <number>4</number>
               </property>
               <item row="0" column="0">
-               <widget class="QLabel" name="label_104">
+               <widget class="QLabel" name="labelHomeJ0">
                 <property name="text">
-                 <string>默认速度 (mm/s):</string>
+                 <string>J1:</string>
+                </property>
+               </widget>
+              </item>
+              <item row="0" column="1">
+               <widget class="QLineEdit" name="editHomeJ0">
+                <property name="minimumSize">
+                 <size>
+                  <width>70</width>
+                  <height>24</height>
+                 </size>
+                </property>
+                <property name="styleSheet">
+                 <string>QLineEdit{padding:4px 6px;border:1px solid #d0d5dd;border-radius:4px;}</string>
+                </property>
+               </widget>
+              </item>
+              <item row="0" column="2">
+               <widget class="QLabel" name="labelHomeJ1">
+                <property name="text">
+                 <string>J2:</string>
+                </property>
+               </widget>
+              </item>
+              <item row="0" column="3">
+               <widget class="QLineEdit" name="editHomeJ1">
+                <property name="minimumSize">
+                 <size>
+                  <width>70</width>
+                  <height>24</height>
+                 </size>
+                </property>
+                <property name="styleSheet">
+                 <string>QLineEdit{padding:4px 6px;border:1px solid #d0d5dd;border-radius:4px;}</string>
+                </property>
+               </widget>
+              </item>
+              <item row="0" column="4">
+               <widget class="QLabel" name="labelHomeJ2">
+                <property name="text">
+                 <string>J3:</string>
+                </property>
+               </widget>
+              </item>
+              <item row="0" column="5">
+               <widget class="QLineEdit" name="editHomeJ2">
+                <property name="minimumSize">
+                 <size>
+                  <width>70</width>
+                  <height>24</height>
+                 </size>
+                </property>
+                <property name="styleSheet">
+                 <string>QLineEdit{padding:4px 6px;border:1px solid #d0d5dd;border-radius:4px;}</string>
+                </property>
+               </widget>
+              </item>
+              <item row="0" column="6">
+               <widget class="QLabel" name="labelHomeJ3">
+                <property name="text">
+                 <string>J4:</string>
+                </property>
+               </widget>
+              </item>
+              <item row="0" column="7">
+               <widget class="QLineEdit" name="editHomeJ3">
+                <property name="minimumSize">
+                 <size>
+                  <width>70</width>
+                  <height>24</height>
+                 </size>
+                </property>
+                <property name="styleSheet">
+                 <string>QLineEdit{padding:4px 6px;border:1px solid #d0d5dd;border-radius:4px;}</string>
+                </property>
+               </widget>
+              </item>
+              <item row="0" column="8">
+               <widget class="QLabel" name="labelHomeJ4">
+                <property name="text">
+                 <string>J5:</string>
+                </property>
+               </widget>
+              </item>
+              <item row="0" column="9">
+               <widget class="QLineEdit" name="editHomeJ4">
+                <property name="minimumSize">
+                 <size>
+                  <width>70</width>
+                  <height>24</height>
+                 </size>
+                </property>
+                <property name="styleSheet">
+                 <string>QLineEdit{padding:4px 6px;border:1px solid #d0d5dd;border-radius:4px;}</string>
+                </property>
+               </widget>
+              </item>
+              <item row="0" column="10">
+               <widget class="QLabel" name="labelHomeJ5">
+                <property name="text">
+                 <string>J6:</string>
+                </property>
+               </widget>
+              </item>
+              <item row="0" column="11">
+               <widget class="QLineEdit" name="editHomeJ5">
+                <property name="minimumSize">
+                 <size>
+                  <width>70</width>
+                  <height>24</height>
+                 </size>
+                </property>
+                <property name="styleSheet">
+                 <string>QLineEdit{padding:4px 6px;border:1px solid #d0d5dd;border-radius:4px;}</string>
+                </property>
+               </widget>
+              </item>
+              <item row="0" column="12">
+               <widget class="QPushButton" name="btnSaveHome">
+                <property name="minimumSize">
+                 <size>
+                  <width>60</width>
+                  <height>26</height>
+                 </size>
+                </property>
+                <property name="styleSheet">
+                 <string>QPushButton{background:#e8f5e9;color:#2e7d32;border:1px solid #a5d6a7;border-radius:4px;padding:2px 10px;font-weight:bold;font-size:12px;}QPushButton:hover{background:#c8e6c9;}</string>
+                </property>
+                <property name="text">
+                 <string>保存</string>
                 </property>
                </widget>
               </item>
              </layout>
-             <widget class="QLineEdit" name="spinDefaultSpeed">
-              <property name="geometry">
-               <rect>
-                <x>0</x>
-                <y>0</y>
-                <width>100</width>
-                <height>30</height>
-               </rect>
-              </property>
-</widget>
-             <widget class="QLabel" name="label_105">
-              <property name="geometry">
-               <rect>
-                <x>0</x>
-                <y>0</y>
-                <width>100</width>
-                <height>30</height>
-               </rect>
-              </property>
-              <property name="text">
-               <string>加速度 (mm/s²):</string>
-              </property>
-             </widget>
-             <widget class="QLineEdit" name="spinDefaultAccel">
-              <property name="geometry">
-               <rect>
-                <x>0</x>
-                <y>0</y>
-                <width>100</width>
-                <height>30</height>
-               </rect>
-              </property>
-</widget>
-             <widget class="QLabel" name="label_106">
-              <property name="geometry">
-               <rect>
-                <x>0</x>
-                <y>0</y>
-                <width>100</width>
-                <height>30</height>
-               </rect>
-              </property>
-              <property name="text">
-               <string>运动超时 (ms):</string>
-              </property>
-             </widget>
-             <widget class="QSpinBox" name="spinDefaultTimeout">
-              <property name="geometry">
-               <rect>
-                <x>0</x>
-                <y>0</y>
-                <width>100</width>
-                <height>30</height>
-               </rect>
-              </property>
-              <property name="minimum">
-               <number>100</number>
-              </property>
-              <property name="maximum">
-               <number>60000</number>
-              </property>
-              <property name="singleStep">
-               <number>100</number>
-              </property>
-              <property name="value">
-               <number>100</number>
-              </property>
-             </widget>
-            </widget>
-           </item>
-           <item>
-            <widget class="QGroupBox" name="settingsNetwork">
-             <property name="styleSheet">
-              <string>QGroupBox{background:#ffffff;border:1px solid #d0d5dd;border-radius:8px;margin-top:14px;padding:14px 12px 12px 12px;font-weight:bold;font-size:13px;color:#1a1a2e;}
-QGroupBox::title{subcontrol-origin:margin;left:14px;padding:0 8px;}</string>
-             </property>
-             <property name="title">
-              <string>网络配置</string>
-             </property>
-             <layout class="QFormLayout" name="settingsNetworkLayout">
-              <property name="horizontalSpacing">
-               <number>6</number>
-              </property>
-              <property name="verticalSpacing">
-               <number>6</number>
-              </property>
-              <item row="0" column="0">
-               <widget class="QLabel" name="label_107">
-                <property name="text">
-                 <string>控制器 IP:</string>
-                </property>
-               </widget>
-              </item>
-             </layout>
-             <widget class="QLineEdit" name="editControllerIP">
-              <property name="geometry">
-               <rect>
-                <x>0</x>
-                <y>0</y>
-                <width>100</width>
-                <height>30</height>
-               </rect>
-              </property>
-              <property name="styleSheet">
-               <string>QLineEdit{padding:4px 6px;border:1px solid #d0d5dd;border-radius:4px;}</string>
-              </property>
-              <property name="text">
-               <string>192.168.0.100</string>
-              </property>
-             </widget>
             </widget>
            </item>
            <item>

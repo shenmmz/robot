@@ -307,12 +307,18 @@ void ServoTestWidget::setupUI()
     actionRow->addWidget(timeLabel);
 
     m_insertTimeSpin = new QLineEdit(this);
-    m_insertTimeSpin->setValidator(new QDoubleValidator(20.0, 30000.0, 0, m_insertTimeSpin));
+    m_insertTimeSpin->setValidator(new QDoubleValidator(10.0, 30000.0, 0, m_insertTimeSpin));
     m_insertTimeSpin->setText("500");
     m_insertTimeSpin->setAlignment(Qt::AlignCenter);
     m_insertTimeSpin->setMinimumWidth(110);
-    m_insertTimeSpin->setToolTip(QStringLiteral("生成 SERVO 时间模式的时间参数（ms），≥20 走软插值"));
+    m_insertTimeSpin->setToolTip(QStringLiteral("生成 SERVO 时间模式的时间参数（ms），≥10 走软插值"));
     actionRow->addWidget(m_insertTimeSpin);
+
+    // 失焦时若值 <10 自动归正为 10，与生成逻辑对齐
+    connect(m_insertTimeSpin, &QLineEdit::editingFinished, this, [this]() {
+        int v = static_cast<int>(m_insertTimeSpin->text().toDouble());
+        if (v < 10) m_insertTimeSpin->setText("10");
+    });
 
     // 插入到编辑器按钮：按勾选通道生成 SERVO(ch=ang:Tms,...) 多路表达式
     QPushButton* btnInsert = new QPushButton(QStringLiteral("📋 插入 SERVO 到编辑器"), this);
@@ -397,7 +403,7 @@ void ServoTestWidget::onInsertToEditor()
 {
     QStringList parts;
     int timeMs = m_insertTimeSpin ? static_cast<int>(m_insertTimeSpin->text().toDouble()) : 500;
-    if (timeMs < 20) timeMs = 20;   // 与脚本 SERVO 时间模式规则对齐
+    if (timeMs < 10) timeMs = 10;   // 与脚本 SERVO 时间模式规则对齐
 
     for (int i = 0; i < 6; ++i) {
         if (!m_checkedChannels[i]) continue;

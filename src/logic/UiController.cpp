@@ -186,6 +186,10 @@ void UiController::init()
     if (auto* edit = m_mainWindow->findChild<QLineEdit*>(QStringLiteral("editControllerIP")))
         connect(edit, &QLineEdit::editingFinished, this, &UiController::onSaveSettings);
 
+    // === 设置页面：保存按钮点击 → 保存到配置 ===
+    if (auto* btn = m_mainWindow->findChild<QPushButton*>(QStringLiteral("btnSaveHome")))
+        connect(btn, &QPushButton::clicked, this, &UiController::onSaveSettings);
+
     // === 手动点动：关节 J0-J5 的 ± 按钮（点一下移一步，松开不阻止运动） ===
     for (int j = 0; j < 6; ++j) {
         if (auto* btn = m_mainWindow->findChild<QPushButton*>(QStringLiteral("btnJogJ%1M").arg(j)))
@@ -1327,17 +1331,17 @@ void UiController::showTargetEditDialog()
     if (m_taskExecutor) {
         m_taskExecutor->setTargets(m_targets);
     }
-    onTargetEditorChanged();
-
     // 同步程序编辑器中的 MOVEJ/MOVEL 行的 speed/acc/dec/timeout 关键字参数
-    // 这样用户在弹窗里改了点位 motion,程序编辑器的行级参数也会同步更新,
-    // 编辑流程与点位管理双向一致
+    // 先于 onTargetEditorChanged 执行，因此时 m_targetMotion 仍持有弹窗写入的正确值
     syncMotionInMoveLines();
 
-    // 把更新后的 m_targetMotion 推给 TaskExecutor(在 onTargetEditorChanged 之后,
-    // 因为后者会从 TARGET 行无 motion 段重新解析覆盖 m_targetMotion)
+    // 把更新后的 m_targetMotion 推给 TaskExecutor
     if (m_taskExecutor)
         m_taskExecutor->setTargetMotion(m_targetMotion);
+
+    // 最后触发 TARGET 行解析（会从无 motion 段的 TARGET 行清零 m_targetMotion，
+    // 但同步与下发已先行完成）
+    onTargetEditorChanged();
 
     // 自动保存:用户点确定后,把修改直接持久化到当前 .rbt 文件,
     // 避免用户每次都要再手动点"保存"按钮
@@ -2615,40 +2619,29 @@ void UiController::onLoadSettings()
     RobotConfig* config = m_robotController->getConfig();
     if (!config) return;
 
-    auto* spinSpeed = m_mainWindow->findChild<QLineEdit*>(QStringLiteral("spinDefaultSpeed"));
-    auto* spinAccel = m_mainWindow->findChild<QLineEdit*>(QStringLiteral("spinDefaultAccel"));
-    auto* spinTimeout = m_mainWindow->findChild<QSpinBox*>(QStringLiteral("spinDefaultTimeout"));
-    auto* editIP = m_mainWindow->findChild<QLineEdit*>(QStringLiteral("editControllerIP"));
-
-    if (spinSpeed) spinSpeed->setText(QString::number(static_cast<int>(config->getAxisConfig(0).maxSpeed)));
-    if (spinAccel) spinAccel->setText(QString::number(static_cast<int>(config->getAxisConfig(0).maxAccel)));
-    if (spinTimeout) spinTimeout->setValue(3000);
-    if (editIP) editIP->setText(config->getControllerIP());
+    // 回零原点位置
+    QList<double> homePos = config->getHomePosition();
+    for (int j = 0; j < homePos.size() && j < 6; ++j) {
+        if (auto* edit = m_mainWindow->findChild<QLineEdit*>(QStringLiteral("editHomeJ%1").arg(j)))
+            edit->setText(QString::number(homePos[j], 'f', 3));
+    }
 }
 
 /**
- * @brief "保存设置"按钮回调：将界面上的速度/加速度/IP 更新到 RobotConfig，并写回 JSON 配置文件
+ * @brief "保存设置"按钮回调：采集回零原点位置，写回 JSON 配置文件
  */
 void UiController::onSaveSettings()
 {
     RobotConfig* config = m_robotController->getConfig();
     if (!config) return;
 
-    auto* editIP = m_mainWindow->findChild<QLineEdit*>(QStringLiteral("editControllerIP"));
-    if (editIP) config->setControllerIP(editIP->text().trimmed());
-
-    auto* spinSpeed = m_mainWindow->findChild<QLineEdit*>(QStringLiteral("spinDefaultSpeed"));
-    auto* spinAccel = m_mainWindow->findChild<QLineEdit*>(QStringLiteral("spinDefaultAccel"));
-
-    int speed = spinSpeed ? static_cast<int>(spinSpeed->text().toDouble()) : 360;
-    int accel = spinAccel ? static_cast<int>(spinAccel->text().toDouble()) : 1000;
-
-    for (int i = 0; i < config->getAxisCount(); ++i) {
-        RobotConfig::AxisConfig ac = config->getAxisConfig(i);
-        ac.maxSpeed = speed;
-        ac.maxAccel = accel;
-        config->setAxisConfig(i, ac);
+    // 回零原点位置
+    QList<double> homePos;
+    for (int j = 0; j < 6; ++j) {
+        auto* edit = m_mainWindow->findChild<QLineEdit*>(QStringLiteral("editHomeJ%1").arg(j));
+        homePos.append(edit ? edit->text().toDouble() : 0.0);
     }
+    config->setHomePosition(homePos);
 
     QString configPath = QCoreApplication::applicationDirPath() + "/config/robot_config.json";
     auto* statusbar = m_mainWindow->findChild<QStatusBar*>(QStringLiteral("statusbar"));
