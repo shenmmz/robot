@@ -287,29 +287,6 @@ bool RobotController::initRobotModel()
         ret = api->setAxisDpos(virtualAxes, zeroDpos);
         if (!ret.success) { emit modelInitFailed(ret.errorCode); return false; }
     }
-
-    // // ===== 4. 回读验证 TABLE 写入（调试用，已注释） =====
-    // QVector<float> readBack;
-    // ret = api->getTable(0, 25, readBack);
-    // if (ret.success) {
-    //     qDebug() << "[initRobotModel] TABLE回读验证:";
-    //     qDebug() << "  DH几何:"
-    //              << QString("LargeZ=%1").arg(readBack[0])
-    //              << QString("Alpha=%1").arg(readBack[1])
-    //              << QString("L2=%1").arg(readBack[2])
-    //              << QString("Theta=%1").arg(readBack[3])
-    //              << QString("L4=%1").arg(readBack[4])
-    //              << QString("D5=%1").arg(readBack[5]);
-    //     qDebug() << "  脉冲数:"
-    //              << QString("J0=%1 J1=%2 J2=%3 J3=%4 J4=%5 J5=%6")
-    //                 .arg(readBack[6]).arg(readBack[7]).arg(readBack[8])
-    //                 .arg(readBack[9]).arg(readBack[10]).arg(readBack[11]);
-    //     qDebug() << "  PulesVR:" << readBack[12];
-    //     qDebug() << "  末端SmallLZ:" << readBack[15];
-    // } else {
-    //     qWarning() << "[initRobotModel] TABLE回读失败:" << ret.errorMessage;
-    // }
-
     qDebug() << "[initRobotModel] 六轴串联机器人模型配置完成";
     emit modelInitSuccess();
     return true;
@@ -467,11 +444,14 @@ bool RobotController::moveAxis(int axisIndex, double targetPos, double speed, do
 bool RobotController::moveJ(const QList<double>& jointPos, double speed, double accel, double decel, int timeoutMs)
 {
     if (!isConnected()) {
+        qCritical() << "[moveJ] 硬件未连接";
         emit operationFailed(QStringLiteral("moveJ"), QStringLiteral("硬件未连接"));
         return false;
     }
 
     if (jointPos.size() != m_config->getAxisCount()) {
+        qCritical() << "[moveJ] 关节数量不匹配: 传入" << jointPos.size()
+                     << "期望" << m_config->getAxisCount();
         emit operationFailed(QStringLiteral("moveJ"), QStringLiteral("关节数量不匹配"));
         return false;
     }
@@ -484,21 +464,27 @@ bool RobotController::moveJ(const QList<double>& jointPos, double speed, double 
     QList<float> targets;
     for (double pos : jointPos) targets.append(static_cast<float>(pos));
 
-    ZmotionResult result = api->directMoveAbsolute(axes, targets, static_cast<float>(speed), static_cast<float>(accel), static_cast<float>(decel));
+    // 取消 CONNREFRAME 绑定，使关节轴回到独立轴模式
+    api->executeCommand("CANCEL");
+    // CANCEL 后必须等待轴停止，对应 RTBasic 的 WAIT IDLE
+    api->waitForAxesIdle(axes, 2000);// 等待轴停止，防止后续指令出错
+
+    ZmotionResult result = api->directMoveAbsolute(axes, targets, static_cast<float>(speed), static_cast<float>(accel), static_cast<float>(decel));// 直接绝对移动，触发正解模式
     if (!result.success) {
+        qCritical() << "[moveJ] directMoveAbsolute 失败:" << result.errorMessage;
         emit operationFailed(QStringLiteral("moveJ"), result.errorMessage);
         return false;
     }
 
     m_state->setStatus(RobotState::StatusMoving);
-    // 对比DPOS与目标位置判断到位，不依赖IDLE（物理轴的IDLE检测更可靠时也可保留）
-    result = api->waitForAxesReachTarget(axes, targets, timeoutMs);
+    qDebug() << "[moveJ] 运动已启动, targets=" << targets << "speed=" << speed << "timeout=" << timeoutMs;
+    // 等待关节轴物理停止（IDLE检测，CONNREFRAME 下 GetDpos 不可靠）
+    result = api->waitForAxesIdle(axes, timeoutMs);
     m_state->setStatus(RobotState::StatusIdle);
 
     if (!result.success) {
-        qWarning() << "[moveJ] 等待运动到位超时，命令已发出";
-        if (result.errorCode == -4)
-            return false;
+        qCritical() << "[moveJ] 等待运动到位超时:" << result.errorMessage << "超时=" << timeoutMs << "ms";
+        return false;
     }
     return true;
 }
@@ -560,7 +546,33 @@ bool RobotController::moveL(const QList<double>& cartPos, double speed, double a
         .arg(targets[0],0,'f',3).arg(targets[1],0,'f',3).arg(targets[2],0,'f',3)
         .arg(targets[3],0,'f',3).arg(targets[4],0,'f',3).arg(targets[5],0,'f',3);
 
-    ZmotionResult result = api->directMoveAbsolute(virtualAxes, targets,
+    // 虚拟轴规划运动:MoveAbs 触发 CONNFRAME IK,关节轴按 SPEED/ACCEL/DECEL 跟随
+    // (SetDpos 是瞬间赋值,会让机械臂"瞬移"到目标位置,看不到连续运动)
+    QList<float> dposTargets;
+    for (float v : targets) dposTargets.append(v);
+
+    // 给虚拟轴设速度/加速度/减速度(虚拟轴 UNITS=10000 对应 mm)
+    {
+        QList<double> vSpeeds(virtualAxes.size(), static_cast<double>(speed));
+        QList<double> vAccels(virtualAxes.size(), static_cast<double>(accel));
+        QList<double> vDecels(virtualAxes.size(), static_cast<double>(decel));
+        api->setAxisSpeed(virtualAxes, vSpeeds);
+        api->setAxisAccel(virtualAxes, vAccels);
+        api->setAxisDecel(virtualAxes, vDecels);
+    }
+
+    // 同时给关节轴设运动参数(CONNFRAME 模式下关节轴也要遵守)
+    {
+        QList<int> jointAxes = m_config->getJointAxisList();
+        QList<double> jSpeeds(jointAxes.size(), static_cast<double>(speed));
+        QList<double> jAccels(jointAxes.size(), static_cast<double>(accel));
+        QList<double> jDecels(jointAxes.size(), static_cast<double>(decel));
+        api->setAxisSpeed(jointAxes, jSpeeds);
+        api->setAxisAccel(jointAxes, jAccels);
+        api->setAxisDecel(jointAxes, jDecels);
+    }
+
+    ZmotionResult result = api->directMoveAbsolute(virtualAxes, dposTargets,
         static_cast<float>(speed), static_cast<float>(accel), static_cast<float>(decel));
     if (!result.success) {
         emit operationFailed(QStringLiteral("moveL"), result.errorMessage);
@@ -568,12 +580,13 @@ bool RobotController::moveL(const QList<double>& cartPos, double speed, double a
     }
 
     m_state->setStatus(RobotState::StatusMoving);
-    // 对比虚拟轴DPOS与目标位置判断到位，不再依赖IDLE（虚拟轴IDLE不可靠）
-    result = api->waitForAxesReachTarget(virtualAxes, targets, timeoutMs);
-    m_state->setStatus(RobotState::StatusIdle);
+    // 等待虚拟轴运动停止(CONNFRAME 模式下虚拟轴先到位后关节轴跟随到位)
+    QList<int> jointAxes = m_config->getJointAxisList();
+    result = api->waitForAxesIdle(virtualAxes, timeoutMs);
+    m_state->setStatus(RobotState::StatusIdle);// 运动完成后设置状态为空闲
 
     if (!result.success) {
-        qWarning() << "[moveL] 等待运动到位超时，命令已发出";
+        qWarning() << "[moveL] 等待运动到位超时,命令已发出";
         if (result.errorCode == -4)
             return false;
     }
@@ -634,14 +647,38 @@ bool RobotController::jogCart(const QList<double>& cartTarget,
     if (!isConnected()) return false;
     if (cartTarget.size() != 6) return false;
 
+    qDebug() << "[RobotController::jogCart] cart=" << cartTarget
+             << "wasCartesian=" << isCartesianMode();
+
     switchToCartesianMode();
 
     ZmotionAPI* api = m_motionController->getZmotionAPI();
     QList<int> virtualAxes = m_config->getVirtualAxisList();
+    QList<int> jointAxes   = m_config->getJointAxisList();
 
+    // 给虚拟轴设速度/加速度/减速度（虚拟轴 UNITS=10000 对应 mm）
+    {
+        QList<double> vSpeeds(virtualAxes.size(), static_cast<double>(speed));
+        QList<double> vAccels(virtualAxes.size(), static_cast<double>(accel));
+        QList<double> vDecels(virtualAxes.size(), static_cast<double>(decel));
+        api->setAxisSpeed(virtualAxes, vSpeeds);
+        api->setAxisAccel(virtualAxes, vAccels);
+        api->setAxisDecel(virtualAxes, vDecels);
+    }
+
+    // 同时给关节轴设运动参数（CONNFRAME 模式下关节轴也要遵守）
+    {
+        QList<double> speeds(jointAxes.size(), static_cast<double>(speed));
+        QList<double> accels(jointAxes.size(), static_cast<double>(accel));
+        QList<double> decels(jointAxes.size(), static_cast<double>(decel));
+        api->setAxisSpeed(jointAxes, speeds);
+        api->setAxisAccel(jointAxes, accels);
+        api->setAxisDecel(jointAxes, decels);
+    }
+
+    // 用 directMoveAbsolute 替代 setAxisDpos，带运动规划平滑加减速
     QList<float> targets;
-    for (double v : cartTarget) targets.append(static_cast<float>(v));
-
+    for (double pos : cartTarget) targets.append(static_cast<float>(pos));
     api->directMoveAbsolute(virtualAxes, targets, static_cast<float>(speed),
                             static_cast<float>(accel), static_cast<float>(decel));
     return true;
@@ -836,7 +873,9 @@ bool RobotController::switchToCartesianMode()
     }
 
     // 已在逆解模式，跳过
-    if (isCartesianMode()) return true;
+    if (isCartesianMode()) {
+        return true;
+    }
 
     emit operationStarted(QStringLiteral("切换笛卡尔模式"));
 

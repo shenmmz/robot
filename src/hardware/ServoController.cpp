@@ -36,7 +36,7 @@ ServoController::ServoController(Rs485Controller* rs485, QObject *parent)
         ServoState state;
         state.currentAngle = 90.0f;
         state.targetAngle = 90.0f;
-        state.speed = 10.0f; // 默认10度/秒
+        state.speed = 1.0f; // 默认1度/秒（用户偏好：更慢，便于手动观察）
         state.isMoving = false;
         m_states[i] = state;
     }

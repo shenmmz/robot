@@ -230,13 +230,13 @@ QPushButton:disabled{color:#555;border-color:#3a3a3a;}</string>
         <widget class="QFrame" name="sideBar">
          <property name="minimumSize">
           <size>
-           <width>96</width>
+           <width>88</width>
            <height>0</height>
           </size>
          </property>
          <property name="maximumSize">
           <size>
-           <width>96</width>
+           <width>88</width>
            <height>16777215</height>
           </size>
          </property>
@@ -262,13 +262,13 @@ QPushButton:disabled{color:#555;border-color:#3a3a3a;}</string>
           <item>
            <widget class="QLabel" name="sideTitle">
             <property name="styleSheet">
-             <string>color:#546e7a;font-size:10px;font-weight:bold;border:none;background:transparent;padding:4px 0 8px 0;</string>
+             <string>color:#546e7a;font-size:14px;font-weight:bold;border:none;background:transparent;padding:4px 0 8px 0;</string>
             </property>
             <property name="text">
              <string>⚙ 导航</string>
             </property>
             <property name="alignment">
-             <set>Qt::AlignmentFlag::AlignCenter</set>
+             <set>Qt::AlignmentFlag::AlignLeading</set>
             </property>
            </widget>
           </item>
@@ -281,7 +281,7 @@ QPushButton:disabled{color:#555;border-color:#3a3a3a;}</string>
              </size>
             </property>
             <property name="styleSheet">
-             <string>QPushButton{background:transparent;color:#b0bec5;border:none;border-left:3px solid transparent;text-align:left;padding:10px 14px;font-size:14px;}
+             <string>QPushButton{background:transparent;color:#b0bec5;border:none;border-left:3px solid transparent;text-align:left;padding:10px 14px 10px 6px;font-size:14px;}
 QPushButton:hover{background:rgba(255,255,255,0.06);color:#cfd8dc;}
 QPushButton:checked{background:rgba(21,101,192,0.18);color:#fff;border-left:3px solid #1565c0;font-weight:bold;}</string>
             </property>
@@ -305,7 +305,7 @@ QPushButton:checked{background:rgba(21,101,192,0.18);color:#fff;border-left:3px 
              </size>
             </property>
             <property name="styleSheet">
-             <string>QPushButton{background:transparent;color:#b0bec5;border:none;border-left:3px solid transparent;text-align:left;padding:10px 14px;font-size:14px;}
+             <string>QPushButton{background:transparent;color:#b0bec5;border:none;border-left:3px solid transparent;text-align:left;padding:10px 14px 10px 6px;font-size:14px;}
 QPushButton:hover{background:rgba(255,255,255,0.06);color:#cfd8dc;}
 QPushButton:checked{background:rgba(21,101,192,0.18);color:#fff;border-left:3px solid #1565c0;font-weight:bold;}</string>
             </property>
@@ -326,7 +326,7 @@ QPushButton:checked{background:rgba(21,101,192,0.18);color:#fff;border-left:3px 
              </size>
             </property>
             <property name="styleSheet">
-             <string>QPushButton{background:transparent;color:#b0bec5;border:none;border-left:3px solid transparent;text-align:left;padding:10px 14px;font-size:14px;}
+             <string>QPushButton{background:transparent;color:#b0bec5;border:none;border-left:3px solid transparent;text-align:left;padding:10px 14px 10px 6px;font-size:14px;}
 QPushButton:hover{background:rgba(255,255,255,0.06);color:#cfd8dc;}
 QPushButton:checked{background:rgba(21,101,192,0.18);color:#fff;border-left:3px solid #1565c0;font-weight:bold;}</string>
             </property>
@@ -347,7 +347,7 @@ QPushButton:checked{background:rgba(21,101,192,0.18);color:#fff;border-left:3px 
              </size>
             </property>
             <property name="styleSheet">
-             <string>QPushButton{background:transparent;color:#b0bec5;border:none;border-left:3px solid transparent;text-align:left;padding:10px 14px;font-size:14px;}
+             <string>QPushButton{background:transparent;color:#b0bec5;border:none;border-left:3px solid transparent;text-align:left;padding:10px 14px 10px 6px;font-size:14px;}
 QPushButton:hover{background:rgba(255,255,255,0.06);color:#cfd8dc;}
 QPushButton:checked{background:rgba(21,101,192,0.18);color:#fff;border-left:3px solid #1565c0;font-weight:bold;}</string>
             </property>
@@ -368,7 +368,7 @@ QPushButton:checked{background:rgba(21,101,192,0.18);color:#fff;border-left:3px 
              </size>
             </property>
             <property name="styleSheet">
-             <string>QPushButton{background:transparent;color:#b0bec5;border:none;border-left:3px solid transparent;text-align:left;padding:10px 14px;font-size:14px;}
+             <string>QPushButton{background:transparent;color:#b0bec5;border:none;border-left:3px solid transparent;text-align:left;padding:10px 14px 10px 6px;font-size:14px;}
 QPushButton:hover{background:rgba(255,255,255,0.06);color:#cfd8dc;}
 QPushButton:checked{background:rgba(21,101,192,0.18);color:#fff;border-left:3px solid #1565c0;font-weight:bold;}</string>
             </property>
@@ -389,7 +389,7 @@ QPushButton:checked{background:rgba(21,101,192,0.18);color:#fff;border-left:3px 
              </size>
             </property>
             <property name="styleSheet">
-             <string>QPushButton{background:transparent;color:#b0bec5;border:none;border-left:3px solid transparent;text-align:left;padding:10px 14px;font-size:14px;}
+             <string>QPushButton{background:transparent;color:#b0bec5;border:none;border-left:3px solid transparent;text-align:left;padding:10px 14px 10px 6px;font-size:14px;}
 QPushButton:hover{background:rgba(255,255,255,0.06);color:#cfd8dc;}
 QPushButton:checked{background:rgba(21,101,192,0.18);color:#fff;border-left:3px solid #1565c0;font-weight:bold;}</string>
             </property>
@@ -436,7 +436,7 @@ QPushButton:checked{background:rgba(21,101,192,0.18);color:#fff;border-left:3px 
           <string>QStackedWidget{background:transparent;}</string>
          </property>
          <property name="currentIndex">
-          <number>0</number>
+          <number>1</number>
          </property>
          <widget class="QWidget" name="pageRun">
           <layout class="QVBoxLayout" name="pageRunLayout">
@@ -1320,7 +1320,7 @@ QGroupBox::title{subcontrol-origin:margin;left:14px;padding:0 8px;}</string>
              <item>
               <widget class="QGroupBox" name="jogJointGroup">
                <property name="styleSheet">
-                <string>QGroupBox{background:#ffffff;border:1px solid #d0d5dd;border-radius:8px;margin-top:14px;padding:12px 10px 10px 10px;font-weight:bold;font-size:13px;color:#1a1a2e;}
+                <string>QGroupBox{background:#ffffff;border:1px solid #d0d5dd;border-radius:8px;margin-top:14px;padding:16px 12px 16px 12px;font-weight:bold;font-size:13px;color:#1a1a2e;}
 QGroupBox::title{subcontrol-origin:margin;left:14px;padding:0 8px;}</string>
                </property>
                <property name="title">
@@ -1352,29 +1352,20 @@ QGroupBox::title{subcontrol-origin:margin;left:14px;padding:0 8px;}</string>
                    </widget>
                   </item>
                   <item>
-                   <widget class="QDoubleSpinBox" name="spinManualJ0">
+                   <widget class="QLineEdit" name="spinManualJ0">
                     <property name="styleSheet">
-                     <string>QDoubleSpinBox{font-family:Consolas,&quot;Microsoft YaHei UI&quot;;font-size:14px;padding:4px 6px;border:1px solid #d0d5dd;border-radius:4px;background:#fafbfc;}QDoubleSpinBox:focus{border-color:#1565c0;background:#fff;}</string>
+                     <string>QLineEdit{font-family:Consolas,&quot;Microsoft YaHei UI&quot;;font-size:20px;padding:6px 40px;border:1px solid #d0d5dd;border-radius:4px;background:#fafbfc;min-width:120px;}QLineEdit:focus{border-color:#1565c0;background:#fff;}</string>
+                    </property>
+                    <property name="minimumSize">
+                     <size>
+                      <width>120</width>
+                      <height>0</height>
+                     </size>
                     </property>
                     <property name="alignment">
                      <set>Qt::AlignmentFlag::AlignRight|Qt::AlignmentFlag::AlignTrailing|Qt::AlignmentFlag::AlignVCenter</set>
                     </property>
-                    <property name="buttonSymbols">
-                     <enum>QAbstractSpinBox::ButtonSymbols::NoButtons</enum>
-                    </property>
-                    <property name="decimals">
-                     <number>3</number>
-                    </property>
-                    <property name="minimum">
-                     <double>-999.999000000000024</double>
-                    </property>
-                    <property name="maximum">
-                     <double>999.999000000000024</double>
-                    </property>
-                    <property name="singleStep">
-                     <double>1.000000000000000</double>
-                    </property>
-                   </widget>
+</widget>
                   </item>
                  </layout>
                 </item>
@@ -1400,29 +1391,20 @@ QGroupBox::title{subcontrol-origin:margin;left:14px;padding:0 8px;}</string>
                    </widget>
                   </item>
                   <item>
-                   <widget class="QDoubleSpinBox" name="spinManualJ1">
+                   <widget class="QLineEdit" name="spinManualJ1">
                     <property name="styleSheet">
-                     <string>QDoubleSpinBox{font-family:Consolas,&quot;Microsoft YaHei UI&quot;;font-size:14px;padding:4px 6px;border:1px solid #d0d5dd;border-radius:4px;background:#fafbfc;}QDoubleSpinBox:focus{border-color:#1565c0;background:#fff;}</string>
+                     <string>QLineEdit{font-family:Consolas,&quot;Microsoft YaHei UI&quot;;font-size:20px;padding:6px 40px;border:1px solid #d0d5dd;border-radius:4px;background:#fafbfc;min-width:120px;}QLineEdit:focus{border-color:#1565c0;background:#fff;}</string>
+                    </property>
+                    <property name="minimumSize">
+                     <size>
+                      <width>120</width>
+                      <height>0</height>
+                     </size>
                     </property>
                     <property name="alignment">
                      <set>Qt::AlignmentFlag::AlignRight|Qt::AlignmentFlag::AlignTrailing|Qt::AlignmentFlag::AlignVCenter</set>
                     </property>
-                    <property name="buttonSymbols">
-                     <enum>QAbstractSpinBox::ButtonSymbols::NoButtons</enum>
-                    </property>
-                    <property name="decimals">
-                     <number>3</number>
-                    </property>
-                    <property name="minimum">
-                     <double>-999.999000000000024</double>
-                    </property>
-                    <property name="maximum">
-                     <double>999.999000000000024</double>
-                    </property>
-                    <property name="singleStep">
-                     <double>1.000000000000000</double>
-                    </property>
-                   </widget>
+</widget>
                   </item>
                  </layout>
                 </item>
@@ -1448,29 +1430,20 @@ QGroupBox::title{subcontrol-origin:margin;left:14px;padding:0 8px;}</string>
                    </widget>
                   </item>
                   <item>
-                   <widget class="QDoubleSpinBox" name="spinManualJ2">
+                   <widget class="QLineEdit" name="spinManualJ2">
                     <property name="styleSheet">
-                     <string>QDoubleSpinBox{font-family:Consolas,&quot;Microsoft YaHei UI&quot;;font-size:14px;padding:4px 6px;border:1px solid #d0d5dd;border-radius:4px;background:#fafbfc;}QDoubleSpinBox:focus{border-color:#1565c0;background:#fff;}</string>
+                     <string>QLineEdit{font-family:Consolas,&quot;Microsoft YaHei UI&quot;;font-size:20px;padding:6px 40px;border:1px solid #d0d5dd;border-radius:4px;background:#fafbfc;min-width:120px;}QLineEdit:focus{border-color:#1565c0;background:#fff;}</string>
+                    </property>
+                    <property name="minimumSize">
+                     <size>
+                      <width>120</width>
+                      <height>0</height>
+                     </size>
                     </property>
                     <property name="alignment">
                      <set>Qt::AlignmentFlag::AlignRight|Qt::AlignmentFlag::AlignTrailing|Qt::AlignmentFlag::AlignVCenter</set>
                     </property>
-                    <property name="buttonSymbols">
-                     <enum>QAbstractSpinBox::ButtonSymbols::NoButtons</enum>
-                    </property>
-                    <property name="decimals">
-                     <number>3</number>
-                    </property>
-                    <property name="minimum">
-                     <double>-999.999000000000024</double>
-                    </property>
-                    <property name="maximum">
-                     <double>999.999000000000024</double>
-                    </property>
-                    <property name="singleStep">
-                     <double>1.000000000000000</double>
-                    </property>
-                   </widget>
+</widget>
                   </item>
                  </layout>
                 </item>
@@ -1496,29 +1469,20 @@ QGroupBox::title{subcontrol-origin:margin;left:14px;padding:0 8px;}</string>
                    </widget>
                   </item>
                   <item>
-                   <widget class="QDoubleSpinBox" name="spinManualJ3">
+                   <widget class="QLineEdit" name="spinManualJ3">
                     <property name="styleSheet">
-                     <string>QDoubleSpinBox{font-family:Consolas,&quot;Microsoft YaHei UI&quot;;font-size:14px;padding:4px 6px;border:1px solid #d0d5dd;border-radius:4px;background:#fafbfc;}QDoubleSpinBox:focus{border-color:#1565c0;background:#fff;}</string>
+                     <string>QLineEdit{font-family:Consolas,&quot;Microsoft YaHei UI&quot;;font-size:20px;padding:6px 40px;border:1px solid #d0d5dd;border-radius:4px;background:#fafbfc;min-width:120px;}QLineEdit:focus{border-color:#1565c0;background:#fff;}</string>
+                    </property>
+                    <property name="minimumSize">
+                     <size>
+                      <width>120</width>
+                      <height>0</height>
+                     </size>
                     </property>
                     <property name="alignment">
                      <set>Qt::AlignmentFlag::AlignRight|Qt::AlignmentFlag::AlignTrailing|Qt::AlignmentFlag::AlignVCenter</set>
                     </property>
-                    <property name="buttonSymbols">
-                     <enum>QAbstractSpinBox::ButtonSymbols::NoButtons</enum>
-                    </property>
-                    <property name="decimals">
-                     <number>3</number>
-                    </property>
-                    <property name="minimum">
-                     <double>-999.999000000000024</double>
-                    </property>
-                    <property name="maximum">
-                     <double>999.999000000000024</double>
-                    </property>
-                    <property name="singleStep">
-                     <double>1.000000000000000</double>
-                    </property>
-                   </widget>
+</widget>
                   </item>
                  </layout>
                 </item>
@@ -1544,29 +1508,20 @@ QGroupBox::title{subcontrol-origin:margin;left:14px;padding:0 8px;}</string>
                    </widget>
                   </item>
                   <item>
-                   <widget class="QDoubleSpinBox" name="spinManualJ4">
+                   <widget class="QLineEdit" name="spinManualJ4">
                     <property name="styleSheet">
-                     <string>QDoubleSpinBox{font-family:Consolas,&quot;Microsoft YaHei UI&quot;;font-size:14px;padding:4px 6px;border:1px solid #d0d5dd;border-radius:4px;background:#fafbfc;}QDoubleSpinBox:focus{border-color:#1565c0;background:#fff;}</string>
+                     <string>QLineEdit{font-family:Consolas,&quot;Microsoft YaHei UI&quot;;font-size:20px;padding:6px 40px;border:1px solid #d0d5dd;border-radius:4px;background:#fafbfc;min-width:120px;}QLineEdit:focus{border-color:#1565c0;background:#fff;}</string>
+                    </property>
+                    <property name="minimumSize">
+                     <size>
+                      <width>120</width>
+                      <height>0</height>
+                     </size>
                     </property>
                     <property name="alignment">
                      <set>Qt::AlignmentFlag::AlignRight|Qt::AlignmentFlag::AlignTrailing|Qt::AlignmentFlag::AlignVCenter</set>
                     </property>
-                    <property name="buttonSymbols">
-                     <enum>QAbstractSpinBox::ButtonSymbols::NoButtons</enum>
-                    </property>
-                    <property name="decimals">
-                     <number>3</number>
-                    </property>
-                    <property name="minimum">
-                     <double>-999.999000000000024</double>
-                    </property>
-                    <property name="maximum">
-                     <double>999.999000000000024</double>
-                    </property>
-                    <property name="singleStep">
-                     <double>1.000000000000000</double>
-                    </property>
-                   </widget>
+</widget>
                   </item>
                  </layout>
                 </item>
@@ -1592,29 +1547,20 @@ QGroupBox::title{subcontrol-origin:margin;left:14px;padding:0 8px;}</string>
                    </widget>
                   </item>
                   <item>
-                   <widget class="QDoubleSpinBox" name="spinManualJ5">
+                   <widget class="QLineEdit" name="spinManualJ5">
                     <property name="styleSheet">
-                     <string>QDoubleSpinBox{font-family:Consolas,&quot;Microsoft YaHei UI&quot;;font-size:14px;padding:4px 6px;border:1px solid #d0d5dd;border-radius:4px;background:#fafbfc;}QDoubleSpinBox:focus{border-color:#1565c0;background:#fff;}</string>
+                     <string>QLineEdit{font-family:Consolas,&quot;Microsoft YaHei UI&quot;;font-size:20px;padding:6px 40px;border:1px solid #d0d5dd;border-radius:4px;background:#fafbfc;min-width:120px;}QLineEdit:focus{border-color:#1565c0;background:#fff;}</string>
+                    </property>
+                    <property name="minimumSize">
+                     <size>
+                      <width>120</width>
+                      <height>0</height>
+                     </size>
                     </property>
                     <property name="alignment">
                      <set>Qt::AlignmentFlag::AlignRight|Qt::AlignmentFlag::AlignTrailing|Qt::AlignmentFlag::AlignVCenter</set>
                     </property>
-                    <property name="buttonSymbols">
-                     <enum>QAbstractSpinBox::ButtonSymbols::NoButtons</enum>
-                    </property>
-                    <property name="decimals">
-                     <number>3</number>
-                    </property>
-                    <property name="minimum">
-                     <double>-999.999000000000024</double>
-                    </property>
-                    <property name="maximum">
-                     <double>999.999000000000024</double>
-                    </property>
-                    <property name="singleStep">
-                     <double>1.000000000000000</double>
-                    </property>
-                   </widget>
+</widget>
                   </item>
                  </layout>
                 </item>
@@ -1623,11 +1569,11 @@ QGroupBox::title{subcontrol-origin:margin;left:14px;padding:0 8px;}</string>
                   <property name="minimumSize">
                    <size>
                     <width>0</width>
-                    <height>28</height>
+                    <height>48</height>
                    </size>
                   </property>
                   <property name="styleSheet">
-                   <string>QPushButton{background:#1565c0;color:#fff;border:none;border-radius:4px;font-size:12px;font-weight:bold;}QPushButton:hover{background:#1976d2;}</string>
+                   <string>QPushButton{background:#1565c0;color:#fff;border:1px solid #0d47a1;border-radius:6px;font-weight:bold;font-size:18px;padding:8px 20px;}QPushButton:hover{background:#0d47a1;}QPushButton:pressed{background:#0a3d8a;}</string>
                   </property>
                   <property name="text">
                    <string>点位调整</string>
@@ -1650,7 +1596,7 @@ QGroupBox::title{subcontrol-origin:margin;left:14px;padding:0 8px;}</string>
              <item>
               <widget class="QGroupBox" name="jogCartGroup">
                <property name="styleSheet">
-                <string>QGroupBox{background:#ffffff;border:1px solid #d0d5dd;border-radius:8px;margin-top:14px;padding:12px 10px 10px 10px;font-weight:bold;font-size:13px;color:#1a1a2e;}
+                <string>QGroupBox{background:#ffffff;border:1px solid #d0d5dd;border-radius:8px;margin-top:14px;padding:16px 12px 16px 12px;font-weight:bold;font-size:13px;color:#1a1a2e;}
 QGroupBox::title{subcontrol-origin:margin;left:14px;padding:0 8px;}</string>
                </property>
                <property name="title">
@@ -1682,29 +1628,20 @@ QGroupBox::title{subcontrol-origin:margin;left:14px;padding:0 8px;}</string>
                    </widget>
                   </item>
                   <item>
-                   <widget class="QDoubleSpinBox" name="spinManualX">
+                   <widget class="QLineEdit" name="spinManualX">
                     <property name="styleSheet">
-                     <string>QDoubleSpinBox{font-family:Consolas,&quot;Microsoft YaHei UI&quot;;font-size:14px;padding:4px 6px;border:1px solid #d0d5dd;border-radius:4px;background:#fafbfc;}QDoubleSpinBox:focus{border-color:#1565c0;background:#fff;}</string>
+                     <string>QLineEdit{font-family:Consolas,&quot;Microsoft YaHei UI&quot;;font-size:20px;padding:6px 40px;border:1px solid #d0d5dd;border-radius:4px;background:#fafbfc;min-width:120px;}QLineEdit:focus{border-color:#1565c0;background:#fff;}</string>
+                    </property>
+                    <property name="minimumSize">
+                     <size>
+                      <width>120</width>
+                      <height>0</height>
+                     </size>
                     </property>
                     <property name="alignment">
                      <set>Qt::AlignmentFlag::AlignRight|Qt::AlignmentFlag::AlignTrailing|Qt::AlignmentFlag::AlignVCenter</set>
                     </property>
-                    <property name="buttonSymbols">
-                     <enum>QAbstractSpinBox::ButtonSymbols::NoButtons</enum>
-                    </property>
-                    <property name="decimals">
-                     <number>3</number>
-                    </property>
-                    <property name="minimum">
-                     <double>-999.999000000000024</double>
-                    </property>
-                    <property name="maximum">
-                     <double>999.999000000000024</double>
-                    </property>
-                    <property name="singleStep">
-                     <double>1.000000000000000</double>
-                    </property>
-                   </widget>
+</widget>
                   </item>
                  </layout>
                 </item>
@@ -1730,29 +1667,20 @@ QGroupBox::title{subcontrol-origin:margin;left:14px;padding:0 8px;}</string>
                    </widget>
                   </item>
                   <item>
-                   <widget class="QDoubleSpinBox" name="spinManualRx">
+                   <widget class="QLineEdit" name="spinManualRx">
                     <property name="styleSheet">
-                     <string>QDoubleSpinBox{font-family:Consolas,&quot;Microsoft YaHei UI&quot;;font-size:14px;padding:4px 6px;border:1px solid #d0d5dd;border-radius:4px;background:#fafbfc;}QDoubleSpinBox:focus{border-color:#1565c0;background:#fff;}</string>
+                     <string>QLineEdit{font-family:Consolas,&quot;Microsoft YaHei UI&quot;;font-size:20px;padding:6px 40px;border:1px solid #d0d5dd;border-radius:4px;background:#fafbfc;min-width:120px;}QLineEdit:focus{border-color:#1565c0;background:#fff;}</string>
+                    </property>
+                    <property name="minimumSize">
+                     <size>
+                      <width>120</width>
+                      <height>0</height>
+                     </size>
                     </property>
                     <property name="alignment">
                      <set>Qt::AlignmentFlag::AlignRight|Qt::AlignmentFlag::AlignTrailing|Qt::AlignmentFlag::AlignVCenter</set>
                     </property>
-                    <property name="buttonSymbols">
-                     <enum>QAbstractSpinBox::ButtonSymbols::NoButtons</enum>
-                    </property>
-                    <property name="decimals">
-                     <number>3</number>
-                    </property>
-                    <property name="minimum">
-                     <double>-999.999000000000024</double>
-                    </property>
-                    <property name="maximum">
-                     <double>999.999000000000024</double>
-                    </property>
-                    <property name="singleStep">
-                     <double>1.000000000000000</double>
-                    </property>
-                   </widget>
+</widget>
                   </item>
                  </layout>
                 </item>
@@ -1778,29 +1706,20 @@ QGroupBox::title{subcontrol-origin:margin;left:14px;padding:0 8px;}</string>
                    </widget>
                   </item>
                   <item>
-                   <widget class="QDoubleSpinBox" name="spinManualY">
+                   <widget class="QLineEdit" name="spinManualY">
                     <property name="styleSheet">
-                     <string>QDoubleSpinBox{font-family:Consolas,&quot;Microsoft YaHei UI&quot;;font-size:14px;padding:4px 6px;border:1px solid #d0d5dd;border-radius:4px;background:#fafbfc;}QDoubleSpinBox:focus{border-color:#1565c0;background:#fff;}</string>
+                     <string>QLineEdit{font-family:Consolas,&quot;Microsoft YaHei UI&quot;;font-size:20px;padding:6px 40px;border:1px solid #d0d5dd;border-radius:4px;background:#fafbfc;min-width:120px;}QLineEdit:focus{border-color:#1565c0;background:#fff;}</string>
+                    </property>
+                    <property name="minimumSize">
+                     <size>
+                      <width>120</width>
+                      <height>0</height>
+                     </size>
                     </property>
                     <property name="alignment">
                      <set>Qt::AlignmentFlag::AlignRight|Qt::AlignmentFlag::AlignTrailing|Qt::AlignmentFlag::AlignVCenter</set>
                     </property>
-                    <property name="buttonSymbols">
-                     <enum>QAbstractSpinBox::ButtonSymbols::NoButtons</enum>
-                    </property>
-                    <property name="decimals">
-                     <number>3</number>
-                    </property>
-                    <property name="minimum">
-                     <double>-999.999000000000024</double>
-                    </property>
-                    <property name="maximum">
-                     <double>999.999000000000024</double>
-                    </property>
-                    <property name="singleStep">
-                     <double>1.000000000000000</double>
-                    </property>
-                   </widget>
+</widget>
                   </item>
                  </layout>
                 </item>
@@ -1826,29 +1745,20 @@ QGroupBox::title{subcontrol-origin:margin;left:14px;padding:0 8px;}</string>
                    </widget>
                   </item>
                   <item>
-                   <widget class="QDoubleSpinBox" name="spinManualRy">
+                   <widget class="QLineEdit" name="spinManualRy">
                     <property name="styleSheet">
-                     <string>QDoubleSpinBox{font-family:Consolas,&quot;Microsoft YaHei UI&quot;;font-size:14px;padding:4px 6px;border:1px solid #d0d5dd;border-radius:4px;background:#fafbfc;}QDoubleSpinBox:focus{border-color:#1565c0;background:#fff;}</string>
+                     <string>QLineEdit{font-family:Consolas,&quot;Microsoft YaHei UI&quot;;font-size:20px;padding:6px 40px;border:1px solid #d0d5dd;border-radius:4px;background:#fafbfc;min-width:120px;}QLineEdit:focus{border-color:#1565c0;background:#fff;}</string>
+                    </property>
+                    <property name="minimumSize">
+                     <size>
+                      <width>120</width>
+                      <height>0</height>
+                     </size>
                     </property>
                     <property name="alignment">
                      <set>Qt::AlignmentFlag::AlignRight|Qt::AlignmentFlag::AlignTrailing|Qt::AlignmentFlag::AlignVCenter</set>
                     </property>
-                    <property name="buttonSymbols">
-                     <enum>QAbstractSpinBox::ButtonSymbols::NoButtons</enum>
-                    </property>
-                    <property name="decimals">
-                     <number>3</number>
-                    </property>
-                    <property name="minimum">
-                     <double>-999.999000000000024</double>
-                    </property>
-                    <property name="maximum">
-                     <double>999.999000000000024</double>
-                    </property>
-                    <property name="singleStep">
-                     <double>1.000000000000000</double>
-                    </property>
-                   </widget>
+</widget>
                   </item>
                  </layout>
                 </item>
@@ -1874,29 +1784,20 @@ QGroupBox::title{subcontrol-origin:margin;left:14px;padding:0 8px;}</string>
                    </widget>
                   </item>
                   <item>
-                   <widget class="QDoubleSpinBox" name="spinManualZ">
+                   <widget class="QLineEdit" name="spinManualZ">
                     <property name="styleSheet">
-                     <string>QDoubleSpinBox{font-family:Consolas,&quot;Microsoft YaHei UI&quot;;font-size:14px;padding:4px 6px;border:1px solid #d0d5dd;border-radius:4px;background:#fafbfc;}QDoubleSpinBox:focus{border-color:#1565c0;background:#fff;}</string>
+                     <string>QLineEdit{font-family:Consolas,&quot;Microsoft YaHei UI&quot;;font-size:20px;padding:6px 40px;border:1px solid #d0d5dd;border-radius:4px;background:#fafbfc;min-width:120px;}QLineEdit:focus{border-color:#1565c0;background:#fff;}</string>
+                    </property>
+                    <property name="minimumSize">
+                     <size>
+                      <width>120</width>
+                      <height>0</height>
+                     </size>
                     </property>
                     <property name="alignment">
                      <set>Qt::AlignmentFlag::AlignRight|Qt::AlignmentFlag::AlignTrailing|Qt::AlignmentFlag::AlignVCenter</set>
                     </property>
-                    <property name="buttonSymbols">
-                     <enum>QAbstractSpinBox::ButtonSymbols::NoButtons</enum>
-                    </property>
-                    <property name="decimals">
-                     <number>3</number>
-                    </property>
-                    <property name="minimum">
-                     <double>-999.999000000000024</double>
-                    </property>
-                    <property name="maximum">
-                     <double>999.999000000000024</double>
-                    </property>
-                    <property name="singleStep">
-                     <double>1.000000000000000</double>
-                    </property>
-                   </widget>
+</widget>
                   </item>
                  </layout>
                 </item>
@@ -1922,29 +1823,20 @@ QGroupBox::title{subcontrol-origin:margin;left:14px;padding:0 8px;}</string>
                    </widget>
                   </item>
                   <item>
-                   <widget class="QDoubleSpinBox" name="spinManualRz">
+                   <widget class="QLineEdit" name="spinManualRz">
                     <property name="styleSheet">
-                     <string>QDoubleSpinBox{font-family:Consolas,&quot;Microsoft YaHei UI&quot;;font-size:14px;padding:4px 6px;border:1px solid #d0d5dd;border-radius:4px;background:#fafbfc;}QDoubleSpinBox:focus{border-color:#1565c0;background:#fff;}</string>
+                     <string>QLineEdit{font-family:Consolas,&quot;Microsoft YaHei UI&quot;;font-size:20px;padding:6px 40px;border:1px solid #d0d5dd;border-radius:4px;background:#fafbfc;min-width:120px;}QLineEdit:focus{border-color:#1565c0;background:#fff;}</string>
+                    </property>
+                    <property name="minimumSize">
+                     <size>
+                      <width>120</width>
+                      <height>0</height>
+                     </size>
                     </property>
                     <property name="alignment">
                      <set>Qt::AlignmentFlag::AlignRight|Qt::AlignmentFlag::AlignTrailing|Qt::AlignmentFlag::AlignVCenter</set>
                     </property>
-                    <property name="buttonSymbols">
-                     <enum>QAbstractSpinBox::ButtonSymbols::NoButtons</enum>
-                    </property>
-                    <property name="decimals">
-                     <number>3</number>
-                    </property>
-                    <property name="minimum">
-                     <double>-999.999000000000024</double>
-                    </property>
-                    <property name="maximum">
-                     <double>999.999000000000024</double>
-                    </property>
-                    <property name="singleStep">
-                     <double>1.000000000000000</double>
-                    </property>
-                   </widget>
+</widget>
                   </item>
                  </layout>
                 </item>
@@ -1953,11 +1845,11 @@ QGroupBox::title{subcontrol-origin:margin;left:14px;padding:0 8px;}</string>
                   <property name="minimumSize">
                    <size>
                     <width>0</width>
-                    <height>28</height>
+                    <height>48</height>
                    </size>
                   </property>
                   <property name="styleSheet">
-                   <string>QPushButton{background:#1565c0;color:#fff;border:none;border-radius:4px;font-size:12px;font-weight:bold;}QPushButton:hover{background:#1976d2;}</string>
+                   <string>QPushButton{background:#1565c0;color:#fff;border:1px solid #0d47a1;border-radius:6px;font-weight:bold;font-size:18px;padding:8px 20px;}QPushButton:hover{background:#0d47a1;}QPushButton:pressed{background:#0a3d8a;}</string>
                   </property>
                   <property name="text">
                    <string>点位调整</string>
@@ -2016,26 +1908,11 @@ QGroupBox::title{subcontrol-origin:margin;left:14px;padding:0 8px;}</string>
                    </widget>
                   </item>
                   <item>
-                   <widget class="QDoubleSpinBox" name="debugSpeed">
+                   <widget class="QLineEdit" name="debugSpeed">
                     <property name="styleSheet">
-                     <string>QDoubleSpinBox{border:1px solid #d0d5dd;border-radius:4px;padding:2px 4px;font-size:12px;min-width:100px;}</string>
+                     <string>QLineEdit{border:1px solid #d0d5dd;border-radius:4px;padding:2px 4px;font-size:12px;min-width:100px;}</string>
                     </property>
-                    <property name="buttonSymbols">
-                     <enum>QAbstractSpinBox::ButtonSymbols::NoButtons</enum>
-                    </property>
-                    <property name="decimals">
-                     <number>1</number>
-                    </property>
-                    <property name="minimum">
-                     <double>1.000000000000000</double>
-                    </property>
-                    <property name="maximum">
-                     <double>500.000000000000000</double>
-                    </property>
-                    <property name="value">
-                     <double>25.000000000000000</double>
-                    </property>
-                   </widget>
+</widget>
                   </item>
                   <item>
                    <spacer name="debugSpeedSpacer">
@@ -2071,26 +1948,11 @@ QGroupBox::title{subcontrol-origin:margin;left:14px;padding:0 8px;}</string>
                    </widget>
                   </item>
                   <item>
-                   <widget class="QDoubleSpinBox" name="debugAccel">
+                   <widget class="QLineEdit" name="debugAccel">
                     <property name="styleSheet">
-                     <string>QDoubleSpinBox{border:1px solid #d0d5dd;border-radius:4px;padding:2px 4px;font-size:12px;min-width:100px;}</string>
+                     <string>QLineEdit{border:1px solid #d0d5dd;border-radius:4px;padding:2px 4px;font-size:12px;min-width:100px;}</string>
                     </property>
-                    <property name="buttonSymbols">
-                     <enum>QAbstractSpinBox::ButtonSymbols::NoButtons</enum>
-                    </property>
-                    <property name="decimals">
-                     <number>1</number>
-                    </property>
-                    <property name="minimum">
-                     <double>1.000000000000000</double>
-                    </property>
-                    <property name="maximum">
-                     <double>1000.000000000000000</double>
-                    </property>
-                    <property name="value">
-                     <double>50.000000000000000</double>
-                    </property>
-                   </widget>
+</widget>
                   </item>
                   <item>
                    <spacer name="debugAccelSpacer">
@@ -2126,26 +1988,11 @@ QGroupBox::title{subcontrol-origin:margin;left:14px;padding:0 8px;}</string>
                    </widget>
                   </item>
                   <item>
-                   <widget class="QDoubleSpinBox" name="debugDecel">
+                   <widget class="QLineEdit" name="debugDecel">
                     <property name="styleSheet">
-                     <string>QDoubleSpinBox{border:1px solid #d0d5dd;border-radius:4px;padding:2px 4px;font-size:12px;min-width:100px;}</string>
+                     <string>QLineEdit{border:1px solid #d0d5dd;border-radius:4px;padding:2px 4px;font-size:12px;min-width:100px;}</string>
                     </property>
-                    <property name="buttonSymbols">
-                     <enum>QAbstractSpinBox::ButtonSymbols::NoButtons</enum>
-                    </property>
-                    <property name="decimals">
-                     <number>1</number>
-                    </property>
-                    <property name="minimum">
-                     <double>1.000000000000000</double>
-                    </property>
-                    <property name="maximum">
-                     <double>1000.000000000000000</double>
-                    </property>
-                    <property name="value">
-                     <double>60.000000000000000</double>
-                    </property>
-                   </widget>
+</widget>
                   </item>
                   <item>
                    <spacer name="debugDecelSpacer">
@@ -2181,29 +2028,11 @@ QGroupBox::title{subcontrol-origin:margin;left:14px;padding:0 8px;}</string>
                    </widget>
                   </item>
                   <item>
-                   <widget class="QDoubleSpinBox" name="debugStep">
+                   <widget class="QLineEdit" name="debugStep">
                     <property name="styleSheet">
-                     <string>QDoubleSpinBox{border:1px solid #d0d5dd;border-radius:4px;padding:2px 4px;font-size:12px;min-width:100px;}</string>
+                     <string>QLineEdit{border:1px solid #d0d5dd;border-radius:4px;padding:2px 4px;font-size:12px;min-width:100px;}</string>
                     </property>
-                    <property name="buttonSymbols">
-                     <enum>QAbstractSpinBox::ButtonSymbols::NoButtons</enum>
-                    </property>
-                    <property name="decimals">
-                     <number>2</number>
-                    </property>
-                    <property name="minimum">
-                     <double>0.010000000000000</double>
-                    </property>
-                    <property name="maximum">
-                     <double>100.000000000000000</double>
-                    </property>
-                    <property name="singleStep">
-                     <double>0.100000000000000</double>
-                    </property>
-                    <property name="value">
-                     <double>5.000000000000000</double>
-                    </property>
-                   </widget>
+</widget>
                   </item>
                   <item>
                    <spacer name="debugStepSpacer">
@@ -2929,7 +2758,7 @@ QGroupBox::title{subcontrol-origin:margin;left:14px;padding:0 8px;}</string>
               <string>QPlainTextEdit{
   background:#1e1e2e;color:#d4d4d4;border:1px solid #d0d5dd;
   border-radius:6px;font-family:Consolas,'Microsoft YaHei UI';font-size:13px;
-  padding:8px;selection-background:#264f78;
+  padding:8px;selection-background-color:#264f78;
 }</string>
              </property>
              <property name="tabChangesFocus">
@@ -5052,157 +4881,158 @@ QHeaderView::section{background:#f5f5f5;color:#666;font-weight:bold;padding:4px 
             </widget>
            </item>
            <item>
-            <widget class="QGroupBox" name="settingsMotion">
+            <widget class="QGroupBox" name="settingsHomePos">
              <property name="styleSheet">
               <string>QGroupBox{background:#ffffff;border:1px solid #d0d5dd;border-radius:8px;margin-top:14px;padding:14px 12px 12px 12px;font-weight:bold;font-size:13px;color:#1a1a2e;}
 QGroupBox::title{subcontrol-origin:margin;left:14px;padding:0 8px;}</string>
              </property>
              <property name="title">
-              <string>运动参数</string>
+              <string>回零原点位置</string>
              </property>
-             <layout class="QFormLayout" name="settingsMotionLayout">
+             <layout class="QGridLayout" name="settingsHomePosLayout">
               <property name="horizontalSpacing">
                <number>6</number>
               </property>
               <property name="verticalSpacing">
-               <number>6</number>
+               <number>4</number>
               </property>
               <item row="0" column="0">
-               <widget class="QLabel" name="label_104">
+               <widget class="QLabel" name="labelHomeJ0">
                 <property name="text">
-                 <string>默认速度 (mm/s):</string>
+                 <string>J1:</string>
+                </property>
+               </widget>
+              </item>
+              <item row="0" column="1">
+               <widget class="QLineEdit" name="editHomeJ0">
+                <property name="minimumSize">
+                 <size>
+                  <width>70</width>
+                  <height>24</height>
+                 </size>
+                </property>
+                <property name="styleSheet">
+                 <string>QLineEdit{padding:4px 6px;border:1px solid #d0d5dd;border-radius:4px;}</string>
+                </property>
+               </widget>
+              </item>
+              <item row="0" column="2">
+               <widget class="QLabel" name="labelHomeJ1">
+                <property name="text">
+                 <string>J2:</string>
+                </property>
+               </widget>
+              </item>
+              <item row="0" column="3">
+               <widget class="QLineEdit" name="editHomeJ1">
+                <property name="minimumSize">
+                 <size>
+                  <width>70</width>
+                  <height>24</height>
+                 </size>
+                </property>
+                <property name="styleSheet">
+                 <string>QLineEdit{padding:4px 6px;border:1px solid #d0d5dd;border-radius:4px;}</string>
+                </property>
+               </widget>
+              </item>
+              <item row="0" column="4">
+               <widget class="QLabel" name="labelHomeJ2">
+                <property name="text">
+                 <string>J3:</string>
+                </property>
+               </widget>
+              </item>
+              <item row="0" column="5">
+               <widget class="QLineEdit" name="editHomeJ2">
+                <property name="minimumSize">
+                 <size>
+                  <width>70</width>
+                  <height>24</height>
+                 </size>
+                </property>
+                <property name="styleSheet">
+                 <string>QLineEdit{padding:4px 6px;border:1px solid #d0d5dd;border-radius:4px;}</string>
+                </property>
+               </widget>
+              </item>
+              <item row="0" column="6">
+               <widget class="QLabel" name="labelHomeJ3">
+                <property name="text">
+                 <string>J4:</string>
+                </property>
+               </widget>
+              </item>
+              <item row="0" column="7">
+               <widget class="QLineEdit" name="editHomeJ3">
+                <property name="minimumSize">
+                 <size>
+                  <width>70</width>
+                  <height>24</height>
+                 </size>
+                </property>
+                <property name="styleSheet">
+                 <string>QLineEdit{padding:4px 6px;border:1px solid #d0d5dd;border-radius:4px;}</string>
+                </property>
+               </widget>
+              </item>
+              <item row="0" column="8">
+               <widget class="QLabel" name="labelHomeJ4">
+                <property name="text">
+                 <string>J5:</string>
+                </property>
+               </widget>
+              </item>
+              <item row="0" column="9">
+               <widget class="QLineEdit" name="editHomeJ4">
+                <property name="minimumSize">
+                 <size>
+                  <width>70</width>
+                  <height>24</height>
+                 </size>
+                </property>
+                <property name="styleSheet">
+                 <string>QLineEdit{padding:4px 6px;border:1px solid #d0d5dd;border-radius:4px;}</string>
+                </property>
+               </widget>
+              </item>
+              <item row="0" column="10">
+               <widget class="QLabel" name="labelHomeJ5">
+                <property name="text">
+                 <string>J6:</string>
+                </property>
+               </widget>
+              </item>
+              <item row="0" column="11">
+               <widget class="QLineEdit" name="editHomeJ5">
+                <property name="minimumSize">
+                 <size>
+                  <width>70</width>
+                  <height>24</height>
+                 </size>
+                </property>
+                <property name="styleSheet">
+                 <string>QLineEdit{padding:4px 6px;border:1px solid #d0d5dd;border-radius:4px;}</string>
+                </property>
+               </widget>
+              </item>
+              <item row="0" column="12">
+               <widget class="QPushButton" name="btnSaveHome">
+                <property name="minimumSize">
+                 <size>
+                  <width>60</width>
+                  <height>26</height>
+                 </size>
+                </property>
+                <property name="styleSheet">
+                 <string>QPushButton{background:#e8f5e9;color:#2e7d32;border:1px solid #a5d6a7;border-radius:4px;padding:2px 10px;font-weight:bold;font-size:12px;}QPushButton:hover{background:#c8e6c9;}</string>
+                </property>
+                <property name="text">
+                 <string>保存</string>
                 </property>
                </widget>
               </item>
              </layout>
-             <widget class="QSpinBox" name="spinDefaultSpeed">
-              <property name="geometry">
-               <rect>
-                <x>0</x>
-                <y>0</y>
-                <width>100</width>
-                <height>30</height>
-               </rect>
-              </property>
-              <property name="minimum">
-               <number>1</number>
-              </property>
-              <property name="maximum">
-               <number>500</number>
-              </property>
-              <property name="value">
-               <number>25</number>
-              </property>
-             </widget>
-             <widget class="QLabel" name="label_105">
-              <property name="geometry">
-               <rect>
-                <x>0</x>
-                <y>0</y>
-                <width>100</width>
-                <height>30</height>
-               </rect>
-              </property>
-              <property name="text">
-               <string>加速度 (mm/s²):</string>
-              </property>
-             </widget>
-             <widget class="QSpinBox" name="spinDefaultAccel">
-              <property name="geometry">
-               <rect>
-                <x>0</x>
-                <y>0</y>
-                <width>100</width>
-                <height>30</height>
-               </rect>
-              </property>
-              <property name="minimum">
-               <number>1</number>
-              </property>
-              <property name="maximum">
-               <number>1000</number>
-              </property>
-              <property name="value">
-               <number>50</number>
-              </property>
-             </widget>
-             <widget class="QLabel" name="label_106">
-              <property name="geometry">
-               <rect>
-                <x>0</x>
-                <y>0</y>
-                <width>100</width>
-                <height>30</height>
-               </rect>
-              </property>
-              <property name="text">
-               <string>运动超时 (ms):</string>
-              </property>
-             </widget>
-             <widget class="QSpinBox" name="spinDefaultTimeout">
-              <property name="geometry">
-               <rect>
-                <x>0</x>
-                <y>0</y>
-                <width>100</width>
-                <height>30</height>
-               </rect>
-              </property>
-              <property name="minimum">
-               <number>100</number>
-              </property>
-              <property name="maximum">
-               <number>60000</number>
-              </property>
-              <property name="singleStep">
-               <number>100</number>
-              </property>
-              <property name="value">
-               <number>100</number>
-              </property>
-             </widget>
-            </widget>
-           </item>
-           <item>
-            <widget class="QGroupBox" name="settingsNetwork">
-             <property name="styleSheet">
-              <string>QGroupBox{background:#ffffff;border:1px solid #d0d5dd;border-radius:8px;margin-top:14px;padding:14px 12px 12px 12px;font-weight:bold;font-size:13px;color:#1a1a2e;}
-QGroupBox::title{subcontrol-origin:margin;left:14px;padding:0 8px;}</string>
-             </property>
-             <property name="title">
-              <string>网络配置</string>
-             </property>
-             <layout class="QFormLayout" name="settingsNetworkLayout">
-              <property name="horizontalSpacing">
-               <number>6</number>
-              </property>
-              <property name="verticalSpacing">
-               <number>6</number>
-              </property>
-              <item row="0" column="0">
-               <widget class="QLabel" name="label_107">
-                <property name="text">
-                 <string>控制器 IP:</string>
-                </property>
-               </widget>
-              </item>
-             </layout>
-             <widget class="QLineEdit" name="editControllerIP">
-              <property name="geometry">
-               <rect>
-                <x>0</x>
-                <y>0</y>
-                <width>100</width>
-                <height>30</height>
-               </rect>
-              </property>
-              <property name="styleSheet">
-               <string>QLineEdit{padding:4px 6px;border:1px solid #d0d5dd;border-radius:4px;}</string>
-              </property>
-              <property name="text">
-               <string>192.168.0.100</string>
-              </property>
-             </widget>
             </widget>
            </item>
            <item>
@@ -5297,7 +5127,7 @@ QGroupBox::title{subcontrol-origin:margin;left:14px;padding:0 8px;}</string>
                  </widget>
                 </item>
                 <item>
-                 <widget class="QSpinBox" name="rs485SpinInterval">
+                 <widget class="QLineEdit" name="rs485SpinInterval">
                   <property name="minimumSize">
                    <size>
                     <width>70</width>
@@ -5305,21 +5135,9 @@ QGroupBox::title{subcontrol-origin:margin;left:14px;padding:0 8px;}</string>
                    </size>
                   </property>
                   <property name="styleSheet">
-                   <string>QSpinBox{font-size:12px;border:1px solid #d0d5dd;border-radius:4px;padding:2px 4px;}</string>
+                   <string>QLineEdit{font-size:12px;border:1px solid #d0d5dd;border-radius:4px;padding:2px 4px;}</string>
                   </property>
-                  <property name="suffix">
-                   <string> ms</string>
-                  </property>
-                  <property name="minimum">
-                   <number>50</number>
-                  </property>
-                  <property name="maximum">
-                   <number>60000</number>
-                  </property>
-                  <property name="value">
-                   <number>200</number>
-                  </property>
-                 </widget>
+</widget>
                 </item>
                 <item>
                  <spacer name="rs485SendOptSpacer">

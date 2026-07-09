@@ -56,6 +56,7 @@ void TaskExecutor::setCommands(const QList<ScriptCommand>& commands)
     m_commands = commands;
     m_currentIdx = 0;
     m_state = Idle;
+    m_stepOnce = false;
     m_loopStack.clear();
     // 重置运行时全局参数（-1 表示使用指令自身参数）
     m_globalSpeed = -1;
@@ -91,10 +92,70 @@ void TaskExecutor::start()
 
     m_currentIdx = 0;
     m_state = Running;
+    m_stepOnce = false;
     emit taskStarted(m_commands.size());
     qDebug() << "[TaskExecutor] 开始执行" << m_commands.size() << "条指令";
 
     executeNext();
+}
+
+/**
+ * @brief 单步执行：仅执行当前 m_currentIdx 处的指令，结束后停在 Idle。
+ *
+ * 前提：已通过 setCommands() 加载指令列表（指令在 m_commands 中）。
+ * 每次调用 stepOnce() 会从 m_currentIdx 推进一条；连续点击即"走一步停一步"。
+ * 如果 m_currentIdx 已到达末尾，会 emit taskFinished 并保持 Idle。
+ */
+void TaskExecutor::stepOnce()
+{
+    if (m_commands.isEmpty()) {
+        emit taskError(QStringLiteral("指令列表为空"));
+        return;
+    }
+    if (!m_robotController || !m_robotController->isConnected()) {
+        emit taskError(QStringLiteral("控制器未连接"));
+        return;
+    }
+    if (m_state == Running) {
+        // 已有任务在跑，不允许并发单步
+        return;
+    }
+
+    // 全部走完则结束
+    if (m_currentIdx >= m_commands.size()) {
+        m_state = Idle;
+        emit taskFinished();
+        return;
+    }
+
+    // 第一次调用时发 taskStarted（与 start() 保持一致的事件语义）
+    if (m_currentIdx == 0) {
+        emit taskStarted(m_commands.size());
+    }
+
+    m_state = Running;
+    m_stepOnce = true;
+    qDebug() << "[TaskExecutor] 单步执行" << (m_currentIdx + 1) << "/" << m_commands.size();
+
+    executeNext();
+}
+
+/**
+ * @brief 重置到起始位置：清 m_currentIdx / 变量表 / 循环栈 / 全局参数。
+ *
+ * 单步模式走完末尾后，UI 调用此函数让"单步"按钮可继续从头运行。
+ */
+void TaskExecutor::reset()
+{
+    m_variables.clear();
+    m_currentIdx = 0;
+    m_state = Idle;
+    m_stepOnce = false;
+    m_loopStack.clear();
+    m_globalSpeed = -1;
+    m_globalAccel = -1;
+    m_globalDecel = -1;
+    m_globalTimeout = -1;
 }
 
 /**
@@ -179,6 +240,22 @@ void TaskExecutor::stop()
 }
 
 /**
+ * @brief 续行调度：根据单步/正常模式决定是立即执行下一条还是停在 Idle
+ *
+ * 单步模式下：清掉 m_stepOnce 标志、把 m_state 置回 Idle，UI 可再次调用 stepOnce() 续走下一条。
+ * 正常模式下：用 QTimer::singleShot(0) 排队 executeNext()，避免栈溢出。
+ */
+void TaskExecutor::scheduleNext()
+{
+    if (m_stepOnce) {
+        m_stepOnce = false;
+        m_state = Idle;
+        return;
+    }
+    QTimer::singleShot(0, this, &TaskExecutor::executeNext);
+}
+
+/**
  * @brief 指令执行主循环（递归调用）
  *
  * 核心执行流程：
@@ -253,7 +330,7 @@ void TaskExecutor::executeNext()
     if (cmd.type == ScriptCmdType::ForLoop) {
         if (cmd.loopCount == -1 && !cmd.varName.isEmpty()) {
             // 新语法: FOR(var, start, end, step)
-            if (cmd.loopStep == 0) { m_currentIdx++; QTimer::singleShot(0, this, &TaskExecutor::executeNext); return; }
+            if (cmd.loopStep == 0) { m_currentIdx++; scheduleNext(); return; }
             bool forward = (cmd.loopStep > 0);
             if ((forward && cmd.loopStart > cmd.loopEnd) || (!forward && cmd.loopStart < cmd.loopEnd)) {
                 // 没有可迭代的 → 跳转 END_FOR
@@ -278,7 +355,7 @@ void TaskExecutor::executeNext()
         } else {
             m_currentIdx = m_loopEndMap.value(m_currentIdx, m_currentIdx) + 1;
         }
-        QTimer::singleShot(0, this, &TaskExecutor::executeNext);
+        scheduleNext();
         return;
     }
 
@@ -299,7 +376,7 @@ void TaskExecutor::executeNext()
             }
             if (j >= m_commands.size()) m_currentIdx++;
         }
-        QTimer::singleShot(0, this, &TaskExecutor::executeNext);
+        scheduleNext();
         return;
     }
 
@@ -308,14 +385,14 @@ void TaskExecutor::executeNext()
         int j = m_currentIdx + 1;
         while (j < m_commands.size() && m_commands[j].type != ScriptCmdType::EndIf) j++;
         m_currentIdx = (j < m_commands.size()) ? j + 1 : j;
-        QTimer::singleShot(0, this, &TaskExecutor::executeNext);
+        scheduleNext();
         return;
     }
 
     // === END_IF ===
     if (cmd.type == ScriptCmdType::EndIf) {
         m_currentIdx++;
-        QTimer::singleShot(0, this, &TaskExecutor::executeNext);
+        scheduleNext();
         return;
     }
 
@@ -326,7 +403,7 @@ void TaskExecutor::executeNext()
         frame.remaining = -1;  // 无条件无限循环
         m_loopStack.push(frame);
         m_currentIdx++;
-        QTimer::singleShot(0, this, &TaskExecutor::executeNext);
+        scheduleNext();
         return;
     }
 
@@ -345,7 +422,7 @@ void TaskExecutor::executeNext()
             // 条件不满足 → 跳到 END_WHILE 后
             m_currentIdx = m_loopEndMap.value(m_currentIdx, m_currentIdx) + 1;
         }
-        QTimer::singleShot(0, this, &TaskExecutor::executeNext);
+        scheduleNext();
         return;
     }
 
@@ -363,7 +440,7 @@ void TaskExecutor::executeNext()
                     bool forward = (forCmd.loopStep > 0);
                     if ((forward && val <= forCmd.loopEnd) || (!forward && val >= forCmd.loopEnd)) {
                         m_currentIdx = headIdx + 1;  // 继续循环
-                        QTimer::singleShot(0, this, &TaskExecutor::executeNext);
+                        scheduleNext();
                         return;
                     }
                 }
@@ -374,14 +451,14 @@ void TaskExecutor::executeNext()
                 if (frame.remaining > 0) {
                     m_variables[QStringLiteral("$i")] = static_cast<int>(m_variables[QStringLiteral("$n")]) - frame.remaining;
                     m_currentIdx = m_loopStartMap.value(m_currentIdx, frame.headIdx) + 1;
-                    QTimer::singleShot(0, this, &TaskExecutor::executeNext);
+                    scheduleNext();
                     return;
                 }
                 m_loopStack.pop();
             }
         }
         m_currentIdx++;
-        QTimer::singleShot(0, this, &TaskExecutor::executeNext);
+        scheduleNext();
         return;
     }
 
@@ -393,21 +470,21 @@ void TaskExecutor::executeNext()
                 const auto& whileCmd = m_commands[headIdx];
                 if (whileCmd.type == ScriptCmdType::WhileTrue) {
                     m_currentIdx = headIdx + 1;  // 无条件继续循环
-                    QTimer::singleShot(0, this, &TaskExecutor::executeNext);
+                    scheduleNext();
                     return;
                 }
                 ZmotionAPI* api = m_robotController->getMotionController()->getZmotionAPI();
                 int diVal = api->getDI(whileCmd.ioIndex);
                 if (diVal == whileCmd.ioValue) {
                     m_currentIdx = headIdx + 1;
-                    QTimer::singleShot(0, this, &TaskExecutor::executeNext);
+                    scheduleNext();
                     return;
                 }
             }
             m_loopStack.pop();
         }
         m_currentIdx++;
-        QTimer::singleShot(0, this, &TaskExecutor::executeNext);
+        scheduleNext();
         return;
     }
 
@@ -424,7 +501,7 @@ void TaskExecutor::executeNext()
 
     m_currentIdx++;
     m_robotController->getMotionController()->updateState();
-    QTimer::singleShot(0, this, &TaskExecutor::executeNext);
+    scheduleNext();
 }
 
 /**
@@ -453,15 +530,23 @@ bool TaskExecutor::executeCommand(const ScriptCommand& cmd)
     switch (cmd.type) {
     case ScriptCmdType::MoveJ: {
         QList<double> targets;
-        if (!cmd.targetRaw.isEmpty()) {
+        // 动态解析：优先从 m_targets 实时取最新点位，改点位即生效
+        if (!cmd.targetName.isEmpty() && m_targets.contains(cmd.targetName)) {
+            targets = m_targets[cmd.targetName];
+        } else if (!cmd.targetRaw.isEmpty()) {
             for (int i = 0; i < cmd.targetRaw.size(); ++i)
                 targets.append(resolveValue(cmd.targetRaw[i], m_variables));
         } else {
             targets = cmd.targets;
         }
-        double spd = (m_globalSpeed > 0) ? m_globalSpeed : cmd.speed;
-        double acc = (m_globalAccel > 0) ? m_globalAccel : cmd.accel;
-        double dec = (m_globalDecel > 0) ? m_globalDecel : cmd.decel;
+        // 优先级链:点位 motion.speed > 全局 m_globalSpeed > 行级 cmd.speed
+        const MotionParams mp = m_targetMotion.value(cmd.targetName);
+        double spd = (mp.speed    > 0) ? mp.speed
+                    : (m_globalSpeed > 0) ? m_globalSpeed : cmd.speed;
+        double acc = (mp.accel    > 0) ? mp.accel
+                    : (m_globalAccel > 0) ? m_globalAccel : cmd.accel;
+        double dec = (mp.decel    > 0) ? mp.decel
+                    : (m_globalDecel > 0) ? m_globalDecel : cmd.decel;
         int tmo = cmd.timeoutMs;
         if (tmo <= 0 || (m_globalTimeout <= 0 && tmo == 5000)) {
             QList<double> cur = m_robotController->getState()->getAllAxisPositions();
@@ -471,6 +556,7 @@ bool TaskExecutor::executeCommand(const ScriptCommand& cmd)
             tmo = qMax(5000, static_cast<int>(maxDist / qMax(spd, 0.1) * 2000.0));
         }
         if (m_globalTimeout > 0) tmo = m_globalTimeout;
+        if (mp.timeoutMs > 0)    tmo = mp.timeoutMs;   // 点位 timeout 最高优先
         // 执行后同步全局参数，后续 MOVEJOFF/MOVELOFF 可继承速度
         m_globalSpeed = spd;
         m_globalAccel = acc;
@@ -479,15 +565,23 @@ bool TaskExecutor::executeCommand(const ScriptCommand& cmd)
     }
     case ScriptCmdType::MoveL: {
         QList<double> targets;
-        if (!cmd.targetRaw.isEmpty()) {
+        // 动态解析：优先从 m_targets 实时取最新点位，改点位即生效
+        if (!cmd.targetName.isEmpty() && m_targets.contains(cmd.targetName)) {
+            targets = m_targets[cmd.targetName];
+        } else if (!cmd.targetRaw.isEmpty()) {
             for (int i = 0; i < cmd.targetRaw.size(); ++i)
                 targets.append(resolveValue(cmd.targetRaw[i], m_variables));
         } else {
             targets = cmd.targets;
         }
-        double spd = (m_globalSpeed > 0) ? m_globalSpeed : cmd.speed;
-        double acc = (m_globalAccel > 0) ? m_globalAccel : cmd.accel;
-        double dec = (m_globalDecel > 0) ? m_globalDecel : cmd.decel;
+        // 优先级链:点位 motion > 全局 m_global* > 行级 cmd.*
+        const MotionParams mp = m_targetMotion.value(cmd.targetName);
+        double spd = (mp.speed    > 0) ? mp.speed
+                    : (m_globalSpeed > 0) ? m_globalSpeed : cmd.speed;
+        double acc = (mp.accel    > 0) ? mp.accel
+                    : (m_globalAccel > 0) ? m_globalAccel : cmd.accel;
+        double dec = (mp.decel    > 0) ? mp.decel
+                    : (m_globalDecel > 0) ? m_globalDecel : cmd.decel;
         int tmo = cmd.timeoutMs;
         if (tmo <= 0 || (m_globalTimeout <= 0 && tmo == 5000)) {
             QList<double> cur = m_robotController->getState()->getAllCartesianPositions();
@@ -497,6 +591,7 @@ bool TaskExecutor::executeCommand(const ScriptCommand& cmd)
             tmo = qMax(5000, static_cast<int>(maxDist / qMax(spd, 0.1) * 2000.0));
         }
         if (m_globalTimeout > 0) tmo = m_globalTimeout;
+        if (mp.timeoutMs > 0)    tmo = mp.timeoutMs;   // 点位 timeout 最高优先
         m_globalSpeed = spd;
         m_globalAccel = acc;
         m_globalDecel = dec;
@@ -596,53 +691,29 @@ bool TaskExecutor::executeCommand(const ScriptCommand& cmd)
         // 同步 ZMC RPC（PUTCHAR 逐字节），SETCOM 抖动 + UART 排空不及时导致多通道
         // 丢帧。改为单次 setAnglesForScript → setAllPwm 单帧下发 6 路。
         // 解析时已把所有通道填入 cmd.servoChannels/Angles/Speeds；单路时 size=1。
-        // 2026-06-16：增加时间模式支持，若 cmd.servoTimes 中任意一项 > 0 则走混合分支
-        // （仿 KPZ32 出厂协议 #xxxPxxxT<ms>! 的 T<ms> 字段语义）。
+        // 时间模式（仿 KPZ32 出厂协议 #xxxPxxxT<ms>! 的 T<ms> 字段语义）。
         ServoController* servo = m_robotController->getServoController();
         if (!servo) {
             emit taskError(QStringLiteral("舵机控制器未初始化"));
             return false;
         }
 
-        // 判断是否走混合模式（时间模式）
-        bool useTimeMode = false;
-        if (cmd.servoTimes.size() == cmd.servoChannels.size()) {
-            for (int t : cmd.servoTimes) {
-                if (t > 0) { useTimeMode = true; break; }
-            }
-        }
-
-        bool ok = false;
-        if (useTimeMode) {
-            // 时间模式（仿 KPZ32）
-            ok = servo->setAnglesForScriptMixed(cmd.servoChannels, cmd.servoAngles,
+        bool ok = servo->setAnglesForScriptMixed(cmd.servoChannels, cmd.servoAngles,
                                                 cmd.servoSpeeds, cmd.servoTimes);
-        } else {
-            // 速度模式（兼容旧 SERVO 指令）
-            ok = servo->setAnglesForScript(cmd.servoChannels, cmd.servoAngles, cmd.servoSpeeds);
-        }
         if (!ok) {
             emit taskError(QStringLiteral("SERVO 批量下发失败: %1").arg(cmd.sourceLine));
             return false;
         }
-        // 汇总日志（避免 N 行日志刷屏）；时间模式下显示 Tms，速度模式下显示 °/s
+        // 汇总日志（避免 N 行日志刷屏）；时间模式下显示 Tms
         QStringList parts;
         for (int i = 0; i < cmd.servoChannels.size(); ++i) {
             int tMs = cmd.servoTimes.value(i, 0);
-            if (useTimeMode && tMs > 0) {
-                parts << QStringLiteral("PWM%1→%2°@T%3ms")
-                             .arg(cmd.servoChannels[i] + 1)
-                             .arg(cmd.servoAngles.value(i, 90.0f), 0, 'f', 1)
-                             .arg(tMs);
-            } else {
-                parts << QStringLiteral("PWM%1→%2°@%3°/s")
-                             .arg(cmd.servoChannels[i] + 1)
-                             .arg(cmd.servoAngles.value(i, 90.0f), 0, 'f', 1)
-                             .arg(cmd.servoSpeeds.value(i, 10.0f), 0, 'f', 0);
-            }
+            parts << QStringLiteral("PWM%1→%2°@T%3ms")
+                         .arg(cmd.servoChannels[i] + 1)
+                         .arg(cmd.servoAngles.value(i, 90.0f), 0, 'f', 1)
+                         .arg(tMs);
         }
-        emit consoleOutput(QStringLiteral("[SERVO%1] %2")
-                               .arg(useTimeMode ? QStringLiteral("-T") : QString())
+        emit consoleOutput(QStringLiteral("[SERVO-T] %1")
                                .arg(parts.join(", ")));
         // 脚本模式：单帧直发时 isMoving 立即 false；时间模式可能启动 100ms tick 软插值
         // 通过超时 5000ms 等待到位（也覆盖运行中切换为 STOP/PAUSE 的情况）
@@ -747,9 +818,7 @@ bool TaskExecutor::executeCommand(const ScriptCommand& cmd)
                 sub.type = ScriptCmdType::Delay;
                 sub.delayMs = trimmed.mid(6, trimmed.indexOf(QChar::fromLatin1(')')) - 6).toInt();
             } else if (trimmed.startsWith(QStringLiteral("SERVO("), Qt::CaseInsensitive)) {
-                // 统一格式（2026-06-15）：SERVO(ch=ang:spd, ...) 单/多路
-                // 2026-06-16：扩展支持 SERVO(ch=ang:T<ms>) 时间模式（仿 KPZ32 出厂协议）
-                // 已废弃：速度模式 SERVO(ch=ang:spd) 仍可解析但报警告
+                // 统一格式：SERVO(ch=ang:T<ms>, ...) 时间模式
                 int pe = trimmed.indexOf(QChar::fromLatin1(')'));
                 QString inner = trimmed.mid(6, pe - 6).trimmed();
                 if (inner.isEmpty() || !inner.contains(QChar::fromLatin1('='))) break;
@@ -762,25 +831,17 @@ bool TaskExecutor::executeCommand(const ScriptCommand& cmd)
                         auto angSpd = chanPart[1].split(QChar::fromLatin1(':'));
                         float ang = angSpd.value(0, QString()).trimmed().toFloat();
                         QString paramStr = (angSpd.size() >= 2) ? angSpd[1].trimmed() : QString();
-                        if (paramStr.startsWith(QLatin1Char('T'), Qt::CaseInsensitive)
-                            || paramStr.startsWith(QLatin1Char('t'), Qt::CaseInsensitive)) {
-                            // 时间模式
-                            int ms = paramStr.mid(1).trimmed().toInt();
-                            if (ms < 0) ms = 0;
-                            sub.servoChannels.append(ch);
-                            sub.servoAngles.append(ang);
-                            sub.servoSpeeds.append(10.0f);
-                            sub.servoTimes.append(ms);
-                        } else {
-                            // 速度模式（已废弃，保留解析但报警告）
-                            emit consoleOutput(QStringLiteral("[警告] SERVO 速度模式已废弃: '%1' 应改写为 SERVO(ch=ang:T<ms>) 格式，例如 T2000。原文: %2")
+                        if (!paramStr.startsWith(QLatin1Char('T'), Qt::CaseInsensitive)) {
+                            emit consoleOutput(QStringLiteral("[错误] CALL 中 SERVO 必须使用时间模式 T<ms>: '%1'。原文: %2")
                                 .arg(paramStr, trimmed));
-                            float spd = paramStr.isEmpty() ? 10.0f : paramStr.toFloat();
-                            sub.servoChannels.append(ch);
-                            sub.servoAngles.append(ang);
-                            sub.servoSpeeds.append(spd);
-                            sub.servoTimes.append(0);
+                            continue;
                         }
+                        int ms = paramStr.mid(1).trimmed().toInt();
+                        if (ms < 0) ms = 0;
+                        sub.servoChannels.append(ch);
+                        sub.servoAngles.append(ang);
+                        sub.servoSpeeds.append(10.0f);
+                        sub.servoTimes.append(ms);
                     }
                 }
                 if (!sub.servoChannels.isEmpty()) {

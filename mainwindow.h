@@ -12,7 +12,7 @@
 #include <QButtonGroup>
 #include <QTimer>
 #include <QByteArray>
-#include <QSpinBox>
+#include <QLineEdit>
 
 class RobotController;
 class UiController;
@@ -58,8 +58,6 @@ private slots:
 
     void on_pushButton_4_clicked();
 
-    void on_pushButton_5_clicked();
-
     void on_pushButton_6_clicked();
 
     // 位置显示更新
@@ -77,10 +75,6 @@ private slots:
 
     // 页面导航
     void onNavButtonClicked(int index);
-
-    // 老化测试
-    void onAgingTick();
-    void finishAgingTest(bool success, const QString& message);
 
     // RS485 测试（ZMC306X 直连 PWM 模块）
     void initRs485UI();
@@ -116,8 +110,8 @@ private:
     int m_visionConsecutiveCount = 0;
     static constexpr int kVisionConfirmCount = 10;
     ServoTestWidget* m_servoTestWidget = nullptr;  // 舵机测试界面
-    QList<QSpinBox*> m_servoSpins;   // 6通道舵机角度 spinbox
-    QList<QDoubleSpinBox*> m_servoSpeedSpins;  // 6通道舵机速度 spinbox (度/秒)
+    QList<QLineEdit*> m_servoSpins;   // 6通道舵机角度 QLineEdit（已废弃，由 ServoTestWidget 管理）
+    QList<QLineEdit*> m_servoSpeedSpins;  // 6通道舵机速度 QLineEdit（已废弃，由 ServoTestWidget 管理）
     QList<QLabel*> m_servoAngleLabels;  // 手动页舵机板块 6 通道只读角度显示（被动显示）
 
     QButtonGroup* m_navGroup;
@@ -129,15 +123,6 @@ private:
 
     // RS485 定时发送
     QTimer* m_rs485AutoSendTimer = nullptr;
-
-    // 老化测试状态
-    QTimer* m_agingTimer = nullptr;
-    int m_agingCycle = 0;
-    int m_agingTargetIdx = 0;
-    enum class AgingStep { MoveJ, MoveL };
-    AgingStep m_agingStep = AgingStep::MoveJ;
-    bool m_agingSimMode = false;  // 检测到模拟器（轴不动）后启用快速模式
-    QList<QList<double>> m_agingJointTargets;
 
     void initConnectionUI();
     void initPositionDisplay();

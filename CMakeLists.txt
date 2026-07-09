@@ -66,12 +66,6 @@ target_include_directories(Robot_R06 PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}
 )
 
-if(WIN32)
-    set_target_properties(Robot_R06 PROPERTIES
-        WIN32_EXECUTABLE ON
-    )
-endif()
-
 # Qt 6.1 之后，iOS 平台会自动设置 MACOSX_BUNDLE_GUI_IDENTIFIER。
 # 如果你是开发 iOS 或 macOS 应用，建议手动设置一个固定的 bundle identifier。
 if(${QT_VERSION} VERSION_LESS 6.1.0)
@@ -82,7 +76,7 @@ set_target_properties(Robot_R06 PROPERTIES
     MACOSX_BUNDLE_BUNDLE_VERSION ${PROJECT_VERSION}
     MACOSX_BUNDLE_SHORT_VERSION_STRING ${PROJECT_VERSION_MAJOR}.${PROJECT_VERSION_MINOR}
     MACOSX_BUNDLE TRUE
-    WIN32_EXECUTABLE TRUE
+    WIN32_EXECUTABLE FALSE
 )
 
 include(GNUInstallDirs)

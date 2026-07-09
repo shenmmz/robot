@@ -57,6 +57,7 @@ public:
     QString getControllerIP() const { return m_controllerIP; }    // 获取控制器IP地址
     int getStateUpdateInterval() const { return m_stateUpdateIntervalMs; }    // 获取状态更新间隔(ms)
     QList<double> getHomePosition() const { return m_homePosition; }    // 获取回零后目标位置
+    void setHomePosition(const QList<double>& pos) { m_homePosition = pos; }    // 设置回零后目标位置
     double getHomeMoveSpeed() const { return m_homeMoveSpeed; }         // 获取回零后移动速度(°/s)
     double getHomeMoveAccel() const { return m_homeMoveAccel; }         // 获取回零后移动加速度(°/s²)
     double getHomeMoveDecel() const { return m_homeMoveDecel; }         // 获取回零后移动减速度(°/s²)

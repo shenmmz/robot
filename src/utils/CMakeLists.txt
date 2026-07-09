@@ -4,6 +4,7 @@
 add_library(robot_utils STATIC
     Logger.cpp
     CodeEditor.cpp
+    OsKEventFilter.cpp
 )
 
 target_include_directories(robot_utils PUBLIC
@@ -13,6 +14,7 @@ target_include_directories(robot_utils PUBLIC
 target_sources(robot_utils PUBLIC
     Logger.h
     CodeEditor.h
+    OsKEventFilter.h
 )
 
 # 链接 Qt 模块
