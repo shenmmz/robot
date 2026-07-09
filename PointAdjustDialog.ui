@@ -6,54 +6,60 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>960</width>
-    <height>540</height>
+    <width>640</width>
+    <height>640</height>
    </rect>
   </property>
   <property name="minimumSize">
    <size>
-    <width>720</width>
-    <height>420</height>
+    <width>420</width>
+    <height>0</height>
    </size>
   </property>
   <property name="windowTitle">
-   <string>点位调节</string>
+   <string>点位调整</string>
   </property>
   <layout class="QVBoxLayout" name="mainLayout">
    <property name="spacing">
-    <number>12</number>
+    <number>8</number>
    </property>
    <property name="leftMargin">
-    <number>16</number>
+    <number>12</number>
    </property>
    <property name="topMargin">
-    <number>16</number>
+    <number>12</number>
    </property>
    <property name="rightMargin">
-    <number>16</number>
+    <number>12</number>
    </property>
    <property name="bottomMargin">
-    <number>16</number>
+    <number>12</number>
    </property>
    <item>
     <widget class="QGroupBox" name="groupBox">
+     <property name="sizePolicy">
+      <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+       <horstretch>0</horstretch>
+       <verstretch>0</verstretch>
+      </sizepolicy>
+     </property>
      <property name="title">
       <string>目标点位</string>
      </property>
      <property name="styleSheet">
-      <string>QGroupBox{font-size:14px;font-weight:bold;}</string>
+      <string>QGroupBox::title{font-size:20px;font-weight:bold;}</string>
      </property>
      <layout class="QGridLayout" name="gridLayout">
       <property name="spacing">
-       <number>10</number>
-      </property>
-      <property name="margin" stdset="0">
-       <number>14</number>
+       <number>12</number>
       </property>
       <attribute name="columnStretch">
-       <number>1</number>
-       <number>1</number>
-       <number>1</number>
+       <number>0</number>
+       <number>0</number>
+       <number>10</number>
+       <number>0</number>
+      </attribute>
+      <attribute name="rowStretch">
        <number>1</number>
        <number>1</number>
        <number>1</number>
@@ -61,415 +67,558 @@
        <number>1</number>
        <number>1</number>
       </attribute>
-
-      <!-- Row 0: J1-J6 + 速度/加速度/减速度 表头 -->
+      <!-- Row 0: J0 / X -->
       <item row="0" column="0">
-       <widget class="QLabel" name="lblJ1Hdr">
-        <property name="text"><string>J1</string></property>
-        <property name="alignment"><set>Qt::AlignCenter</set></property>
-        <property name="styleSheet"><string>font-size:13px;font-weight:bold;color:#1565c0;</string></property>
+       <widget class="QLabel" name="lblAxis0">
+        <property name="minimumSize">
+         <size>
+          <width>32</width>
+          <height>0</height>
+         </size>
+        </property>
+        <property name="text">
+         <string>J0</string>
+        </property>
+        <property name="styleSheet">
+         <string>font-size:22px;font-weight:bold;</string>
+        </property>
+        <property name="alignment">
+         <set>Qt::AlignLeft|Qt::AlignLeading|Qt::AlignVCenter</set>
+        </property>
        </widget>
       </item>
       <item row="0" column="1">
-       <widget class="QLabel" name="lblJ2Hdr">
-        <property name="text"><string>J2</string></property>
-        <property name="alignment"><set>Qt::AlignCenter</set></property>
-        <property name="styleSheet"><string>font-size:13px;font-weight:bold;color:#1565c0;</string></property>
+       <widget class="QPushButton" name="btnMinus0">
+        <property name="minimumSize">
+         <size>
+          <width>52</width>
+          <height>52</height>
+         </size>
+        </property>
+        <property name="maximumSize">
+         <size>
+          <width>52</width>
+          <height>52</height>
+         </size>
+        </property>
+        <property name="text">
+         <string>-</string>
+        </property>
+        <property name="styleSheet">
+         <string>font-size:24px;font-weight:bold;</string>
+        </property>
+        <property name="autoRepeat">
+         <bool>true</bool>
+        </property>
        </widget>
       </item>
       <item row="0" column="2">
-       <widget class="QLabel" name="lblJ3Hdr">
-        <property name="text"><string>J3</string></property>
-        <property name="alignment"><set>Qt::AlignCenter</set></property>
-        <property name="styleSheet"><string>font-size:13px;font-weight:bold;color:#1565c0;</string></property>
+       <widget class="QLineEdit" name="spinAxis0">
+        <property name="minimumSize">
+         <size>
+          <width>0</width>
+          <height>56</height>
+         </size>
+        </property>
+<property name="styleSheet">
+         <string>font-size:26px;font-weight:bold;color:#1565c0;</string>
+        </property>
        </widget>
       </item>
       <item row="0" column="3">
-       <widget class="QLabel" name="lblJ4Hdr">
-        <property name="text"><string>J4</string></property>
-        <property name="alignment"><set>Qt::AlignCenter</set></property>
-        <property name="styleSheet"><string>font-size:13px;font-weight:bold;color:#1565c0;</string></property>
+       <widget class="QPushButton" name="btnPlus0">
+        <property name="minimumSize">
+         <size>
+          <width>52</width>
+          <height>52</height>
+         </size>
+        </property>
+        <property name="maximumSize">
+         <size>
+          <width>52</width>
+          <height>52</height>
+         </size>
+        </property>
+        <property name="text">
+         <string>+</string>
+        </property>
+        <property name="styleSheet">
+         <string>font-size:24px;font-weight:bold;</string>
+        </property>
+        <property name="autoRepeat">
+         <bool>true</bool>
+        </property>
        </widget>
       </item>
-      <item row="0" column="4">
-       <widget class="QLabel" name="lblJ5Hdr">
-        <property name="text"><string>J5</string></property>
-        <property name="alignment"><set>Qt::AlignCenter</set></property>
-        <property name="styleSheet"><string>font-size:13px;font-weight:bold;color:#1565c0;</string></property>
-       </widget>
-      </item>
-      <item row="0" column="5">
-       <widget class="QLabel" name="lblJ6Hdr">
-        <property name="text"><string>J6</string></property>
-        <property name="alignment"><set>Qt::AlignCenter</set></property>
-        <property name="styleSheet"><string>font-size:13px;font-weight:bold;color:#1565c0;</string></property>
-       </widget>
-      </item>
-      <item row="0" column="6">
-       <widget class="QLabel" name="lblSpeedHdr">
-        <property name="text"><string>速度</string></property>
-        <property name="alignment"><set>Qt::AlignCenter</set></property>
-        <property name="styleSheet"><string>font-size:13px;font-weight:bold;color:#2e7d32;</string></property>
-       </widget>
-      </item>
-      <item row="0" column="7">
-       <widget class="QLabel" name="lblAccelHdr">
-        <property name="text"><string>加速度</string></property>
-        <property name="alignment"><set>Qt::AlignCenter</set></property>
-        <property name="styleSheet"><string>font-size:13px;font-weight:bold;color:#2e7d32;</string></property>
-       </widget>
-      </item>
-      <item row="0" column="8">
-       <widget class="QLabel" name="lblDecelHdr">
-        <property name="text"><string>减速度</string></property>
-        <property name="alignment"><set>Qt::AlignCenter</set></property>
-        <property name="styleSheet"><string>font-size:13px;font-weight:bold;color:#2e7d32;</string></property>
-       </widget>
-      </item>
-
-      <!-- Row 1: J1-J6 + 速度/加速度/减速度 输入框 -->
+      <!-- Row 1: J1 / Y -->
       <item row="1" column="0">
-       <widget class="QDoubleSpinBox" name="spinJ1">
-        <property name="decimals"><number>3</number></property>
-        <property name="minimum"><double>-9999.000000000000000</double></property>
-        <property name="maximum"><double>9999.000000000000000</double></property>
-        <property name="value"><double>0.000000000000000</double></property>
-        <property name="alignment"><set>Qt::AlignCenter</set></property>
-        <property name="styleSheet"><string>font-size:14px;font-weight:bold;</string></property>
+       <widget class="QLabel" name="lblAxis1">
+        <property name="minimumSize">
+         <size>
+          <width>32</width>
+          <height>0</height>
+         </size>
+        </property>
+        <property name="text">
+         <string>J1</string>
+        </property>
+        <property name="styleSheet">
+         <string>font-size:22px;font-weight:bold;</string>
+        </property>
+        <property name="alignment">
+         <set>Qt::AlignLeft|Qt::AlignLeading|Qt::AlignVCenter</set>
+        </property>
        </widget>
       </item>
       <item row="1" column="1">
-       <widget class="QDoubleSpinBox" name="spinJ2">
-        <property name="decimals"><number>3</number></property>
-        <property name="minimum"><double>-9999.000000000000000</double></property>
-        <property name="maximum"><double>9999.000000000000000</double></property>
-        <property name="value"><double>0.000000000000000</double></property>
-        <property name="alignment"><set>Qt::AlignCenter</set></property>
-        <property name="styleSheet"><string>font-size:14px;font-weight:bold;</string></property>
+       <widget class="QPushButton" name="btnMinus1">
+        <property name="minimumSize">
+         <size>
+          <width>52</width>
+          <height>52</height>
+         </size>
+        </property>
+        <property name="maximumSize">
+         <size>
+          <width>52</width>
+          <height>52</height>
+         </size>
+        </property>
+        <property name="text">
+         <string>-</string>
+        </property>
+        <property name="styleSheet">
+         <string>font-size:24px;font-weight:bold;</string>
+        </property>
+        <property name="autoRepeat">
+         <bool>true</bool>
+        </property>
        </widget>
       </item>
       <item row="1" column="2">
-       <widget class="QDoubleSpinBox" name="spinJ3">
-        <property name="decimals"><number>3</number></property>
-        <property name="minimum"><double>-9999.000000000000000</double></property>
-        <property name="maximum"><double>9999.000000000000000</double></property>
-        <property name="value"><double>0.000000000000000</double></property>
-        <property name="alignment"><set>Qt::AlignCenter</set></property>
-        <property name="styleSheet"><string>font-size:14px;font-weight:bold;</string></property>
+       <widget class="QLineEdit" name="spinAxis1">
+        <property name="minimumSize">
+         <size>
+          <width>0</width>
+          <height>56</height>
+         </size>
+        </property>
+<property name="styleSheet">
+         <string>font-size:26px;font-weight:bold;color:#1565c0;</string>
+        </property>
        </widget>
       </item>
       <item row="1" column="3">
-       <widget class="QDoubleSpinBox" name="spinJ4">
-        <property name="decimals"><number>3</number></property>
-        <property name="minimum"><double>-9999.000000000000000</double></property>
-        <property name="maximum"><double>9999.000000000000000</double></property>
-        <property name="value"><double>0.000000000000000</double></property>
-        <property name="alignment"><set>Qt::AlignCenter</set></property>
-        <property name="styleSheet"><string>font-size:14px;font-weight:bold;</string></property>
+       <widget class="QPushButton" name="btnPlus1">
+        <property name="minimumSize">
+         <size>
+          <width>52</width>
+          <height>52</height>
+         </size>
+        </property>
+        <property name="maximumSize">
+         <size>
+          <width>52</width>
+          <height>52</height>
+         </size>
+        </property>
+        <property name="text">
+         <string>+</string>
+        </property>
+        <property name="styleSheet">
+         <string>font-size:24px;font-weight:bold;</string>
+        </property>
+        <property name="autoRepeat">
+         <bool>true</bool>
+        </property>
        </widget>
       </item>
-      <item row="1" column="4">
-       <widget class="QDoubleSpinBox" name="spinJ5">
-        <property name="decimals"><number>3</number></property>
-        <property name="minimum"><double>-9999.000000000000000</double></property>
-        <property name="maximum"><double>9999.000000000000000</double></property>
-        <property name="value"><double>0.000000000000000</double></property>
-        <property name="alignment"><set>Qt::AlignCenter</set></property>
-        <property name="styleSheet"><string>font-size:14px;font-weight:bold;</string></property>
+      <!-- Row 2: J2 / Z -->
+      <item row="2" column="0">
+       <widget class="QLabel" name="lblAxis2">
+        <property name="minimumSize">
+         <size>
+          <width>32</width>
+          <height>0</height>
+         </size>
+        </property>
+        <property name="text">
+         <string>J2</string>
+        </property>
+        <property name="styleSheet">
+         <string>font-size:22px;font-weight:bold;</string>
+        </property>
+        <property name="alignment">
+         <set>Qt::AlignLeft|Qt::AlignLeading|Qt::AlignVCenter</set>
+        </property>
        </widget>
       </item>
-      <item row="1" column="5">
-       <widget class="QDoubleSpinBox" name="spinJ6">
-        <property name="decimals"><number>3</number></property>
-        <property name="minimum"><double>-9999.000000000000000</double></property>
-        <property name="maximum"><double>9999.000000000000000</double></property>
-        <property name="value"><double>0.000000000000000</double></property>
-        <property name="alignment"><set>Qt::AlignCenter</set></property>
-        <property name="styleSheet"><string>font-size:14px;font-weight:bold;</string></property>
+      <item row="2" column="1">
+       <widget class="QPushButton" name="btnMinus2">
+        <property name="minimumSize">
+         <size>
+          <width>52</width>
+          <height>52</height>
+         </size>
+        </property>
+        <property name="maximumSize">
+         <size>
+          <width>52</width>
+          <height>52</height>
+         </size>
+        </property>
+        <property name="text">
+         <string>-</string>
+        </property>
+        <property name="styleSheet">
+         <string>font-size:24px;font-weight:bold;</string>
+        </property>
+        <property name="autoRepeat">
+         <bool>true</bool>
+        </property>
        </widget>
       </item>
-      <item row="1" column="6">
-       <widget class="QDoubleSpinBox" name="spinSpeed">
-        <property name="decimals"><number>1</number></property>
-        <property name="minimum"><double>0.000000000000000</double></property>
-        <property name="maximum"><double>9999.000000000000000</double></property>
-        <property name="value"><double>0.000000000000000</double></property>
-        <property name="alignment"><set>Qt::AlignCenter</set></property>
-        <property name="styleSheet"><string>font-size:14px;font-weight:bold;</string></property>
+      <item row="2" column="2">
+       <widget class="QLineEdit" name="spinAxis2">
+        <property name="minimumSize">
+         <size>
+          <width>0</width>
+          <height>56</height>
+         </size>
+        </property>
+<property name="styleSheet">
+         <string>font-size:26px;font-weight:bold;color:#1565c0;</string>
+        </property>
        </widget>
       </item>
-      <item row="1" column="7">
-       <widget class="QDoubleSpinBox" name="spinAccel">
-        <property name="decimals"><number>1</number></property>
-        <property name="minimum"><double>0.000000000000000</double></property>
-        <property name="maximum"><double>9999.000000000000000</double></property>
-        <property name="value"><double>0.000000000000000</double></property>
-        <property name="alignment"><set>Qt::AlignCenter</set></property>
-        <property name="styleSheet"><string>font-size:14px;font-weight:bold;</string></property>
+      <item row="2" column="3">
+       <widget class="QPushButton" name="btnPlus2">
+        <property name="minimumSize">
+         <size>
+          <width>52</width>
+          <height>52</height>
+         </size>
+        </property>
+        <property name="maximumSize">
+         <size>
+          <width>52</width>
+          <height>52</height>
+         </size>
+        </property>
+        <property name="text">
+         <string>+</string>
+        </property>
+        <property name="styleSheet">
+         <string>font-size:24px;font-weight:bold;</string>
+        </property>
+        <property name="autoRepeat">
+         <bool>true</bool>
+        </property>
        </widget>
       </item>
-      <item row="1" column="8">
-       <widget class="QDoubleSpinBox" name="spinDecel">
-        <property name="decimals"><number>1</number></property>
-        <property name="minimum"><double>0.000000000000000</double></property>
-        <property name="maximum"><double>9999.000000000000000</double></property>
-        <property name="value"><double>0.000000000000000</double></property>
-        <property name="alignment"><set>Qt::AlignCenter</set></property>
-        <property name="styleSheet"><string>font-size:14px;font-weight:bold;</string></property>
-       </widget>
-      </item>
-
-      <!-- Row 2: 舵机角度 分隔标题 -->
-      <item row="2" column="0" colspan="9">
-       <widget class="QLabel" name="lblServoTitle">
-        <property name="text"><string>--- 舵机角度 (°) ---</string></property>
-        <property name="alignment"><set>Qt::AlignCenter</set></property>
-        <property name="styleSheet"><string>font-size:13px;font-weight:bold;color:#555;padding:6px 0;</string></property>
-       </widget>
-      </item>
-
-      <!-- Row 3: P1-P6 表头（与 J1-J6 同列对齐） -->
+      <!-- Row 3: J3 / A -->
       <item row="3" column="0">
-       <widget class="QLabel" name="lblP1Hdr">
-        <property name="text"><string>P1</string></property>
-        <property name="alignment"><set>Qt::AlignCenter</set></property>
-        <property name="styleSheet"><string>font-size:13px;font-weight:bold;color:#c62828;</string></property>
+       <widget class="QLabel" name="lblAxis3">
+        <property name="minimumSize">
+         <size>
+          <width>32</width>
+          <height>0</height>
+         </size>
+        </property>
+        <property name="text">
+         <string>J3</string>
+        </property>
+        <property name="styleSheet">
+         <string>font-size:22px;font-weight:bold;</string>
+        </property>
+        <property name="alignment">
+         <set>Qt::AlignLeft|Qt::AlignLeading|Qt::AlignVCenter</set>
+        </property>
        </widget>
       </item>
       <item row="3" column="1">
-       <widget class="QLabel" name="lblP2Hdr">
-        <property name="text"><string>P2</string></property>
-        <property name="alignment"><set>Qt::AlignCenter</set></property>
-        <property name="styleSheet"><string>font-size:13px;font-weight:bold;color:#c62828;</string></property>
+       <widget class="QPushButton" name="btnMinus3">
+        <property name="minimumSize">
+         <size>
+          <width>52</width>
+          <height>52</height>
+         </size>
+        </property>
+        <property name="maximumSize">
+         <size>
+          <width>52</width>
+          <height>52</height>
+         </size>
+        </property>
+        <property name="text">
+         <string>-</string>
+        </property>
+        <property name="styleSheet">
+         <string>font-size:24px;font-weight:bold;</string>
+        </property>
+        <property name="autoRepeat">
+         <bool>true</bool>
+        </property>
        </widget>
       </item>
       <item row="3" column="2">
-       <widget class="QLabel" name="lblP3Hdr">
-        <property name="text"><string>P3</string></property>
-        <property name="alignment"><set>Qt::AlignCenter</set></property>
-        <property name="styleSheet"><string>font-size:13px;font-weight:bold;color:#c62828;</string></property>
+       <widget class="QLineEdit" name="spinAxis3">
+        <property name="minimumSize">
+         <size>
+          <width>0</width>
+          <height>56</height>
+         </size>
+        </property>
+<property name="styleSheet">
+         <string>font-size:26px;font-weight:bold;color:#1565c0;</string>
+        </property>
        </widget>
       </item>
       <item row="3" column="3">
-       <widget class="QLabel" name="lblP4Hdr">
-        <property name="text"><string>P4</string></property>
-        <property name="alignment"><set>Qt::AlignCenter</set></property>
-        <property name="styleSheet"><string>font-size:13px;font-weight:bold;color:#c62828;</string></property>
+       <widget class="QPushButton" name="btnPlus3">
+        <property name="minimumSize">
+         <size>
+          <width>52</width>
+          <height>52</height>
+         </size>
+        </property>
+        <property name="maximumSize">
+         <size>
+          <width>52</width>
+          <height>52</height>
+         </size>
+        </property>
+        <property name="text">
+         <string>+</string>
+        </property>
+        <property name="styleSheet">
+         <string>font-size:24px;font-weight:bold;</string>
+        </property>
+        <property name="autoRepeat">
+         <bool>true</bool>
+        </property>
        </widget>
       </item>
-      <item row="3" column="4">
-       <widget class="QLabel" name="lblP5Hdr">
-        <property name="text"><string>P5</string></property>
-        <property name="alignment"><set>Qt::AlignCenter</set></property>
-        <property name="styleSheet"><string>font-size:13px;font-weight:bold;color:#c62828;</string></property>
-       </widget>
-      </item>
-      <item row="3" column="5">
-       <widget class="QLabel" name="lblP6Hdr">
-        <property name="text"><string>P6</string></property>
-        <property name="alignment"><set>Qt::AlignCenter</set></property>
-        <property name="styleSheet"><string>font-size:13px;font-weight:bold;color:#c62828;</string></property>
-       </widget>
-      </item>
-
-      <!-- Row 4: P1-P6 舵机角度输入框（与 J1-J6 同列对齐） -->
+      <!-- Row 4: J4 / B -->
       <item row="4" column="0">
-       <widget class="QDoubleSpinBox" name="spinP1">
-        <property name="decimals"><number>1</number></property>
-        <property name="minimum"><double>0.000000000000000</double></property>
-        <property name="maximum"><double>360.000000000000000</double></property>
-        <property name="value"><double>0.000000000000000</double></property>
-        <property name="alignment"><set>Qt::AlignCenter</set></property>
-        <property name="styleSheet"><string>font-size:14px;font-weight:bold;</string></property>
+       <widget class="QLabel" name="lblAxis4">
+        <property name="minimumSize">
+         <size>
+          <width>32</width>
+          <height>0</height>
+         </size>
+        </property>
+        <property name="text">
+         <string>J4</string>
+        </property>
+        <property name="styleSheet">
+         <string>font-size:22px;font-weight:bold;</string>
+        </property>
+        <property name="alignment">
+         <set>Qt::AlignLeft|Qt::AlignLeading|Qt::AlignVCenter</set>
+        </property>
        </widget>
       </item>
       <item row="4" column="1">
-       <widget class="QDoubleSpinBox" name="spinP2">
-        <property name="decimals"><number>1</number></property>
-        <property name="minimum"><double>0.000000000000000</double></property>
-        <property name="maximum"><double>360.000000000000000</double></property>
-        <property name="value"><double>0.000000000000000</double></property>
-        <property name="alignment"><set>Qt::AlignCenter</set></property>
-        <property name="styleSheet"><string>font-size:14px;font-weight:bold;</string></property>
+       <widget class="QPushButton" name="btnMinus4">
+        <property name="minimumSize">
+         <size>
+          <width>52</width>
+          <height>52</height>
+         </size>
+        </property>
+        <property name="maximumSize">
+         <size>
+          <width>52</width>
+          <height>52</height>
+         </size>
+        </property>
+        <property name="text">
+         <string>-</string>
+        </property>
+        <property name="styleSheet">
+         <string>font-size:24px;font-weight:bold;</string>
+        </property>
+        <property name="autoRepeat">
+         <bool>true</bool>
+        </property>
        </widget>
       </item>
       <item row="4" column="2">
-       <widget class="QDoubleSpinBox" name="spinP3">
-        <property name="decimals"><number>1</number></property>
-        <property name="minimum"><double>0.000000000000000</double></property>
-        <property name="maximum"><double>360.000000000000000</double></property>
-        <property name="value"><double>0.000000000000000</double></property>
-        <property name="alignment"><set>Qt::AlignCenter</set></property>
-        <property name="styleSheet"><string>font-size:14px;font-weight:bold;</string></property>
+       <widget class="QLineEdit" name="spinAxis4">
+        <property name="minimumSize">
+         <size>
+          <width>0</width>
+          <height>56</height>
+         </size>
+        </property>
+<property name="styleSheet">
+         <string>font-size:26px;font-weight:bold;color:#1565c0;</string>
+        </property>
        </widget>
       </item>
       <item row="4" column="3">
-       <widget class="QDoubleSpinBox" name="spinP4">
-        <property name="decimals"><number>1</number></property>
-        <property name="minimum"><double>0.000000000000000</double></property>
-        <property name="maximum"><double>360.000000000000000</double></property>
-        <property name="value"><double>0.000000000000000</double></property>
-        <property name="alignment"><set>Qt::AlignCenter</set></property>
-        <property name="styleSheet"><string>font-size:14px;font-weight:bold;</string></property>
+       <widget class="QPushButton" name="btnPlus4">
+        <property name="minimumSize">
+         <size>
+          <width>52</width>
+          <height>52</height>
+         </size>
+        </property>
+        <property name="maximumSize">
+         <size>
+          <width>52</width>
+          <height>52</height>
+         </size>
+        </property>
+        <property name="text">
+         <string>+</string>
+        </property>
+        <property name="styleSheet">
+         <string>font-size:24px;font-weight:bold;</string>
+        </property>
+        <property name="autoRepeat">
+         <bool>true</bool>
+        </property>
        </widget>
       </item>
-      <item row="4" column="4">
-       <widget class="QDoubleSpinBox" name="spinP5">
-        <property name="decimals"><number>1</number></property>
-        <property name="minimum"><double>0.000000000000000</double></property>
-        <property name="maximum"><double>360.000000000000000</double></property>
-        <property name="value"><double>0.000000000000000</double></property>
-        <property name="alignment"><set>Qt::AlignCenter</set></property>
-        <property name="styleSheet"><string>font-size:14px;font-weight:bold;</string></property>
-       </widget>
-      </item>
-      <item row="4" column="5">
-       <widget class="QDoubleSpinBox" name="spinP6">
-        <property name="decimals"><number>1</number></property>
-        <property name="minimum"><double>0.000000000000000</double></property>
-        <property name="maximum"><double>360.000000000000000</double></property>
-        <property name="value"><double>0.000000000000000</double></property>
-        <property name="alignment"><set>Qt::AlignCenter</set></property>
-        <property name="styleSheet"><string>font-size:14px;font-weight:bold;</string></property>
-       </widget>
-      </item>
-
-      <!-- Row 5: 舵机速度(°/s) 输入框（与 P1~P6 列对齐） -->
+      <!-- Row 5: J5 / C -->
       <item row="5" column="0">
-       <widget class="QDoubleSpinBox" name="spinSP1">
-        <property name="decimals"><number>1</number></property>
-        <property name="minimum"><double>1.000000000000000</double></property>
-        <property name="maximum"><double>360.000000000000000</double></property>
-        <property name="value"><double>10.000000000000000</double></property>
-        <property name="alignment"><set>Qt::AlignCenter</set></property>
-        <property name="styleSheet"><string>font-size:14px;font-weight:bold;</string></property>
+       <widget class="QLabel" name="lblAxis5">
+        <property name="minimumSize">
+         <size>
+          <width>32</width>
+          <height>0</height>
+         </size>
+        </property>
+        <property name="text">
+         <string>J5</string>
+        </property>
+        <property name="styleSheet">
+         <string>font-size:22px;font-weight:bold;</string>
+        </property>
+        <property name="alignment">
+         <set>Qt::AlignLeft|Qt::AlignLeading|Qt::AlignVCenter</set>
+        </property>
        </widget>
       </item>
       <item row="5" column="1">
-       <widget class="QDoubleSpinBox" name="spinSP2">
-        <property name="decimals"><number>1</number></property>
-        <property name="minimum"><double>1.000000000000000</double></property>
-        <property name="maximum"><double>360.000000000000000</double></property>
-        <property name="value"><double>10.000000000000000</double></property>
-        <property name="alignment"><set>Qt::AlignCenter</set></property>
-        <property name="styleSheet"><string>font-size:14px;font-weight:bold;</string></property>
+       <widget class="QPushButton" name="btnMinus5">
+        <property name="minimumSize">
+         <size>
+          <width>52</width>
+          <height>52</height>
+         </size>
+        </property>
+        <property name="maximumSize">
+         <size>
+          <width>52</width>
+          <height>52</height>
+         </size>
+        </property>
+        <property name="text">
+         <string>-</string>
+        </property>
+        <property name="styleSheet">
+         <string>font-size:24px;font-weight:bold;</string>
+        </property>
+        <property name="autoRepeat">
+         <bool>true</bool>
+        </property>
        </widget>
       </item>
       <item row="5" column="2">
-       <widget class="QDoubleSpinBox" name="spinSP3">
-        <property name="decimals"><number>1</number></property>
-        <property name="minimum"><double>1.000000000000000</double></property>
-        <property name="maximum"><double>360.000000000000000</double></property>
-        <property name="value"><double>10.000000000000000</double></property>
-        <property name="alignment"><set>Qt::AlignCenter</set></property>
-        <property name="styleSheet"><string>font-size:14px;font-weight:bold;</string></property>
+       <widget class="QLineEdit" name="spinAxis5">
+        <property name="minimumSize">
+         <size>
+          <width>0</width>
+          <height>56</height>
+         </size>
+        </property>
+<property name="styleSheet">
+         <string>font-size:26px;font-weight:bold;color:#1565c0;</string>
+        </property>
        </widget>
       </item>
       <item row="5" column="3">
-       <widget class="QDoubleSpinBox" name="spinSP4">
-        <property name="decimals"><number>1</number></property>
-        <property name="minimum"><double>1.000000000000000</double></property>
-        <property name="maximum"><double>360.000000000000000</double></property>
-        <property name="value"><double>10.000000000000000</double></property>
-        <property name="alignment"><set>Qt::AlignCenter</set></property>
-        <property name="styleSheet"><string>font-size:14px;font-weight:bold;</string></property>
+       <widget class="QPushButton" name="btnPlus5">
+        <property name="minimumSize">
+         <size>
+          <width>52</width>
+          <height>52</height>
+         </size>
+        </property>
+        <property name="maximumSize">
+         <size>
+          <width>52</width>
+          <height>52</height>
+         </size>
+        </property>
+        <property name="text">
+         <string>+</string>
+        </property>
+        <property name="styleSheet">
+         <string>font-size:24px;font-weight:bold;</string>
+        </property>
+        <property name="autoRepeat">
+         <bool>true</bool>
+        </property>
        </widget>
-      </item>
-      <item row="5" column="4">
-       <widget class="QDoubleSpinBox" name="spinSP5">
-        <property name="decimals"><number>1</number></property>
-        <property name="minimum"><double>1.000000000000000</double></property>
-        <property name="maximum"><double>360.000000000000000</double></property>
-        <property name="value"><double>10.000000000000000</double></property>
-        <property name="alignment"><set>Qt::AlignCenter</set></property>
-        <property name="styleSheet"><string>font-size:14px;font-weight:bold;</string></property>
-       </widget>
-      </item>
-      <item row="5" column="5">
-       <widget class="QDoubleSpinBox" name="spinSP6">
-        <property name="decimals"><number>1</number></property>
-        <property name="minimum"><double>1.000000000000000</double></property>
-        <property name="maximum"><double>360.000000000000000</double></property>
-        <property name="value"><double>10.000000000000000</double></property>
-        <property name="alignment"><set>Qt::AlignCenter</set></property>
-        <property name="styleSheet"><string>font-size:14px;font-weight:bold;</string></property>
-       </widget>
-      </item>
-      <item row="5" column="6" colspan="3">
-       <widget class="QLabel" name="lblSpeedUnit">
-        <property name="text"><string>舵机速度(°/s)</string></property>
-        <property name="alignment"><set>Qt::AlignLeft|Qt::AlignVCenter</set></property>
-        <property name="styleSheet"><string>font-size:13px;font-weight:bold;color:#1565c0;</string></property>
-       </widget>
-      </item>
-
-      <!-- Row 6: 时间T(ms) 输入框 -->
-      <item row="6" column="0">
-       <widget class="QLabel" name="lblTimeT">
-        <property name="text"><string>时间T(ms)</string></property>
-        <property name="alignment"><set>Qt::AlignRight|Qt::AlignVCenter</set></property>
-        <property name="styleSheet"><string>font-size:13px;font-weight:bold;color:#2e7d32;</string></property>
-       </widget>
-      </item>
-      <item row="6" column="1" colspan="5">
-       <widget class="QSpinBox" name="spinT">
-        <property name="minimum"><number>0</number></property>
-        <property name="maximum"><number>30000</number></property>
-        <property name="value"><number>500</number></property>
-        <property name="alignment"><set>Qt::AlignCenter</set></property>
-        <property name="styleSheet"><string>font-size:14px;font-weight:bold;</string></property>
-       </widget>
-      </item>
-
-      <!-- Row 7: 操作按钮（复制、删除、确定、取消，水平居中） -->
-      <item row="7" column="0" colspan="9">
-       <layout class="QHBoxLayout" name="buttonLayout">
-        <property name="spacing"><number>16</number></property>
-        <property name="margin" stdset="0"><number>0</number></property>
-        <item>
-         <spacer name="btnLeftSpacer">
-          <property name="orientation"><enum>Qt::Horizontal</enum></property>
-          <property name="sizeHint" stdset="0"><size><width>40</width><height>20</height></size></property>
-         </spacer>
-        </item>
-        <item>
-         <widget class="QPushButton" name="btnCopy">
-          <property name="minimumSize"><size><width>100</width><height>38</height></size></property>
-          <property name="text"><string>复制</string></property>
-          <property name="styleSheet"><string>QPushButton{background:#e3f2fd;color:#1565c0;border:1px solid #90caf9;border-radius:4px;font-size:14px;font-weight:bold;padding:4px 16px;}QPushButton:hover{background:#bbdefb;}</string></property>
-         </widget>
-        </item>
-        <item>
-         <widget class="QPushButton" name="btnDelete">
-          <property name="minimumSize"><size><width>100</width><height>38</height></size></property>
-          <property name="text"><string>删除</string></property>
-          <property name="styleSheet"><string>QPushButton{background:#fbe9e7;color:#c62828;border:1px solid #ef9a9a;border-radius:4px;font-size:14px;font-weight:bold;padding:4px 16px;}QPushButton:hover{background:#ffcdd2;}</string></property>
-         </widget>
-        </item>
-        <item>
-         <widget class="QPushButton" name="btnOK">
-          <property name="minimumSize"><size><width>100</width><height>38</height></size></property>
-          <property name="text"><string>确定</string></property>
-          <property name="styleSheet"><string>QPushButton{background:#1565c0;color:#fff;border:none;border-radius:4px;font-size:14px;font-weight:bold;padding:4px 16px;}QPushButton:hover{background:#1976d2;}</string></property>
-         </widget>
-        </item>
-        <item>
-         <widget class="QPushButton" name="btnCancel">
-          <property name="minimumSize"><size><width>100</width><height>38</height></size></property>
-          <property name="text"><string>取消</string></property>
-          <property name="styleSheet"><string>QPushButton{background:#eeeeee;color:#555;border:1px solid #ccc;border-radius:4px;font-size:14px;font-weight:bold;padding:4px 16px;}QPushButton:hover{background:#e0e0e0;}</string></property>
-         </widget>
-        </item>
-        <item>
-         <spacer name="btnRightSpacer">
-          <property name="orientation"><enum>Qt::Horizontal</enum></property>
-          <property name="sizeHint" stdset="0"><size><width>40</width><height>20</height></size></property>
-         </spacer>
-        </item>
-       </layout>
       </item>
      </layout>
     </widget>
+   </item>
+   <item>
+    <layout class="QHBoxLayout" name="buttonLayout">
+     <property name="spacing">
+      <number>12</number>
+     </property>
+     <item>
+      <spacer name="hSpacer">
+       <property name="orientation">
+        <enum>Qt::Horizontal</enum>
+       </property>
+       <property name="sizeHint" stdset="0">
+        <size>
+         <width>40</width>
+         <height>20</height>
+        </size>
+       </property>
+      </spacer>
+     </item>
+     <item>
+      <widget class="QPushButton" name="btnGetPoint">
+       <property name="minimumSize">
+        <size>
+         <width>120</width>
+         <height>40</height>
+        </size>
+       </property>
+       <property name="styleSheet">
+        <string>font-size:16px;font-weight:bold;</string>
+       </property>
+       <property name="text">
+        <string>获取当前点位</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QPushButton" name="btnRun">
+       <property name="minimumSize">
+        <size>
+         <width>100</width>
+         <height>40</height>
+        </size>
+       </property>
+       <property name="styleSheet">
+        <string>QPushButton{background:#1565c0;color:#fff;border:none;border-radius:4px;font-weight:bold;font-size:16px;padding:4px 16px;}QPushButton:hover{background:#1976d2;}</string>
+       </property>
+       <property name="text">
+        <string>运行</string>
+       </property>
+      </widget>
+     </item>
+    </layout>
    </item>
   </layout>
  </widget>
