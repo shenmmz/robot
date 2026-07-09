@@ -920,13 +920,10 @@ void UiController::showTargetEditDialog()
     // 3. 程序区无引用时,展示全部点位;有引用时,把未被引用的 TARGET 也追加到末尾
     // (否则"增加点位"新增的点位不在任何 MOVEJ 行里,下次开弹窗就看不到了)
     if (refOrder.isEmpty()) {
-        if (allTargetNames.isEmpty()) {
-            QMessageBox::information(m_mainWindow,
-                QStringLiteral("无点位"),
-                QStringLiteral("点位编辑器中无有效 TARGET 定义。"));
-            return;
+        if (!allTargetNames.isEmpty()) {
+            refOrder = allTargetNames;
         }
-        refOrder = allTargetNames;
+        // 两者均为空时:不弹提示,直接打开空弹窗,用户可手动新增点位
     } else {
         // refOrder 非空,把 allTargetNames 中未被 refOrder 引用的追加到末尾
         for (const QString& name : allTargetNames) {
