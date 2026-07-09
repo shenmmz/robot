@@ -691,53 +691,29 @@ bool TaskExecutor::executeCommand(const ScriptCommand& cmd)
         // 同步 ZMC RPC（PUTCHAR 逐字节），SETCOM 抖动 + UART 排空不及时导致多通道
         // 丢帧。改为单次 setAnglesForScript → setAllPwm 单帧下发 6 路。
         // 解析时已把所有通道填入 cmd.servoChannels/Angles/Speeds；单路时 size=1。
-        // 2026-06-16：增加时间模式支持，若 cmd.servoTimes 中任意一项 > 0 则走混合分支
-        // （仿 KPZ32 出厂协议 #xxxPxxxT<ms>! 的 T<ms> 字段语义）。
+        // 时间模式（仿 KPZ32 出厂协议 #xxxPxxxT<ms>! 的 T<ms> 字段语义）。
         ServoController* servo = m_robotController->getServoController();
         if (!servo) {
             emit taskError(QStringLiteral("舵机控制器未初始化"));
             return false;
         }
 
-        // 判断是否走混合模式（时间模式）
-        bool useTimeMode = false;
-        if (cmd.servoTimes.size() == cmd.servoChannels.size()) {
-            for (int t : cmd.servoTimes) {
-                if (t > 0) { useTimeMode = true; break; }
-            }
-        }
-
-        bool ok = false;
-        if (useTimeMode) {
-            // 时间模式（仿 KPZ32）
-            ok = servo->setAnglesForScriptMixed(cmd.servoChannels, cmd.servoAngles,
+        bool ok = servo->setAnglesForScriptMixed(cmd.servoChannels, cmd.servoAngles,
                                                 cmd.servoSpeeds, cmd.servoTimes);
-        } else {
-            // 速度模式（兼容旧 SERVO 指令）
-            ok = servo->setAnglesForScript(cmd.servoChannels, cmd.servoAngles, cmd.servoSpeeds);
-        }
         if (!ok) {
             emit taskError(QStringLiteral("SERVO 批量下发失败: %1").arg(cmd.sourceLine));
             return false;
         }
-        // 汇总日志（避免 N 行日志刷屏）；时间模式下显示 Tms，速度模式下显示 °/s
+        // 汇总日志（避免 N 行日志刷屏）；时间模式下显示 Tms
         QStringList parts;
         for (int i = 0; i < cmd.servoChannels.size(); ++i) {
             int tMs = cmd.servoTimes.value(i, 0);
-            if (useTimeMode && tMs > 0) {
-                parts << QStringLiteral("PWM%1→%2°@T%3ms")
-                             .arg(cmd.servoChannels[i] + 1)
-                             .arg(cmd.servoAngles.value(i, 90.0f), 0, 'f', 1)
-                             .arg(tMs);
-            } else {
-                parts << QStringLiteral("PWM%1→%2°@%3°/s")
-                             .arg(cmd.servoChannels[i] + 1)
-                             .arg(cmd.servoAngles.value(i, 90.0f), 0, 'f', 1)
-                             .arg(cmd.servoSpeeds.value(i, 10.0f), 0, 'f', 0);
-            }
+            parts << QStringLiteral("PWM%1→%2°@T%3ms")
+                         .arg(cmd.servoChannels[i] + 1)
+                         .arg(cmd.servoAngles.value(i, 90.0f), 0, 'f', 1)
+                         .arg(tMs);
         }
-        emit consoleOutput(QStringLiteral("[SERVO%1] %2")
-                               .arg(useTimeMode ? QStringLiteral("-T") : QString())
+        emit consoleOutput(QStringLiteral("[SERVO-T] %1")
                                .arg(parts.join(", ")));
         // 脚本模式：单帧直发时 isMoving 立即 false；时间模式可能启动 100ms tick 软插值
         // 通过超时 5000ms 等待到位（也覆盖运行中切换为 STOP/PAUSE 的情况）
@@ -842,9 +818,7 @@ bool TaskExecutor::executeCommand(const ScriptCommand& cmd)
                 sub.type = ScriptCmdType::Delay;
                 sub.delayMs = trimmed.mid(6, trimmed.indexOf(QChar::fromLatin1(')')) - 6).toInt();
             } else if (trimmed.startsWith(QStringLiteral("SERVO("), Qt::CaseInsensitive)) {
-                // 统一格式（2026-06-15）：SERVO(ch=ang:spd, ...) 单/多路
-                // 2026-06-16：扩展支持 SERVO(ch=ang:T<ms>) 时间模式（仿 KPZ32 出厂协议）
-                // 已废弃：速度模式 SERVO(ch=ang:spd) 仍可解析但报警告
+                // 统一格式：SERVO(ch=ang:T<ms>, ...) 时间模式
                 int pe = trimmed.indexOf(QChar::fromLatin1(')'));
                 QString inner = trimmed.mid(6, pe - 6).trimmed();
                 if (inner.isEmpty() || !inner.contains(QChar::fromLatin1('='))) break;
@@ -857,25 +831,17 @@ bool TaskExecutor::executeCommand(const ScriptCommand& cmd)
                         auto angSpd = chanPart[1].split(QChar::fromLatin1(':'));
                         float ang = angSpd.value(0, QString()).trimmed().toFloat();
                         QString paramStr = (angSpd.size() >= 2) ? angSpd[1].trimmed() : QString();
-                        if (paramStr.startsWith(QLatin1Char('T'), Qt::CaseInsensitive)
-                            || paramStr.startsWith(QLatin1Char('t'), Qt::CaseInsensitive)) {
-                            // 时间模式
-                            int ms = paramStr.mid(1).trimmed().toInt();
-                            if (ms < 0) ms = 0;
-                            sub.servoChannels.append(ch);
-                            sub.servoAngles.append(ang);
-                            sub.servoSpeeds.append(10.0f);
-                            sub.servoTimes.append(ms);
-                        } else {
-                            // 速度模式（已废弃，保留解析但报警告）
-                            emit consoleOutput(QStringLiteral("[警告] SERVO 速度模式已废弃: '%1' 应改写为 SERVO(ch=ang:T<ms>) 格式，例如 T2000。原文: %2")
+                        if (!paramStr.startsWith(QLatin1Char('T'), Qt::CaseInsensitive)) {
+                            emit consoleOutput(QStringLiteral("[错误] CALL 中 SERVO 必须使用时间模式 T<ms>: '%1'。原文: %2")
                                 .arg(paramStr, trimmed));
-                            float spd = paramStr.isEmpty() ? 10.0f : paramStr.toFloat();
-                            sub.servoChannels.append(ch);
-                            sub.servoAngles.append(ang);
-                            sub.servoSpeeds.append(spd);
-                            sub.servoTimes.append(0);
+                            continue;
                         }
+                        int ms = paramStr.mid(1).trimmed().toInt();
+                        if (ms < 0) ms = 0;
+                        sub.servoChannels.append(ch);
+                        sub.servoAngles.append(ang);
+                        sub.servoSpeeds.append(10.0f);
+                        sub.servoTimes.append(ms);
                     }
                 }
                 if (!sub.servoChannels.isEmpty()) {
