@@ -49,4 +49,22 @@ struct TargetDef {
     }
 };
 
+/// 6 路舵机槽位数组(QHash 兼容版,避免 C 数组直接作为 QHash 值类型)
+struct ServoSlotArray {
+    ServoSlot data[6];
+    QString   comment;               // 舵机组注释
+
+    ServoSlotArray() {
+        for (int i = 0; i < 6; ++i) data[i] = ServoSlot();
+    }
+
+    ServoSlot& operator[](int i) { return data[i]; }
+    const ServoSlot& operator[](int i) const { return data[i]; }
+
+    ServoSlot* begin() { return data; }
+    ServoSlot* end() { return data + 6; }
+    const ServoSlot* begin() const { return data; }
+    const ServoSlot* end() const { return data + 6; }
+};
+
 #endif // TARGETDEF_H

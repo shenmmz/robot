@@ -16,6 +16,7 @@
 
 #include <QWidget>
 #include <QPushButton>
+#include <QStackedWidget>
 #include <QLineEdit>
 #include <QSpinBox>
 #include <QDoubleValidator>
@@ -42,6 +43,9 @@
 #include <QFormLayout>
 #include <QScrollArea>
 #include <QGroupBox>
+#include <QSplitter>
+#include <QScrollBar>
+#include <QWheelEvent>
 #include <QGridLayout>
 #include <QHeaderView>
 #include <QMessageBox>
@@ -857,6 +861,62 @@ void UiController::showTargetEditDialog()
             lineMotionMap[name] = mp;
         }
     }
+
+    // 2.5 从程序编辑器中提取每个点位前的 SERVO 舵机数据，供舵机面板回显
+    QHash<QString, ServoSlotArray> servosForTarget;
+    {
+        QRegularExpression moveExtractRe(QStringLiteral(
+            "^(?:\\s*(?:#\\s*)?)?(?:MOVEJ|MOVEL|MOVEJOFF|MOVELOFF)\\s*\\(\\s*(\\w+)"),
+            QRegularExpression::CaseInsensitiveOption);
+        QRegularExpression servoExtractRe(QStringLiteral(
+            "^\\s*(?:#\\s*)?SERVO\\s*\\("),
+            QRegularExpression::CaseInsensitiveOption);
+        QStringList progLines = progText.split(QChar::fromLatin1('\n'));
+        // 从底向上扫描，为每个 MOVE 行向前找 SERVO 行（跳过空行和行注释，遇其他指令止步）
+        for (int i = 0; i < progLines.size(); ++i) {
+            auto mm = moveExtractRe.match(progLines[i]);
+            if (!mm.hasMatch()) continue;
+            QString tgtName = mm.captured(1).trimmed();
+            if (servosForTarget.contains(tgtName)) continue; // 只取第一次（最靠前的 SERVO）
+
+            for (int j = i - 1; j >= 0; --j) {
+                QString prev = progLines[j].trimmed();
+                if (prev.isEmpty() || prev.startsWith(QStringLiteral("//"))) continue;
+                if (servoExtractRe.match(prev).hasMatch()) {
+                    // 解析 SERVO(ch=ang:spd, ...) 或 SERVO(ch=ang:Tms, ...)
+                    ServoSlotArray srv;
+                    int pe = prev.indexOf(QChar::fromLatin1(')'));
+                    QString inner = prev.mid(prev.indexOf(QChar::fromLatin1('(')) + 1, pe - prev.indexOf(QChar::fromLatin1('(')) - 1).trimmed();
+                    if (!inner.isEmpty() && inner.contains(QChar::fromLatin1('='))) {
+                        for (const QString& g : inner.split(QChar::fromLatin1(','))) {
+                            auto chanPart = g.split(QChar::fromLatin1('='));
+                            if (chanPart.size() >= 2) {
+                                int ch = chanPart[0].trimmed().toInt();
+                                auto angSpd = chanPart[1].split(QChar::fromLatin1(':'));
+                                if (ch >= 0 && ch < 6) {
+                                    srv[ch].channel = ch;
+                                    srv[ch].angle   = angSpd.value(0, QString()).trimmed().toDouble();
+                                    QString paramStr = (angSpd.size() >= 2) ? angSpd[1].trimmed() : QString();
+                                    if (paramStr.startsWith(QLatin1Char('T'), Qt::CaseInsensitive)
+                                        || paramStr.startsWith(QLatin1Char('t'), Qt::CaseInsensitive)) {
+                                        srv[ch].timeMs = paramStr.mid(1).trimmed().toInt();
+                                        srv[ch].speed  = 10.0;
+                                    } else {
+                                        srv[ch].speed  = paramStr.isEmpty() ? 10.0 : paramStr.toDouble();
+                                    }
+                                }
+                            }
+                        }
+                        servosForTarget.insert(tgtName, srv);
+                    }
+                    break;
+                }
+                // 碰到非 SERVO 的其他指令行则停止
+                break;
+            }
+        }
+    }
+
     QSet<QString> seen;
     QStringList refOrder;
     auto it = refRe.globalMatch(progText);
@@ -887,10 +947,10 @@ void UiController::showTargetEditDialog()
         }
     }
 
-    // 4. 对话框：方格排布 — 每个点位一个分组，支持复制/增加/删除
+    // 4. 对话框：左右双区域布局 —— 左侧点位网格，右侧舵机网格
     QDialog dlg(m_mainWindow);
     dlg.setWindowTitle(QStringLiteral("点位管理"));
-    dlg.setMinimumWidth(700);
+    dlg.setMinimumWidth(900);
 
     auto* mainLayout = new QVBoxLayout(&dlg);
 
@@ -903,8 +963,8 @@ void UiController::showTargetEditDialog()
         "QPushButton:hover{background:#c8e6c9;}"));
     topBar->addWidget(addBtn);
     topBar->addStretch();
-    // 全屏切换按钮 — 点击进入全屏,再点击还原为窗口模式
-    auto* fullscreenBtn = new QPushButton(QStringLiteral("⛶ 全屏"), &dlg);
+    // 全屏切换按钮
+    auto* fullscreenBtn = new QPushButton(QStringLiteral("\u26f6 全屏"), &dlg);
     fullscreenBtn->setCheckable(true);
     fullscreenBtn->setStyleSheet(QStringLiteral(
         "QPushButton{background:#fff;color:#555;border:1px solid #d0d5dd;border-radius:4px;"
@@ -917,13 +977,12 @@ void UiController::showTargetEditDialog()
                      [fullscreenBtn, &dlg](bool checked) {
         if (checked) {
             dlg.setWindowState(dlg.windowState() | Qt::WindowFullScreen);
-            fullscreenBtn->setText(QStringLiteral("⛶ 退出全屏"));
+            fullscreenBtn->setText(QStringLiteral("\u26f6 退出全屏"));
         } else {
             dlg.setWindowState(dlg.windowState() & ~Qt::WindowFullScreen);
-            fullscreenBtn->setText(QStringLiteral("⛶ 全屏"));
+            fullscreenBtn->setText(QStringLiteral("\u26f6 全屏"));
         }
     });
-    // F11 快捷键切换全屏
     auto* fsShortcut = new QShortcut(QKeySequence(Qt::Key_F11), &dlg);
     fsShortcut->setContext(Qt::ApplicationShortcut);
     QObject::connect(fsShortcut, &QShortcut::activated, fullscreenBtn, [fullscreenBtn]() {
@@ -931,24 +990,69 @@ void UiController::showTargetEditDialog()
     });
     mainLayout->addLayout(topBar);
 
-    auto* scroll = new QScrollArea(&dlg);
-    scroll->setWidgetResizable(true);
-    auto* scrollContent = new QWidget;
-    auto* groupsLayout = new QVBoxLayout(scrollContent);
-    groupsLayout->setSpacing(8);
+    // ===== 检测程序中是否有 SERVO 指令 =====
+    bool hasServo = !servosForTarget.isEmpty();
 
-    // 每组的数据
+    // ===== 顶部切换按钮：点位 / 舵机 =====
+    auto* toggleBar = new QHBoxLayout;
+    toggleBar->setSpacing(0);
+    toggleBar->setContentsMargins(4, 4, 4, 2);
+    auto* btnPoint = new QPushButton(QStringLiteral("点位"));
+    auto* btnServo = new QPushButton(QStringLiteral("舵机"));
+    QString toggleStyle = QStringLiteral(
+        "QPushButton{background:#f0f0f0;color:#555;border:1px solid #d0d5dd;"
+        "padding:6px 20px;font-size:13px;font-weight:bold;}"
+        "QPushButton:checked{background:#1565c0;color:#fff;border-color:#0d47a1;}"
+        "QPushButton:disabled{background:#e8e8e8;color:#bbb;border-color:#ddd;}");
+    btnPoint->setCheckable(true);
+    btnPoint->setChecked(true);
+    btnPoint->setStyleSheet(toggleStyle);
+    btnServo->setCheckable(true);
+    btnServo->setEnabled(hasServo);
+    btnServo->setStyleSheet(toggleStyle);
+    if (!hasServo)
+        btnServo->setToolTip(QStringLiteral("程序中无 SERVO 指令"));
+    toggleBar->addWidget(btnPoint);
+    toggleBar->addWidget(btnServo);
+    toggleBar->addStretch();
+    mainLayout->addLayout(toggleBar);
+
+    auto* stackedWidget = new QStackedWidget(&dlg);
+
+    QObject::connect(btnPoint, &QPushButton::clicked, stackedWidget, [=]() {
+        btnPoint->setChecked(true);
+        btnServo->setChecked(false);
+        stackedWidget->setCurrentIndex(0);
+    });
+    QObject::connect(btnServo, &QPushButton::clicked, stackedWidget, [=]() {
+        if (!hasServo) return;
+        btnPoint->setChecked(false);
+        btnServo->setChecked(true);
+        stackedWidget->setCurrentIndex(1);
+    });
+
+    // ===== 每组的数据结构 =====
     struct TargetGroup {
         QString name;
-        QStringList labelOrder;  // 标签显示顺序，写回时按此遍历（QHash 顺序不可靠）
-        QGroupBox* box = nullptr;
+        QStringList labelOrder;  // 标签显示顺序，写回时按此遍历
+        QString typeLabel;       // 点位类型标签："关节" / "笛卡尔"
+        // 点位面板行的容器控件
+        QWidget* pointRow = nullptr;
+        // 舵机面板行的容器控件
+        QWidget* servoRow = nullptr;
+        // 点位坐标编辑框 (J0~J5 或 X/Y/Z/A/B/C)
         QHash<QString, QLineEdit*> edits;
+        // 点位注释
         QLineEdit* commentEdit = nullptr;
-        // 点位级运动参数控件(速度/加速度/减速度/超时)
-        QLineEdit* spinSpeed = nullptr;
-        QLineEdit* spinAccel = nullptr;
-        QLineEdit* spinDecel = nullptr;
+        // 运动参数（SpinBox 无滚轮按钮，点击弹出软键盘）
+        QSpinBox* spinSpeed = nullptr;
+        QSpinBox* spinAccel = nullptr;
+        QSpinBox* spinDecel = nullptr;
         QSpinBox* spinTimeout = nullptr;
+        // 舵机面板控件
+        QLineEdit* servoAngle[6] = {nullptr};
+        QLineEdit* servoSpeed[6] = {nullptr};
+        QLineEdit* servoCommentEdit = nullptr;   // 舵机注释（第二行）
     };
     QVector<TargetGroup> groups;
 
@@ -958,211 +1062,465 @@ void UiController::showTargetEditDialog()
         return QStringLiteral("Target%1").arg(++nextId);
     };
 
-    // 辅助：创建一组控件（先声明 std::function，避免 auto lambda 自引用）
+    // ===== 点位区域：每行一个紧凑水平布局（Target名 + 坐标 + 运动参数 + 注释 + 操作按钮） =====
+    auto* pointScroll = new QScrollArea(&dlg);
+    pointScroll->setWidgetResizable(true);
+    auto* pointScrollContent = new QWidget;
+    auto* groupsLayout = new QVBoxLayout(pointScrollContent);
+    groupsLayout->setSpacing(1);
+
+    // ===== 默认标签（预先计算，供表头和后续行使用） =====
+    QStringList defaultLabels{QStringLiteral("J0"), QStringLiteral("J1"), QStringLiteral("J2"),
+                              QStringLiteral("J3"), QStringLiteral("J4"), QStringLiteral("J5")};
+    QStringList activeLabels = defaultLabels;
+    if (!infoMap.isEmpty())
+        activeLabels = infoMap.begin().value().labelOrder;
+
+    // 表头 — 每个点位自带坐标标签，全局仅保留点位名列
+    auto* pointHeader = new QWidget(pointScrollContent);
+    auto* pointHeaderLayout = new QHBoxLayout(pointHeader);
+    pointHeaderLayout->setSpacing(3);
+    pointHeaderLayout->setContentsMargins(2, 0, 2, 0);
+    auto* phLabelName = new QLabel(QStringLiteral("点位"), pointScrollContent);
+    phLabelName->setFixedWidth(80);
+    phLabelName->setFixedHeight(18);
+    phLabelName->setAlignment(Qt::AlignCenter);
+    phLabelName->setStyleSheet(QStringLiteral("color:#555;font-weight:bold;font-size:12px;font-family:Consolas,'Microsoft YaHei UI';"));
+    pointHeaderLayout->addWidget(phLabelName);
+    pointHeaderLayout->addStretch();
+    groupsLayout->addWidget(pointHeader);
+
+    // 辅助：紧凑型表头标签（仅舵机区使用）
+    auto headerLabel = [&](const QString& text, int w = 60) -> QLabel* {
+        auto* lbl = new QLabel(text);
+        lbl->setAlignment(Qt::AlignCenter);
+        lbl->setFixedWidth(w);
+        lbl->setFixedHeight(18);
+        lbl->setStyleSheet(QStringLiteral("color:#555;font-weight:bold;font-size:12px;font-family:Consolas,'Microsoft YaHei UI';"));
+        return lbl;
+    };
+
+    // ------- 区域二：舵机 (下方) -------
+    auto* servoGroupBox = new QGroupBox(QStringLiteral("舵机"), &dlg);
+    auto* servoOuterLayout = new QVBoxLayout(servoGroupBox);
+    servoOuterLayout->setSpacing(0);
+    servoOuterLayout->setContentsMargins(2, 4, 2, 4);
+
+    // 舵机滚动区
+    auto* servoScroll = new QScrollArea(servoGroupBox);
+    servoScroll->setWidgetResizable(true);
+    servoScroll->setFrameShape(QFrame::NoFrame);
+    auto* servoScrollContent = new QWidget;
+    auto* servoRowsLayout = new QVBoxLayout(servoScrollContent);
+    servoRowsLayout->setSpacing(1);
+    servoRowsLayout->setContentsMargins(0, 0, 0, 0);
+    servoScroll->setWidget(servoScrollContent);
+    servoOuterLayout->addWidget(servoScroll);
+
+    // 将区域加入切换面板
+    stackedWidget->addWidget(pointScroll);     // 第0页：点位
+    stackedWidget->addWidget(servoGroupBox);    // 第1页：舵机
+    mainLayout->addWidget(stackedWidget);
+
+    // ===== 辅助函数：创建一行点位控件 + 对应舵机行 =====
     std::function<TargetGroup(const QString&, const QHash<QString, double>&,
                               const QStringList&, const QString&,
-                              const MotionParams&, int)> createGroup;
-    createGroup = [&](const QString& name,
-                           const QHash<QString, double>& vals,
-                           const QStringList& labels,
-                           const QString& comment,
-                           const MotionParams& motion,
-                           int insertIndex = -1) -> TargetGroup {
-        auto* groupBox = new QGroupBox(name, scrollContent);
-        auto* boxLayout = new QVBoxLayout(groupBox);
-        boxLayout->setSpacing(6);
+                              const MotionParams&,
+                              const ServoSlotArray*)> createPointAndServoRow;
+    createPointAndServoRow = [&](const QString& name,
+                                  const QHash<QString, double>& vals,
+                                  const QStringList& labels,
+                                  const QString& comment,
+                                  const MotionParams& motion,
+                                  const ServoSlotArray* srvData) -> TargetGroup {
+        TargetGroup g;
+        g.name = name;
+        g.labelOrder = labels;
 
-        // 注释行
-        auto* commentRow = new QHBoxLayout;
-        auto* commentLabel = new QLabel(QStringLiteral("注释:"), groupBox);
-        commentLabel->setStyleSheet(QStringLiteral("color:#888; font-size:12px;"));
-        auto* commentEdit = new QLineEdit(groupBox);
-        commentEdit->setPlaceholderText(QStringLiteral("如：原点、取料点、拍照位…"));
-        commentEdit->setStyleSheet(QStringLiteral(
-            "QLineEdit{background:#fafafa; border:1px dashed #ccc; padding:2px 6px; font-size:12px;}"
+        // 根据首标签判断点位类型
+        if (!labels.isEmpty()) {
+            QString firstLabel = labels.first();
+            if (firstLabel.startsWith(QChar::fromLatin1('J')))
+                g.typeLabel = QStringLiteral("关节");
+            else
+                g.typeLabel = QStringLiteral("笛卡尔");
+        }
+
+        // ---------- 点位行：多行布局（标题行 + 轴标签行 + 数据行 + 注释行）----------
+        auto* pRow = new QWidget(pointScrollContent);
+        auto* pRowOuter = new QVBoxLayout(pRow);
+        pRowOuter->setSpacing(1);
+        pRowOuter->setContentsMargins(2, 1, 2, 1);
+
+        // 行1：点位名 + 类型 + stretch + 操作按钮
+        auto* row1Layout = new QHBoxLayout;
+        row1Layout->setSpacing(3);
+        row1Layout->setContentsMargins(0, 0, 0, 0);
+        pRowOuter->addLayout(row1Layout);
+
+        // 点位名
+        auto* nameLabel = new QLabel(name, pointScrollContent);
+        nameLabel->setFixedWidth(80);
+        nameLabel->setFixedHeight(24);
+        nameLabel->setAlignment(Qt::AlignCenter);
+        nameLabel->setStyleSheet(QStringLiteral("color:#333;font-weight:bold;font-size:12px;font-family:Consolas,'Microsoft YaHei UI';"));
+        row1Layout->addWidget(nameLabel);
+
+        // 注释紧接在点位名后
+        g.commentEdit = new QLineEdit(pointScrollContent);
+        g.commentEdit->setText(comment);
+        g.commentEdit->setPlaceholderText(QStringLiteral("注释..."));
+        g.commentEdit->setFixedHeight(24);
+        g.commentEdit->setMinimumWidth(100);
+        g.commentEdit->setStyleSheet(QStringLiteral(
+            "QLineEdit{background:#fafafa; border:1px dashed #ccc; padding:2px 4px; font-size:12px;}"
             "QLineEdit:focus{background:#fff; border:1px solid #90caf9;}"));
-        commentEdit->setText(comment);
-        commentRow->addWidget(commentLabel);
-        commentRow->addWidget(commentEdit);
-        boxLayout->addLayout(commentRow);
+        row1Layout->addWidget(g.commentEdit);
 
-        // === 合并 grid:6 坐标 + motion 控件全部在同一个 QGridLayout 中 ===
-        // 9 列 × 2 行:列 0~5 = 6 坐标,列 6~8 = motion(速度/加速度/减速度)
-        // 这样所有行的基线由 grid 的 verticalSpacing 统一控制,绝对不会有偏上问题
-        auto* grid = new QGridLayout;
-        grid->setHorizontalSpacing(6);
-        grid->setVerticalSpacing(2);
-        QHash<QString, QLineEdit*> edits;
-        int n = labels.size();
-        for (int c = 0; c < n; ++c) {
-            const QString& label = labels[c];
+        row1Layout->addStretch(1);
+
+        // 运动参数 SpinBox（稍后在行2中使用）
+        QSpinBox* spinSpeed = nullptr;
+        QSpinBox* spinAccel = nullptr;
+        QSpinBox* spinDecel = nullptr;
+        QSpinBox* spinTimeout_local = nullptr;
+        QPushButton* copyBtn = nullptr;
+        QPushButton* delBtn = nullptr;
+
+        auto compactParamSpin = [](QSpinBox* sp) {
+            sp->setFixedHeight(24);
+            sp->setMinimumWidth(54);
+            sp->setMaximumWidth(66);
+            sp->setButtonSymbols(QAbstractSpinBox::NoButtons);
+            sp->setAttribute(Qt::WA_InputMethodEnabled, true);
+            sp->setAlignment(Qt::AlignCenter);
+            sp->setStyleSheet(QStringLiteral(
+                "QSpinBox{border:1px solid #d0d5dd;border-radius:3px;"
+                "padding:1px 2px;font-size:13px;background:#ffffff;}"
+                "QSpinBox:focus{border:1px solid #1565c0;}"));
+        };
+
+        // 行2：坐标数据列（标签在上，编辑框在下，竖向排列）
+        auto* row2Layout = new QHBoxLayout;
+        row2Layout->setSpacing(3);
+        row2Layout->setContentsMargins(0, 0, 0, 0);
+        pRowOuter->addLayout(row2Layout);
+        // 留出点位名+类型的空间
+        auto* colSpacer = new QWidget(pointScrollContent);
+        colSpacer->setFixedWidth(80);
+        row2Layout->addWidget(colSpacer);
+
+        for (const QString& label : labels) {
+            auto* colWidget = new QWidget(pointScrollContent);
+            auto* colLayout = new QVBoxLayout(colWidget);
+            colLayout->setSpacing(1);
+            colLayout->setContentsMargins(0, 0, 0, 0);
+
+            auto* lbl = new QLabel(label, colWidget);
+            lbl->setAlignment(Qt::AlignCenter);
+            lbl->setFixedHeight(16);
+            lbl->setMinimumWidth(62);
+            lbl->setMaximumWidth(78);
+            lbl->setStyleSheet(QStringLiteral("color:#555;font-weight:bold;font-size:11px;font-family:Consolas,'Microsoft YaHei UI';"));
+            colLayout->addWidget(lbl);
+
             double val = vals.value(label, 0.0);
-
-            auto* lblWidget = new QLabel(label, groupBox);
-            lblWidget->setAlignment(Qt::AlignCenter);
-            // 浅灰标签(去掉蓝底白字,降低视觉重量)
-            lblWidget->setStyleSheet(QStringLiteral(
-                "color:#555;font-weight:bold;font-size:13px;"
-                "font-family:Consolas,'Microsoft YaHei UI';"));
-            lblWidget->setMinimumWidth(70);
-            lblWidget->setMaximumWidth(85);
-            lblWidget->setFixedHeight(18);
-            grid->addWidget(lblWidget, 0, c);
-
-            auto* edit = new QLineEdit(groupBox);
+            auto* edit = new QLineEdit(colWidget);
             edit->setText(QString::number(val, 'f', 3));
-            edit->setAlignment(Qt::AlignCenter);
-            // 与 motion SpinBox 同款:高 24, 宽 70~85, 字号 14, 浅边框
             edit->setFixedHeight(24);
-            edit->setMinimumWidth(70);
-            edit->setMaximumWidth(85);
+            edit->setMinimumWidth(62);
+            edit->setMaximumWidth(78);
+            edit->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed);
+            edit->setAlignment(Qt::AlignCenter);
             edit->setStyleSheet(QStringLiteral(
                 "QLineEdit{border:1px solid #d0d5dd;border-radius:3px;"
-                "padding:1px 2px;font-size:14px;background:#ffffff;"
+                "padding:1px 2px;font-size:13px;background:#ffffff;"
                 "selection-background-color:#264f78;selection-color:#ffffff;}"
                 "QLineEdit:focus{border:1px solid #1565c0;}"));
-            grid->addWidget(edit, 1, c);
-            edits.insert(label, edit);
-        }
-        grid->setColumnStretch(n, 1);
+            auto* v = new QDoubleValidator(-9999.999, 9999.999, 3, edit);
+            v->setNotation(QDoubleValidator::StandardNotation);
+            edit->setValidator(v);
+            colLayout->addWidget(edit);
 
-        // === Motion 控件 (作为 grid 的列 6~8) ===
-        // 只保留 速度/加速度/减速度 三个参数(去掉 超时 UI,改由 cmd.timeoutMs 兜底)
-        QLineEdit* spinSpeed   = nullptr;
-        QLineEdit* spinAccel   = nullptr;
-        QLineEdit* spinDecel   = nullptr;
-        QSpinBox* spinTimeout = nullptr;  // UI 不创建,保留变量以满足 TargetGroup 构造
-        // 标签紧凑化 — 与 6 坐标标签风格一致(浅灰,居中,固定宽度 70)
-        auto compactParamLabel = [](QLabel* lbl) {
-            lbl->setMinimumWidth(70);
-            lbl->setMaximumWidth(85);
-            lbl->setFixedHeight(18);
+            g.edits.insert(label, edit);
+            row2Layout->addWidget(colWidget);
+        }
+        // 速度/加速度/减速度 竖排列
+        {
+            auto* colWidget = new QWidget(pointScrollContent);
+            auto* colLayout = new QVBoxLayout(colWidget);
+            colLayout->setSpacing(1);
+            colLayout->setContentsMargins(0, 0, 0, 0);
+
+            auto* lbl = new QLabel(QStringLiteral("速度"), colWidget);
             lbl->setAlignment(Qt::AlignCenter);
-            lbl->setStyleSheet(QStringLiteral(
-                "color:#555;font-weight:bold;font-size:13px;"
-                "font-family:Consolas,'Microsoft YaHei UI';"));
-        };
-        // QLineEdit 紧凑化 — 与 6 坐标 QLineEdit 完全同款(高 24, 宽 70~85, 字号 14)
-        auto compactLineEdit = [](QLineEdit* edit, double minVal, double maxVal) {
-            edit->setFixedHeight(24);
-            edit->setMinimumWidth(70);
-            edit->setMaximumWidth(85);
-            edit->setAlignment(Qt::AlignCenter);
-            edit->setStyleSheet(QStringLiteral(
-                "QLineEdit{border:1px solid #d0d5dd;border-radius:3px;"
-                "padding:1px 2px;font-size:14px;background:#ffffff;}"
-                "QLineEdit:focus{border:1px solid #1565c0;}"));
-            auto* validator = new QDoubleValidator(minVal, maxVal, 3, edit);
-            validator->setNotation(QDoubleValidator::StandardNotation);
-            edit->setValidator(validator);
-            // QLineEdit 默认 WA_InputMethodEnabled=true，无需额外设置
-        };
-        // 3 个参数 (去掉超时,改由 cmd.timeoutMs 自动估算兜底)
-        struct ParamCol { const char* label; int max; QLineEdit** slot; };
-        ParamCol cols[] = {
-            {QT_TR_NOOP("速度"),    10000,  &spinSpeed},
-            {QT_TR_NOOP("加速度"),  10000,  &spinAccel},
-            {QT_TR_NOOP("减速度"),  10000,  &spinDecel},
-        };
-        int mIdx = 0;
-        for (ParamCol& c : cols) {
-            auto* lbl = new QLabel(QString::fromUtf8(c.label), groupBox);
-            compactParamLabel(lbl);
-            grid->addWidget(lbl, 0, n + mIdx);   // 列 n+mIdx (= 6+mIdx)
+            lbl->setFixedHeight(16);
+            lbl->setMinimumWidth(54);
+            lbl->setMaximumWidth(66);
+            lbl->setStyleSheet(QStringLiteral("color:#888;font-size:11px;font-family:'Microsoft YaHei UI';"));
+            colLayout->addWidget(lbl);
 
-            auto* edit = new QLineEdit(groupBox);
-            edit->setText(QStringLiteral("0"));
-            compactLineEdit(edit, 0.0, static_cast<double>(c.max));
-            grid->addWidget(edit, 1, n + mIdx);
-            *(c.slot) = edit;
-            ++mIdx;
+            spinSpeed = new QSpinBox(colWidget);
+            spinSpeed->setMinimum(0); spinSpeed->setMaximum(10000);
+            compactParamSpin(spinSpeed);
+            colLayout->addWidget(spinSpeed);
+
+            row2Layout->addWidget(colWidget);
+        }
+        {
+            auto* colWidget = new QWidget(pointScrollContent);
+            auto* colLayout = new QVBoxLayout(colWidget);
+            colLayout->setSpacing(1);
+            colLayout->setContentsMargins(0, 0, 0, 0);
+
+            auto* lbl = new QLabel(QStringLiteral("加速度"), colWidget);
+            lbl->setAlignment(Qt::AlignCenter);
+            lbl->setFixedHeight(16);
+            lbl->setMinimumWidth(54);
+            lbl->setMaximumWidth(66);
+            lbl->setStyleSheet(QStringLiteral("color:#888;font-size:11px;font-family:'Microsoft YaHei UI';"));
+            colLayout->addWidget(lbl);
+
+            spinAccel = new QSpinBox(colWidget);
+            spinAccel->setMinimum(0); spinAccel->setMaximum(10000);
+            compactParamSpin(spinAccel);
+            colLayout->addWidget(spinAccel);
+
+            row2Layout->addWidget(colWidget);
+        }
+        {
+            auto* colWidget = new QWidget(pointScrollContent);
+            auto* colLayout = new QVBoxLayout(colWidget);
+            colLayout->setSpacing(1);
+            colLayout->setContentsMargins(0, 0, 0, 0);
+
+            auto* lbl = new QLabel(QStringLiteral("减速度"), colWidget);
+            lbl->setAlignment(Qt::AlignCenter);
+            lbl->setFixedHeight(16);
+            lbl->setMinimumWidth(54);
+            lbl->setMaximumWidth(66);
+            lbl->setStyleSheet(QStringLiteral("color:#888;font-size:11px;font-family:'Microsoft YaHei UI';"));
+            colLayout->addWidget(lbl);
+
+            spinDecel = new QSpinBox(colWidget);
+            spinDecel->setMinimum(0); spinDecel->setMaximum(10000);
+            compactParamSpin(spinDecel);
+            colLayout->addWidget(spinDecel);
+
+            row2Layout->addWidget(colWidget);
+        }
+        // 操作按钮竖排列
+        {
+            auto* btnCol = new QWidget(pointScrollContent);
+            auto* btnColLayout = new QVBoxLayout(btnCol);
+            btnColLayout->setSpacing(1);
+            btnColLayout->setContentsMargins(0, 0, 0, 0);
+
+            auto* btnSpacer = new QWidget(btnCol);
+            btnSpacer->setFixedHeight(16);
+            btnColLayout->addWidget(btnSpacer);
+
+            auto* copyBtnLocal = new QPushButton(QStringLiteral("复制"), btnCol);
+            auto* delBtnLocal  = new QPushButton(QStringLiteral("删除"), btnCol);
+            copyBtn = copyBtnLocal;
+            delBtn = delBtnLocal;
+            QString btnStyle = QStringLiteral(
+                "QPushButton{background:#fff; border:1px solid #ccc; border-radius:3px;"
+                "padding:2px 6px; font-size:11px;}"
+                "QPushButton:hover{background:#f5f5f5;}");
+            copyBtnLocal->setStyleSheet(btnStyle);
+            delBtnLocal->setStyleSheet(btnStyle);
+            copyBtnLocal->setFixedSize(36, 24);
+            delBtnLocal->setFixedSize(36, 24);
+            btnColLayout->addWidget(copyBtnLocal);
+            btnColLayout->addWidget(delBtnLocal);
+
+            row2Layout->addWidget(btnCol);
+        }
+        row2Layout->addStretch(1);
+
+        // 填入 motion 值
+        spinSpeed->setValue(static_cast<int>(motion.speed));
+        spinAccel->setValue(static_cast<int>(motion.accel));
+        spinDecel->setValue(static_cast<int>(motion.decel));
+
+        g.pointRow = pRow;
+        g.spinSpeed = spinSpeed;
+        g.spinAccel = spinAccel;
+        g.spinDecel = spinDecel;
+        g.spinTimeout = spinTimeout_local;
+        groupsLayout->addWidget(pRow);
+
+        // ---------- 舵机行 ----------
+        auto* sRow = new QWidget(servoScrollContent);
+        auto* sRowOuter = new QVBoxLayout(sRow);
+        sRowOuter->setSpacing(0);
+        sRowOuter->setContentsMargins(0, 0, 0, 0);
+
+        // 注释行（第一行，独占整行）
+        {
+            auto* srvCommentRow = new QHBoxLayout;
+            srvCommentRow->setSpacing(4);
+            srvCommentRow->setContentsMargins(0, 0, 0, 1);
+            auto* srvCommentLabel = new QLabel(QStringLiteral("注释:"), servoScrollContent);
+            srvCommentLabel->setFixedHeight(22);
+            srvCommentLabel->setStyleSheet(QStringLiteral("font-size:12px;color:#888;"));
+            srvCommentRow->addWidget(srvCommentLabel);
+            auto* srvCommentEdit = new QLineEdit(servoScrollContent);
+            srvCommentEdit->setFixedHeight(22);
+            if (srvData && !srvData->comment.isEmpty()) {
+                srvCommentEdit->setText(srvData->comment);
+            }
+            srvCommentEdit->setStyleSheet(QStringLiteral(
+                "QLineEdit{background:#fafafa;border:1px dashed #ccc;border-radius:3px;"
+                "font-size:12px;padding:1px 4px;}"
+                "QLineEdit:focus{border:1px solid #1565c0;background:#fff;}"));
+            srvCommentRow->addWidget(srvCommentEdit, 1);
+            sRowOuter->addLayout(srvCommentRow);
+            g.servoCommentEdit = srvCommentEdit;
         }
 
-        // motion QLineEdit 的 Windows 系统屏幕键盘由全局 OsKEventFilter 统一接管:
-        // 已在 main.cpp 装到 qApp 上,QLineEdit 默认 WA_InputMethodEnabled=true,
-        // 焦点进入时弹 TabTip,失焦时收起。无需在弹窗内重复安装。
+        // 舵机编辑控件（第二行）
+        auto* sRowLayout = new QHBoxLayout;
+        sRowLayout->setSpacing(1);
+        sRowLayout->setContentsMargins(0, 0, 0, 0);
+        sRowOuter->addLayout(sRowLayout);
 
-        // 把 motion 列也设 stretch (让 motion 区域与 6 坐标等宽)
-        // 注:grid 的最后几列 stretch 时,前 6 列也会受影响 — 仅当 stretch 列在末尾时,
-        // 把 stretch 设给 motion 列让 motion 区域优先填充剩余宽度
-        // 这里让所有 stretch 都生效:grid->setColumnStretch(n + mIdx, 1) 在循环外
-        // 但要注意最后不要让 motion 列被无限拉伸 — 用最小宽度约束
-        // 简化处理:不设额外 stretch,保持 grid 列宽固定
-        boxLayout->addLayout(grid);
+        for (int s = 0; s < 6; ++s) {
+            // A标签
+            auto* aLabel = new QLabel(QStringLiteral("A%1:").arg(s), servoScrollContent);
+            aLabel->setFixedHeight(24);
+            aLabel->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
+            aLabel->setStyleSheet(QStringLiteral("font-size:10px;font-weight:bold;color:#555;padding-right:1px;"));
+            sRowLayout->addWidget(aLabel);
 
-        // 操作按钮行 (放在 grid 下方,右对齐)
-        auto* btnRow = new QHBoxLayout;
-        btnRow->addStretch();
-        auto* copyBtn = new QPushButton(QStringLiteral("复制"), groupBox);
-        auto* delBtn = new QPushButton(QStringLiteral("删除"), groupBox);
-        QString btnStyle = QStringLiteral(
-            "QPushButton{background:#fff; border:1px solid #ccc; border-radius:3px;"
-            "padding:2px 10px; font-size:12px;}"
-            "QPushButton:hover{background:#f5f5f5;}");
-        copyBtn->setStyleSheet(btnStyle);
-        delBtn->setStyleSheet(btnStyle);
-        btnRow->addWidget(copyBtn);
-        btnRow->addWidget(delBtn);
-        boxLayout->addLayout(btnRow);
+            // 角度 (0 ~ 180) — 优先取 .rbt 中 SERVO 数据
+            auto* aEdit = new QLineEdit(servoScrollContent);
+            double defAngle = (srvData && (*srvData)[s].enabled()) ? (*srvData)[s].angle : 0.0;
+            aEdit->setText(QString::number(defAngle, 'f', 0));
+            aEdit->setFixedHeight(24);
+            aEdit->setMinimumWidth(38);
+            aEdit->setMaximumWidth(42);
+            aEdit->setAlignment(Qt::AlignCenter);
+            aEdit->setStyleSheet(QStringLiteral(
+                "QLineEdit{border:1px solid #d0d5dd;border-radius:3px;"
+                "padding:1px 1px;font-size:13px;background:#ffffff;"
+                "selection-background-color:#264f78;selection-color:#ffffff;}"
+                "QLineEdit:focus{border:1px solid #1565c0;}"));
+            auto* aVal = new QDoubleValidator(0.0, 180.0, 0, aEdit);
+            aVal->setNotation(QDoubleValidator::StandardNotation);
+            aEdit->setValidator(aVal);
+            sRowLayout->addWidget(aEdit);
+            g.servoAngle[s] = aEdit;
 
-        // 把 motion 值填入控件(0 = 留空)
-        spinSpeed->setText(QString::number(motion.speed, 'f', 3));
-        spinAccel->setText(QString::number(motion.accel, 'f', 3));
-        spinDecel->setText(QString::number(motion.decel, 'f', 3));
-        // spinTimeout UI 控件已移除,保留局部变量以满足 TargetGroup 构造,
-        // timeout 由 cmd.timeoutMs 自动估算兜底,用户如果需要可手写 #tmo=N
-        if (spinTimeout) spinTimeout->setValue(motion.timeoutMs);
+            // S标签
+            auto* sLabel = new QLabel(QStringLiteral("S%1:").arg(s), servoScrollContent);
+            sLabel->setFixedHeight(24);
+            sLabel->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
+            sLabel->setStyleSheet(QStringLiteral("font-size:10px;font-weight:bold;color:#555;padding-right:1px;"));
+            sRowLayout->addWidget(sLabel);
 
-        TargetGroup g{name, labels, groupBox, edits, commentEdit,
-                      spinSpeed, spinAccel, spinDecel, spinTimeout};
+            // 速度 (1 ~ 360) — 优先取 .rbt 中 SERVO 数据
+            auto* spdEdit = new QLineEdit(servoScrollContent);
+            double defSpeed = (srvData && (*srvData)[s].enabled()) ? (*srvData)[s].speed : 10.0;
+            if (defSpeed <= 0.0) defSpeed = 10.0;
+            spdEdit->setText(QString::number(defSpeed, 'f', 0));
+            spdEdit->setFixedHeight(24);
+            spdEdit->setMinimumWidth(36);
+            spdEdit->setMaximumWidth(40);
+            spdEdit->setAlignment(Qt::AlignCenter);
+            spdEdit->setStyleSheet(QStringLiteral(
+                "QLineEdit{border:1px solid #d0d5dd;border-radius:3px;"
+                "padding:1px 1px;font-size:13px;background:#ffffff;"
+                "selection-background-color:#264f78;selection-color:#ffffff;}"
+                "QLineEdit:focus{border:1px solid #1565c0;}"));
+            auto* sVal = new QDoubleValidator(1.0, 360.0, 0, spdEdit);
+            sVal->setNotation(QDoubleValidator::StandardNotation);
+            spdEdit->setValidator(sVal);
+            sRowLayout->addWidget(spdEdit);
+            g.servoSpeed[s] = spdEdit;
+        }
+        sRowLayout->addStretch();
 
-        // 复制按钮 — 按值捕获 edits / commentEdit / 标签顺序/motion,避免引用悬空和 QHash 乱序
-        auto capturedEdits = edits;
-        auto* capturedComment = commentEdit;
-        QStringList capturedLabels = labels;
-        QObject::connect(copyBtn, &QPushButton::clicked, &dlg, [&dlg, &groups, &groupsLayout,
-                groupBox, capturedEdits, capturedComment, capturedLabels,
-                spinSpeed, spinAccel, spinDecel, spinTimeout, &nextName, &createGroup] {
+        g.servoRow = sRow;
+        servoRowsLayout->addWidget(sRow);
+
+        // ---------- 复制按钮 ----------
+        QObject::connect(copyBtn, &QPushButton::clicked, &dlg, [&dlg, &groups, &nextName,
+                &createPointAndServoRow, &groupsLayout, &servoRowsLayout, name] {
+            TargetGroup* srcGroup = nullptr;
+            for (auto& grp : groups) {
+                if (grp.name == name) { srcGroup = &grp; break; }
+            }
+            if (!srcGroup) return;
+
             QHash<QString, double> curVals;
-            for (const QString& label : capturedLabels)
-                curVals[label] = capturedEdits.value(label)->text().toDouble();
-            QString curComment = capturedComment->text();
-            // 复制 motion 段(同时复制点位自定义速度)
+            for (const QString& label : srcGroup->labelOrder)
+                curVals[label] = srcGroup->edits.value(label)->text().toDouble();
+            QString curComment = srcGroup->commentEdit->text();
             MotionParams curMotion;
-            curMotion.speed     = spinSpeed->text().toDouble();
-            curMotion.accel     = spinAccel->text().toDouble();
-            curMotion.decel     = spinDecel->text().toDouble();
-            curMotion.timeoutMs = spinTimeout ? spinTimeout->value() : 0;
-            int idx = groupsLayout->indexOf(groupBox);
-            auto newGroup = createGroup(nextName(), curVals, capturedLabels,
-                                        curComment, curMotion, idx + 1);
-            // 同步插入 groups 向量,保持与布局顺序一致
-            int vecIdx = idx + 1;
-            if (vecIdx >= groups.size())
-                groups.append(newGroup);
-            else
-                groups.insert(vecIdx, newGroup);
+            curMotion.speed     = srcGroup->spinSpeed->value();
+            curMotion.accel     = srcGroup->spinAccel->value();
+            curMotion.decel     = srcGroup->spinDecel->value();
+            curMotion.timeoutMs = 0;
+
+            QString newName = nextName();
+            // 从源行复制舵机数据
+            ServoSlotArray copySrvData;
+            copySrvData.comment = srcGroup->servoCommentEdit ? srcGroup->servoCommentEdit->text() : QString();
+            for (int s = 0; s < 6; ++s) {
+                copySrvData[s].channel = s;
+                if (srcGroup->servoAngle[s]) {
+                    copySrvData[s].angle = srcGroup->servoAngle[s]->text().toDouble();
+                    copySrvData[s].speed = srcGroup->servoSpeed[s]->text().toDouble();
+                } else {
+                    copySrvData[s].channel = -1;
+                }
+            }
+            auto newGroup = createPointAndServoRow(newName, curVals, srcGroup->labelOrder,
+                                                   curComment, curMotion, &copySrvData);
+
+            int idx = groupsLayout->indexOf(srcGroup->pointRow);
+            if (idx >= 0 && idx + 1 < groupsLayout->count()) {
+                groupsLayout->insertWidget(idx + 1, newGroup.pointRow);
+                servoRowsLayout->insertWidget(idx + 1, newGroup.servoRow);
+            } else {
+                groupsLayout->addWidget(newGroup.pointRow);
+                servoRowsLayout->addWidget(newGroup.servoRow);
+            }
+
+            // Sync groups vector with layout order
+            QVector<TargetGroup> ordered;
+            for (int i = 0; i < groupsLayout->count(); ++i) {
+                QWidget* row = groupsLayout->itemAt(i)->widget();
+                for (auto& grp : groups) {
+                    if (grp.pointRow == row) { ordered.append(grp); break; }
+                }
+            }
+            ordered.append(newGroup);
+            groups = ordered;
         });
 
-        // 删除按钮
+        // ---------- 删除按钮 ----------
         QObject::connect(delBtn, &QPushButton::clicked, &dlg,
-                [&groups, &groupsLayout, groupBox, this] {
-            if (groups.size() <= 1) return;  // 至少保留一个
-            // 先记录要删除的点名(在 groups.erase 之前,否则 t.name 会失效)
+                [&groups, &groupsLayout, &servoRowsLayout,
+                 pointRow = g.pointRow, servoRow = g.servoRow, this] {
+            if (groups.size() <= 1) return;
             QString delName;
-            for (const auto& g : groups) {
-                if (g.box == groupBox) { delName = g.name; break; }
+            for (const auto& grp : groups) {
+                if (grp.pointRow == pointRow) { delName = grp.name; break; }
             }
-            groupsLayout->removeWidget(groupBox);
-            groupBox->deleteLater();
+            groupsLayout->removeWidget(pointRow);
+            pointRow->deleteLater();
+            servoRowsLayout->removeWidget(servoRow);
+            servoRow->deleteLater();
             groups.erase(std::remove_if(groups.begin(), groups.end(),
-                [&](const TargetGroup& t) { return t.box == groupBox; }), groups.end());
-            // 同步清理 m_targetMotion 和 m_targets 缓存
+                [&](const TargetGroup& t) { return t.pointRow == pointRow; }), groups.end());
             if (!delName.isEmpty()) {
                 m_targetMotion.remove(delName);
                 m_targets.remove(delName);
+                m_targetServos.remove(delName);
                 if (m_taskExecutor) {
-                    // 通知 TaskExecutor 重新建立缓存(调用 setTargets 会重置 m_targets)
                     m_taskExecutor->setTargets(m_targets);
                     m_taskExecutor->setTargetMotion(m_targetMotion);
                 }
@@ -1170,23 +1528,10 @@ void UiController::showTargetEditDialog()
             }
         });
 
-        // 插入到指定位置
-        if (insertIndex >= 0 && insertIndex < groupsLayout->count())
-            groupsLayout->insertWidget(insertIndex, groupBox);
-        else
-            groupsLayout->addWidget(groupBox);
-
         return g;
     };
 
-    // 默认标签（新增点位和 infoMap 缺失时使用）
-    QStringList defaultLabels{QStringLiteral("J0"), QStringLiteral("J1"), QStringLiteral("J2"),
-                              QStringLiteral("J3"), QStringLiteral("J4"), QStringLiteral("J5")};
-    QStringList activeLabels = defaultLabels;
-    if (!infoMap.isEmpty())
-        activeLabels = infoMap.begin().value().labelOrder;
-
-    // 依据 refOrder 创建现有分组，每个点位用自己的 labelOrder
+    // ===== 依据 refOrder 创建所有点位行 =====
     for (const QString& name : refOrder) {
         QHash<QString, double> vals;
         QString comment;
@@ -1200,18 +1545,15 @@ void UiController::showTargetEditDialog()
             comment = info.comment;
             motion = info.motion;
         }
-        // 如果 TARGET 行没有 #speed=... 段(全 0),从程序区 MOVEJ/MOVEL 行读取默认值
-        // 这样加载 get.rbt 等旧文件时,弹窗能显示合理默认值而不是全 0
         if (!motion.hasAny() && lineMotionMap.contains(name)) {
             motion = lineMotionMap[name];
         }
-        groups.append(createGroup(name, vals, labels, comment, motion, -1));
+        groups.append(createPointAndServoRow(name, vals, labels, comment, motion,
+                                            servosForTarget.contains(name) ? &servosForTarget[name] : nullptr));
     }
 
-    // "增加"按钮:先弹窗让用户选关节/笛卡尔,再追加一个空点位
-    // 关节点位用 J0..J5 标签,笛卡尔点位用 X/Y/Z/A/B/C 标签
+    // ===== "增加"按钮 =====
     QObject::connect(addBtn, &QPushButton::clicked, &dlg, [&] {
-        // 询问用户要增加哪种点位
         QMessageBox typeDlg(&dlg);
         typeDlg.setWindowTitle(QStringLiteral("选择点位类型"));
         typeDlg.setText(QStringLiteral("请选择要添加的点位类型:"));
@@ -1219,11 +1561,10 @@ void UiController::showTargetEditDialog()
             QStringLiteral("关节点位 (J0-J5)"), QMessageBox::AcceptRole);
         QPushButton* cartBtn = typeDlg.addButton(
             QStringLiteral("笛卡尔点位 (X/Y/Z/A/B/C)"), QMessageBox::AcceptRole);
-        QPushButton* cancelBtn = typeDlg.addButton(
-            QMessageBox::Cancel);
+        QPushButton* cancelBtn = typeDlg.addButton(QMessageBox::Cancel);
         typeDlg.setDefaultButton(jointBtn);
         typeDlg.exec();
-        if (typeDlg.clickedButton() == cancelBtn) return;  // 取消不加点位
+        if (typeDlg.clickedButton() == cancelBtn) return;
 
         QStringList newLabels;
         if (typeDlg.clickedButton() == jointBtn) {
@@ -1235,15 +1576,34 @@ void UiController::showTargetEditDialog()
         }
         QHash<QString, double> zeros;
         for (const QString& l : newLabels) zeros[l] = 0.0;
-        groups.append(createGroup(nextName(), zeros, newLabels,
-                                  QString(), MotionParams(), -1));
+        groups.append(createPointAndServoRow(nextName(), zeros, newLabels,
+                                              QString(), MotionParams(), nullptr));
     });
 
+    // ===== 滚轮事件隔离：每个面板独立滚动，防止跨区传播 =====
+    class WheelIsolator : public QObject {
+    public:
+        using QObject::QObject;
+        bool eventFilter(QObject* obj, QEvent* ev) override {
+            if (ev->type() == QEvent::Wheel) {
+                auto* we = static_cast<QWheelEvent*>(ev);
+                auto* sa = qobject_cast<QScrollArea*>(obj->parent());
+                if (sa && sa->verticalScrollBar()) {
+                    sa->verticalScrollBar()->setValue(
+                        sa->verticalScrollBar()->value() - we->angleDelta().y());
+                }
+                return true; // 吞掉事件，阻止跨区传播
+            }
+            return QObject::eventFilter(obj, ev);
+        }
+    };
+    pointScroll->viewport()->installEventFilter(new WheelIsolator(&dlg));
+    servoScroll->viewport()->installEventFilter(new WheelIsolator(&dlg));
+
     groupsLayout->addStretch();
+    pointScroll->setWidget(pointScrollContent);
 
-    scroll->setWidget(scrollContent);
-    mainLayout->addWidget(scroll);
-
+    // ===== 底部按钮 =====
     auto* btnLayout = new QHBoxLayout;
     btnLayout->addStretch();
     auto* okBtn = new QPushButton(QStringLiteral("确定"));
@@ -1255,15 +1615,12 @@ void UiController::showTargetEditDialog()
     QObject::connect(okBtn, &QPushButton::clicked, &dlg, &QDialog::accept);
     QObject::connect(cancelBtn, &QPushButton::clicked, &dlg, &QDialog::reject);
 
-    // 注意:compactLineEdit 已替代 compactParamSpin,不再需要 wheelBlocker
-    // 这里不再需要 dlg.installEventFilter(SpinBox wheelEvent 不传播到 dlg)
-
     if (dlg.exec() != QDialog::Accepted) return;
 
     // 5. 写回点位编辑器 — 先收集分组数据，再与原有非TARGET行合并
-    QHash<QString, QString> groupOutput;  // name → "TARGET name = { ... }// comment"
+    QHash<QString, QString> groupOutput;  // name -> "TARGET name = { ... }// comment"
     for (const auto& g : groups) {
-        if (!g.box) continue;
+        if (!g.pointRow) continue;
         QStringList pairs;
         for (const QString& label : g.labelOrder) {
             auto* edit = g.edits.value(label);
@@ -1271,18 +1628,11 @@ void UiController::showTargetEditDialog()
             pairs.append(QStringLiteral("%1:%2").arg(label).arg(val, 0, 'f', 3));
         }
         QString comment = g.commentEdit->text().trimmed();
-        // motion 不再写回 TARGET 行(用户希望点位编辑器保持简洁):
-        // - 用户在弹窗里改 motion → 仅通过 syncMotionInMoveLines() 同步到程序编辑器的
-        //   MOVEJ/MOVEL 行的 speed=/acc=/dec=/timeout= 关键字参数
-        // - 运行时 TaskExecutor 从 MOVEJ 行读取行级参数(cmd.speed) — 因 m_targetMotion 全 0,
-        //   不会覆盖 cmd.speed,正好用上同步过来的新值
         MotionParams mp;
-        mp.speed     = g.spinSpeed     ? g.spinSpeed->text().toDouble()     : 0.0;
-        mp.accel     = g.spinAccel     ? g.spinAccel->text().toDouble()     : 0.0;
-        mp.decel     = g.spinDecel     ? g.spinDecel->text().toDouble()     : 0.0;
-        mp.timeoutMs = g.spinTimeout   ? g.spinTimeout->value()   : 0;
-        // 收集 motion 到 m_targetMotion(供 syncMotionInMoveLines + TaskExecutor 使用),
-        // 但不写入 TARGET 行文本
+        mp.speed     = g.spinSpeed     ? g.spinSpeed->value()              : 0;
+        mp.accel     = g.spinAccel     ? g.spinAccel->value()              : 0;
+        mp.decel     = g.spinDecel     ? g.spinDecel->value()              : 0;
+        mp.timeoutMs = g.spinTimeout   ? g.spinTimeout->value()            : 0;
         m_targetMotion[g.name] = mp;
         QString commentSeg = comment.isEmpty()
             ? QString()
@@ -1291,6 +1641,19 @@ void UiController::showTargetEditDialog()
             .arg(g.name)
             .arg(pairs.join(QStringLiteral(", ")))
             .arg(commentSeg);
+
+        // 收集舵机角度到 m_targetServos
+        ServoSlotArray srv;
+        for (int s = 0; s < 6; ++s) {
+            srv[s] = ServoSlot();
+            srv[s].channel = s;
+        }
+        for (int s = 0; s < 6; ++s) {
+            if (g.servoAngle[s]) srv[s].angle = g.servoAngle[s]->text().toDouble();
+            if (g.servoSpeed[s]) srv[s].speed = g.servoSpeed[s]->text().toDouble();
+        }
+        srv.comment = g.servoCommentEdit ? g.servoCommentEdit->text().trimmed() : QString();
+        m_targetServos[g.name] = srv;
     }
 
     // 构建原有的 TARGET 名集合
@@ -1309,21 +1672,17 @@ void UiController::showTargetEditDialog()
                     newTargetLines.append(groupOutput.take(name));
                     continue;
                 }
-                // groupOutput 不含此 name — 该点位在弹窗中被删除,
-                // 不追加到 newTargetLines(修复 Bug: 之前这里没有 else,
-                // 走完 if 块会落到外层 append,导致被删点位被写回)
                 qDebug() << "[点位管理] 跳过被删除点位:" << name;
                 continue;
             }
         }
         newTargetLines.append(oldLine);
     }
-    // 追加新增点位（对话框中新增的，不在原 targetLines 中）
+    // 追加新增点位
     for (const auto& g : groups) {
-        if (!g.box) continue;
+        if (!g.pointRow) continue;
         if (groupOutput.contains(g.name))
             newTargetLines.append(groupOutput[g.name]);
-        // 从 oldTargetNames 中跳过的不再追加
     }
 
     targetEd->setPlainText(newTargetLines.join(QChar::fromLatin1('\n')));
@@ -1334,6 +1693,9 @@ void UiController::showTargetEditDialog()
     // 同步程序编辑器中的 MOVEJ/MOVEL 行的 speed/acc/dec/timeout 关键字参数
     // 先于 onTargetEditorChanged 执行，因此时 m_targetMotion 仍持有弹窗写入的正确值
     syncMotionInMoveLines();
+
+    // 同步程序编辑器中的 SERVO 舵机行：把 m_targetServos 的角度/速度写回
+    syncServoInMoveLines();
 
     // 把更新后的 m_targetMotion 推给 TaskExecutor
     if (m_taskExecutor)
@@ -1420,6 +1782,94 @@ void UiController::syncMotionInMoveLines()
         QString newLine = prefix + allSegs.join(QStringLiteral(", ")) + suffix + tail;
         if (newLine != line) {
             lines[i] = newLine;
+            modified = true;
+        }
+    }
+
+    if (modified) {
+        progEd->setPlainText(lines.join(QChar::fromLatin1('\n')));
+    }
+}
+
+/**
+ * @brief 同步程序编辑器中的 SERVO 行(舵机角度/速度):把点位 m_targetServos
+ *        的舵机值写回紧随 MOVEJ/MOVEL/MOVEJOFF/MOVELOFF 之前的 SERVO 指令;
+ *        若该点位无 SERVO 行则自动插入一条。
+ *
+ * 逻辑:
+ *   - 扫描程序编辑器每一行,匹配 MOVEJ/MOVEL/MOVEJOFF/MOVELOFF
+ *   - 提取点位名,查 m_targetServos[name] 获取最新的6路舵机角度/速度
+ *   - 向前扫描查找该 MOVE 行之前的 SERVO 行:
+ *       * 找到 → 用新的舵机值重写该 SERVO 行
+ *       * 没找到(遇到其他指令或文件开头) → 在该 MOVE 行上方插入一条 SERVO
+ *   - 跳过空行和行注释,不跨越其他指令行
+ */
+void UiController::syncServoInMoveLines()
+{
+    auto* progEd = getEditor();
+    if (!progEd) return;
+
+    QString progText = progEd->toPlainText();
+    QStringList lines = progText.split(QChar::fromLatin1('\n'));
+
+    QRegularExpression moveRe(QStringLiteral(
+        "^(\\s*(?:#\\s*)?(?:MOVEJ|MOVEL|MOVEJOFF|MOVELOFF)\\s*\\(\\s*)(\\w+)"),
+        QRegularExpression::CaseInsensitiveOption);
+    QRegularExpression servoRe(QStringLiteral(
+        "^\\s*(?:#\\s*)?SERVO\\s*\\("),
+        QRegularExpression::CaseInsensitiveOption);
+
+    bool modified = false;
+
+    for (int i = 0; i < lines.size(); ++i) {
+        auto m = moveRe.match(lines[i]);
+        if (!m.hasMatch()) continue;
+
+        QString name = m.captured(2).trimmed();
+        if (!m_targetServos.contains(name)) continue;
+
+        const ServoSlotArray& srv = m_targetServos[name];
+
+        // 构建 SERVO(ch=ang:spd, ...) 字符串
+        QStringList segments;
+        for (int ch = 0; ch < 6; ++ch) {
+            if (!srv[ch].enabled()) continue;
+            double spd = srv[ch].speed;
+            if (spd <= 0.0) spd = 10.0;  // 默认速度
+            segments.append(QStringLiteral("%1=%2:%3")
+                .arg(srv[ch].channel)
+                .arg(srv[ch].angle, 0, 'f', 0)
+                .arg(spd, 0, 'f', 0));
+        }
+        if (segments.isEmpty()) continue;
+
+        QString newServoLine = QStringLiteral("SERVO(%1)")
+            .arg(segments.join(QStringLiteral(", ")));
+
+        // 向前找该 MOVE 行紧邻的 SERVO 行
+        bool foundServo = false;
+        for (int j = i - 1; j >= 0; --j) {
+            QString trimmed = lines[j].trimmed();
+            if (trimmed.isEmpty()) continue;
+            if (trimmed.startsWith(QStringLiteral("//"))) continue;
+
+            if (servoRe.match(trimmed).hasMatch()) {
+                // 找到现有 SERVO → 替换
+                if (lines[j] != newServoLine) {
+                    lines[j] = newServoLine;
+                    modified = true;
+                }
+                foundServo = true;
+                break;
+            }
+            // 遇到其他非空非注释行 → 不再往上找
+            break;
+        }
+
+        if (!foundServo) {
+            // 在 MOVE 行上方插入一条 SERVO
+            lines.insert(i, newServoLine);
+            ++i;  // 跳过刚插入的行
             modified = true;
         }
     }
