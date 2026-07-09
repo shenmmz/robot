@@ -1476,6 +1476,12 @@ void MainWindow::initManualProgUI()
         compactLineEdit(ui->debugAccel);
         compactLineEdit(ui->debugDecel);
 
+        // 设置默认值，避免 toDouble() 对空字符串返回 0 导致运动无效
+        if (ui->debugStep->text().isEmpty())  ui->debugStep->setText(QStringLiteral("10"));
+        if (ui->debugSpeed->text().isEmpty()) ui->debugSpeed->setText(QStringLiteral("25"));
+        if (ui->debugAccel->text().isEmpty()) ui->debugAccel->setText(QStringLiteral("50"));
+        if (ui->debugDecel->text().isEmpty()) ui->debugDecel->setText(QStringLiteral("60"));
+
         // 2×2 QGridLayout
         QGridLayout* debugGrid = new QGridLayout();
         debugGrid->setSpacing(6);
