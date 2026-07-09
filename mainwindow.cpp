@@ -1719,7 +1719,7 @@ void MainWindow::initManualProgUI()
 
     // "点位调整"按钮:放在两列下方中央
     // 根据当前模式自动选关节/笛卡尔弹窗
-    QPushButton* btnOpenPointAdjust = new QPushButton(QStringLiteral("点位调整"), jogMergedGroup);
+    QPushButton* btnOpenPointAdjust = new QPushButton(QStringLiteral("调节"), jogMergedGroup);
     btnOpenPointAdjust->setFixedHeight(40);
     btnOpenPointAdjust->setCursor(Qt::PointingHandCursor);
     btnOpenPointAdjust->setStyleSheet(QStringLiteral(
@@ -2185,7 +2185,7 @@ void MainWindow::showPointAdjustDialog(bool isJoint)
     Ui::PointAdjustDialog ui;
     ui.setupUi(&dlg);
 
-    dlg.setWindowTitle(QStringLiteral("点位管理"));
+    dlg.setWindowTitle(QStringLiteral("点位调节"));
     dlg.resize(960, 540);
 
     // ===== 控件数组（与 .ui 中命名严格对应） =====
