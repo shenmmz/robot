@@ -129,7 +129,10 @@ bool RobotController::initialize(RobotConfig* config)
     
     // 设置ZMotion API指针（RS485通过ZMC的Modbus转RS485功能通信）
     m_rs485Controller->setZmotionAPI(m_motionController->getZmotionAPI());
-    
+
+    // 初始化舵机到初始角度，同步软件 currentAngle 与硬件实际位置
+    m_servoController->initAll();
+
     connectSignals();
     
     m_initialized = true;

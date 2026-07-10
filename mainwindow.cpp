@@ -317,6 +317,16 @@ void MainWindow::onHardwareConnected()
             qWarning() << "[RS485] 串口配置失败:" << result.errorMessage;
         }
     }
+
+    // 重连后刷新舵机角度显示：读取 ServoController 中已保存的当前角度，避免显示默认90°
+    ServoController* servo = m_robotController->getServoController();
+    if (servo) {
+        for (int i = 0; i < 6 && i < m_servoAngleLabels.size(); ++i) {
+            float angle = servo->getCurrentAngle(i);
+            m_servoAngleLabels[i]->setText(
+                QString("CH%1 : %2°").arg(i).arg(angle, 0, 'f', 1));
+        }
+    }
 }
 
 /**
