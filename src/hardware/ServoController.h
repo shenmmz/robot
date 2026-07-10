@@ -265,8 +265,8 @@ private:
     QMap<int, ServoState> m_states;  // 各通道状态
     QList<QTimer*> m_activeTimers;    // 活跃的 100ms 软插值 timer（脚本模式），cancelAllMovements 时一并清理
 
-    static const float MIN_ANGLE;     // 最小角度 (0度, 500us)
-    static const float MAX_ANGLE;    // 最大角度 (180度, 对应2500us, 匹配KPZ32舵机范围)
+    static const float MIN_ANGLE;     // 最小角度 (30°)
+    static const float MAX_ANGLE;    // 最大角度 (140°)
     static const quint16 DEFAULT_FREQ_HZ; // 默认频率 (50Hz)
     static const quint16 CENTER_DUTY; // 中位占空比 (75/1000 = 7.5%)
     static const int TIMER_INTERVAL_MS; // UI 拖拽定时器间隔（毫秒）

@@ -9,8 +9,8 @@
 #include <QDebug>
 
 // 静态常量定义
-const float ServoController::MIN_ANGLE = 0.0f;      // 0度 = 500us PWM脉宽
-const float ServoController::MAX_ANGLE = 180.0f;    // 180度 = 2500us PWM脉宽 (匹配KPZ32舵机范围)
+const float ServoController::MIN_ANGLE = 30.0f;     // 30° 最小安全角度
+const float ServoController::MAX_ANGLE = 140.0f;   // 140° 最大安全角度
 const quint16 ServoController::DEFAULT_FREQ_HZ = 50;
 const quint16 ServoController::CENTER_DUTY = 75;    // 7.5% = 90度位置 (1500us)
 const int ServoController::TIMER_INTERVAL_MS = 50;   // UI 拖拽定时器间隔（毫秒）
