@@ -1847,8 +1847,8 @@ void MainWindow::initManualProgUI()
         }
 
         QDialog* dlg = new QDialog(this);
-        dlg->setWindowTitle(QStringLiteral("舵机调试"));
-        dlg->resize(680, 450);
+        dlg->setWindowTitle(QStringLiteral("舵机设置"));
+        dlg->resize(860, 560);
         dlg->setAttribute(Qt::WA_DeleteOnClose);  // 关闭时自动销毁 dialog 及其子 widget
 
         QVBoxLayout* lay = new QVBoxLayout(dlg);
