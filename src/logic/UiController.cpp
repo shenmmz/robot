@@ -1480,7 +1480,7 @@ void UiController::showTargetEditDialog()
                 "padding:1px 2px;font-size:13px;background:#ffffff;"
                 "selection-background-color:#264f78;selection-color:#ffffff;}"
                 "QLineEdit:focus{border:1px solid #1565c0;}"));
-            auto* aVal = new QDoubleValidator(0.0, 180.0, 0, aEdit);
+            auto* aVal = new QDoubleValidator(30.0, 140.0, 0, aEdit);
             aVal->setNotation(QDoubleValidator::StandardNotation);
             aEdit->setValidator(aVal);
             colLayout->addWidget(aEdit);
