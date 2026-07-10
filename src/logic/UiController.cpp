@@ -1171,6 +1171,7 @@ void UiController::showTargetEditDialog()
         QSpinBox* spinTimeout_local = nullptr;
         QPushButton* copyBtn = nullptr;
         QPushButton* delBtn = nullptr;
+        QPushButton* teachBtn = nullptr;
 
         auto compactParamEdit = [](QLineEdit* ed) {
             ed->setFixedHeight(24);
