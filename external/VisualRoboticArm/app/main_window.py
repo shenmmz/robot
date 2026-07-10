@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 from __future__ import annotations
 
 import os
@@ -513,29 +514,58 @@ class MainWindow(QMainWindow):
         self.statusBar().showMessage(f"采集间隔已设置为 {value} ms", 2000)
 
     def on_video_frame_changed(self, frame):
+        """接收 Qt 摄像头帧并提交到后台推理线程。
+
+        输入：
+        - frame：Qt Multimedia 推送的 QVideoFrame。
+
+        输出：无。
+        功能实现：
+        - 将 QVideoFrame 转为 QImage；
+        - 刷新帧计数与图像尺寸显示；
+        - 如果后台推理线程可用，则提交给 `FrameProcessorThread.submit()`。
+        """
         image = frame.toImage()
         if image.isNull():
             return
+        # 这里计数的是摄像头输入帧，不是实际完成推理的帧。
         self.frame_count += 1
         self.frame_info_label.setText(f"Frame: {self.frame_count}")
         self.image_info_label.setText(
             f"W:{image.width()},H:{image.height()} | X:-,Y:- | R:-,G:-,B:- | Gray:-"
         )
         if self.frame_worker is None or not self.frame_worker.isRunning():
+            # 推理线程不可用时仍显示原始画面，避免预览黑屏。
             self._display_image(image)
             return
+        # 将帧交给后台线程；线程内部只保留最新帧以降低延迟。
         self.frame_worker.submit(image)
 
     def on_processed_frame(self, image: QImage, payload: dict):
+        """接收后台推理结果并更新 UI/通信。
+
+        输入：
+        - image：推理线程返回的标注后 QImage；
+        - payload：推理服务输出的角度、电机命令和识别状态字典。
+
+        输出：无。
+        功能实现：
+        - 显示标注画面；
+        - 通过 `PoseMotionFilter` 稳定角度和电机命令；
+        - 更新右侧动作摘要和下方角度面板；
+        - 将过滤后的 payload 交给 TCP 通信模块发送。
+        """
         self.last_processed_image = image
         self._display_image(image)
+        # 过滤层负责低幅抖动保持、无检测时沿用上一次有效值。
         payload = self.pose_filter.filter_payload(payload)
         angles = payload.get("angles", [])
-        motor_6_summary = _format_motor_6_summary(payload.get("motor_6"))
+        motor_6_summary = _format_motor_6_summary(payload.get("motor_6"), payload.get("angles", []))
         if angles:
             summary = _format_arm_rotation_summary(angles)
             if not payload.get("motion_allowed", True):
                 summary = f"[保持] {summary}"
+            # action_value 显示电机动作摘要，runtime_text 显示完整左右臂角度。
             self.action_value.setPlainText(motor_6_summary or summary.splitlines()[0])
             self.runtime_text.setHtml(_format_arm_rotation_html(angles))
         else:
@@ -544,6 +574,7 @@ class MainWindow(QMainWindow):
             self.runtime_text.setHtml(_angle_placeholder_html())
 
         if self.pose_comm is not None:
+            # 通信 payload 附加当前输入帧编号，便于外部系统追踪。
             pose_payload = dict(payload)
             pose_payload["frame_id"] = self.frame_count
             self.pose_comm.send_pose(self.frame_count, pose_payload)
@@ -687,14 +718,32 @@ class MainWindow(QMainWindow):
         self._append_rs485_log(f"ERR: {message}")
 
     def _ensure_frame_worker(self):
+        """确保后台推理线程已创建并启动。
+
+        输入：无。
+        输出：无。
+        功能：连接推理结果/错误信号，然后启动 `FrameProcessorThread`。
+        """
         if self.frame_worker is not None and self.frame_worker.isRunning():
             return
         self.frame_worker = FrameProcessorThread(self)
+        # 推理完成后回到主线程更新画面、角度文本和通信。
         self.frame_worker.frame_ready.connect(self.on_processed_frame)
+        # 推理初始化或运行错误统一交给 UI 弹窗与状态栏显示。
         self.frame_worker.error.connect(self.on_worker_error)
         self.frame_worker.start()
 
     def _setup_camera_pipeline(self):
+        """建立 Qt 摄像头采集管线。
+
+        输入：无，使用当前选中的 `self.connected_camera`。
+        输出：无。
+        功能实现：
+        - 清理旧摄像头管线；
+        - 创建 QCamera/QMediaCaptureSession/QVideoSink；
+        - 优先选择 1280x720 格式；
+        - 将 `videoFrameChanged` 信号连接到实时推理入口。
+        """
         if self.connected_camera is None:
             return
         self._teardown_camera(clear_preview=False)
@@ -715,6 +764,7 @@ class MainWindow(QMainWindow):
 
         self.capture_session = QMediaCaptureSession()
         self.video_sink = QVideoSink()
+        # 每收到一帧就进入 on_video_frame_changed，再由后台线程处理。
         self.video_sink.videoFrameChanged.connect(self.on_video_frame_changed)
         self.capture_session.setCamera(self.camera)
         self.capture_session.setVideoSink(self.video_sink)
@@ -828,6 +878,7 @@ def _format_arm_rotation_summary(angles):
         parts.append(
             "左臂 "
             f"腕{_format_rotation(left.get('wrist_rotation'))} "
+            f"肘{_fmt_whole(left.get('elbow_flex_deg'))}° "
             f"臂{_format_rotation(left.get('arm_rotation'))} "
             f"肩{_format_rotation(left.get('shoulder_rotation'))}"
         )
@@ -835,6 +886,7 @@ def _format_arm_rotation_summary(angles):
         parts.append(
             "右臂 "
             f"腕{_format_rotation(right.get('wrist_rotation'))} "
+            f"肘{_fmt_whole(right.get('elbow_flex_deg'))}° "
             f"臂{_format_rotation(right.get('arm_rotation'))} "
             f"肩{_format_rotation(right.get('shoulder_rotation'))}"
         )
@@ -842,7 +894,7 @@ def _format_arm_rotation_summary(angles):
     return " | ".join(parts) if parts else "等待推理结果"
 
 
-def _format_motor_6_summary(command):
+def _format_motor_6_summary(command, angles=None):
     if not isinstance(command, dict):
         return ""
 
@@ -862,6 +914,70 @@ def _format_motor_6_summary(command):
     if pitch_deg is not None:
         motor_5_text = command.get("motor_5_direction_text", "保持")
         lines.append(f"5号电机 {motor_5_text} {_fmt_whole(pitch_deg)}°")
+
+    # Motor 3 & Motor 4：肘部角度
+    elbow_flex = None
+    elbow_abduction = None
+    if angles and isinstance(angles, list):
+        for arm in angles:
+            if isinstance(arm, dict) and arm.get("side") == "right":
+                elbow_flex = arm.get("elbow_flex_deg")
+                elbow_abduction = arm.get("elbow_abduction_deg")
+                break
+
+    # 1号电机：肩部上下（shoulder_flex_deg） & 2号电机：肩部左右（shoulder_abduction_deg）
+    shoulder_flex = None
+    shoulder_abduction = None
+    if angles and isinstance(angles, list):
+        for arm in angles:
+            if isinstance(arm, dict) and arm.get("side") == "right":
+                shoulder_flex = arm.get("shoulder_flex_deg")
+                shoulder_abduction = arm.get("shoulder_abduction_deg")
+                break
+
+    # 1号电机：肩部上下翻转
+    sflex_dir = "保持"
+    if shoulder_flex is not None:
+        if shoulder_flex > 3.0:
+            sflex_dir = "上抬"
+        elif shoulder_flex < -3.0:
+            sflex_dir = "下垂"
+        else:
+            sflex_dir = "水平"
+    lines.append(f"1号电机 {sflex_dir} | 俯仰 {_fmt_whole(shoulder_flex)}°")
+
+    # 2号电机：肩部左右翻转
+    sabd_dir = "保持"
+    if shoulder_abduction is not None:
+        if shoulder_abduction > 3.0:
+            sabd_dir = "右偏"
+        elif shoulder_abduction < -3.0:
+            sabd_dir = "左偏"
+        else:
+            sabd_dir = "居中"
+    lines.append(f"2号电机 {sabd_dir} | 偏转 {_fmt_whole(shoulder_abduction)}°")
+
+    # 3号电机：肘部上下（elbow_flex_deg）
+    flex_dir = "保持"
+    if elbow_flex is not None:
+        if elbow_flex > 3.0:
+            flex_dir = "上抬"
+        elif elbow_flex < -3.0:
+            flex_dir = "下垂"
+        else:
+            flex_dir = "水平"
+    lines.append(f"3号电机 {flex_dir} | 俯仰 {_fmt_whole(elbow_flex)}°")
+
+    # 4号电机：肘部左右翻转（elbow_abduction_deg）
+    abd_dir = "保持"
+    if elbow_abduction is not None:
+        if elbow_abduction > 3.0:
+            abd_dir = "右偏"
+        elif elbow_abduction < -3.0:
+            abd_dir = "左偏"
+        else:
+            abd_dir = "中位"
+    lines.append(f"4号电机 {abd_dir} | 偏转 {_fmt_whole(elbow_abduction)}°")
 
     return " | ".join(lines)
 
@@ -888,7 +1004,8 @@ def _arm_column_html(title, arm):
         style="padding:8px 10px; border:1px solid #D6D6D6; background:#FFFFFF;">
         <div style="font-weight:700; color:#202124; margin-bottom:8px;">{title}</div>
         {_joint_row_html("腕", arm.get("wrist_rotation"))}
-        {_joint_row_html("臂", arm.get("arm_rotation"))}
+        {_elbow_row_html(arm)}
+        {_shoulder_row_html(arm)}
         {_joint_row_html("肩", arm.get("shoulder_rotation"))}
     </td>
     """
@@ -899,6 +1016,61 @@ def _joint_row_html(label, rotation):
     <div style="white-space:nowrap; line-height:1.55;">
         <span style="display:inline-block; width:24px; color:#3F6FB8;">{label}：</span>
         <span>{_format_rotation(rotation)}</span>
+    </div>
+    """
+
+
+def _elbow_row_html(arm):
+    """渲染肘部角度行（elbow_flex_deg 上下 + elbow_abduction_deg 左右翻转）。"""
+    flex = arm.get("elbow_flex_deg")
+    abduction = arm.get("elbow_abduction_deg")
+    flext = _fmt_whole(flex)
+    abdt = _fmt_whole(abduction)
+    abd_dir = ""
+    if abduction is not None:
+        if abduction > 3:
+            abd_dir = "右偏"
+        elif abduction < -3:
+            abd_dir = "左偏"
+        else:
+            abd_dir = "中位"
+    abd_text = f"{abd_dir} {abdt}°" if abd_dir else "-"
+    return f"""
+    <div style="white-space:nowrap; line-height:1.55;">
+        <span style="display:inline-block; width:24px; color:#C26B2E;">肘：</span>
+        <span>俯 {flext}°  偏 {abd_text}</span>
+    </div>
+    """
+
+
+def _shoulder_row_html(arm):
+    """渲染肩部角度行（shoulder_flex_deg 上下 + shoulder_abduction_deg 左右翻转）。"""
+    flex = arm.get("shoulder_flex_deg")
+    abduction = arm.get("shoulder_abduction_deg")
+    flext = _fmt_whole(flex)
+    abdt = _fmt_whole(abduction)
+    flex_dir = ""
+    if flex is not None:
+        if flex > 3:
+            flex_dir = "上抬"
+        elif flex < -3:
+            flex_dir = "下垂"
+        else:
+            flex_dir = "水平"
+    flex_text = f"{flex_dir} {flext}°" if flex_dir else "-"
+    abd_dir = ""
+    if abduction is not None:
+        if abduction > 3:
+            abd_dir = "右偏"
+        elif abduction < -3:
+            abd_dir = "左偏"
+        else:
+            abd_dir = "居中"
+    abd_text = f"{abd_dir} {abdt}°" if abd_dir else "-"
+    return f"""
+    <div style="white-space:nowrap; line-height:1.55;">
+        <span style="display:inline-block; width:24px; color:#3F6FB8;">臂：</span>
+        <span>俯 {flex_text}  偏 {abd_text}</span>
     </div>
     """
 

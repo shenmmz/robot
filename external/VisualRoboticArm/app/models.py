@@ -83,6 +83,8 @@ class ArmAngles:
     shoulder_abduction_deg: Optional[float] = None
     shoulder_rotation_deg: Optional[float] = None
     elbow_flex_deg: Optional[float] = None
+    elbow_abduction_deg: Optional[float] = None
+    elbow_pronation_deg: Optional[float] = None
     wrist_flex_deg: Optional[float] = None
 
 
