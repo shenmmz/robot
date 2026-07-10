@@ -1591,6 +1591,14 @@ void UiController::showTargetEditDialog()
     for (int si = 0; si < servoEntries.size(); ++si) {
         ServoGroup sg = createServoRow(&servoEntries[si].second);
         sg.servoIndex = si;
+        // 标记已有 SERVO 数据的通道为"已编辑"，确保 OK 时被收集到 m_servoSlots
+        // （servoUserEdited 默认全 false，若用户没碰舵机面板只加点位就点确定，
+        //  会导致 m_servoSlots 为空 → syncServoInMoveLines 删除所有 SERVO 行）
+        const ServoSlotArray& srvData = servoEntries[si].second;
+        for (int s = 0; s < 6; ++s) {
+            if (srvData[s].enabled())
+                sg.servoUserEdited[s] = true;
+        }
         servoGroups.append(sg);
     }
 
