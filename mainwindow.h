@@ -20,7 +20,7 @@ class Rs485Controller;
 class ServoController;
 class VisionController;
 class QPlainTextEdit;
-class ServoTestWidget;  // 舵机测试界面
+class ServoTestWidget;  // 舵机设置界面
 
 QT_BEGIN_NAMESPACE
 namespace Ui {
@@ -109,7 +109,7 @@ private:
     double m_lastVisionAngle = 0;
     int m_visionConsecutiveCount = 0;
     static constexpr int kVisionConfirmCount = 10;
-    ServoTestWidget* m_servoTestWidget = nullptr;  // 舵机测试界面
+    ServoTestWidget* m_servoTestWidget = nullptr;  // 舵机设置界面
     QList<QLineEdit*> m_servoSpins;   // 6通道舵机角度 QLineEdit（已废弃，由 ServoTestWidget 管理）
     QList<QLineEdit*> m_servoSpeedSpins;  // 6通道舵机速度 QLineEdit（已废弃，由 ServoTestWidget 管理）
     QList<QLabel*> m_servoAngleLabels;  // 手动页舵机板块 6 通道只读角度显示（被动显示）

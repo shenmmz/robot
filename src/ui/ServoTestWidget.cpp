@@ -139,7 +139,7 @@ void ServoTestWidget::setupUI()
     mainLayout->setContentsMargins(16, 16, 16, 16);
 
     // 标题
-    QLabel* titleLabel = new QLabel("舵机测试界面", this);
+    QLabel* titleLabel = new QLabel("舵机设置界面", this);
     titleLabel->setStyleSheet("font-size: 24px; font-weight: bold;");
     mainLayout->addWidget(titleLabel);
 
