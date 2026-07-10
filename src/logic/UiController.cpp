@@ -853,55 +853,41 @@ void UiController::showTargetEditDialog()
     }
 
     // 2.5 从程序编辑器中提取每个点位前的 SERVO 舵机数据，供舵机面板回显
-    QHash<QString, ServoSlotArray> servosForTarget;
+    // 收集所有 SERVO 行（按出现顺序，独立于 MOVE 指令）
+    QList<QPair<int, ServoSlotArray>> servoEntries;
     {
-        QRegularExpression moveExtractRe(QStringLiteral(
-            "^(?:\\s*(?:#\\s*)?)?(?:MOVEJ|MOVEL|MOVEJOFF|MOVELOFF)\\s*\\(\\s*(\\w+)"),
-            QRegularExpression::CaseInsensitiveOption);
         QRegularExpression servoExtractRe(QStringLiteral(
             "^\\s*(?:#\\s*)?SERVO\\s*\\("),
             QRegularExpression::CaseInsensitiveOption);
         QStringList progLines = progText.split(QChar::fromLatin1('\n'));
-        // 从底向上扫描，为每个 MOVE 行向前找 SERVO 行（跳过空行和行注释，遇其他指令止步）
         for (int i = 0; i < progLines.size(); ++i) {
-            auto mm = moveExtractRe.match(progLines[i]);
-            if (!mm.hasMatch()) continue;
-            QString tgtName = mm.captured(1).trimmed();
-            if (servosForTarget.contains(tgtName)) continue; // 只取第一次（最靠前的 SERVO）
+            QString line = progLines[i].trimmed();
+            if (!servoExtractRe.match(line).hasMatch()) continue;
 
-            for (int j = i - 1; j >= 0; --j) {
-                QString prev = progLines[j].trimmed();
-                if (prev.isEmpty() || prev.startsWith(QStringLiteral("//"))) continue;
-                if (servoExtractRe.match(prev).hasMatch()) {
-                    // 解析 SERVO(ch=ang:T<ms>, ...) 时间模式
-                    ServoSlotArray srv;
-                    int pe = prev.indexOf(QChar::fromLatin1(')'));
-                    QString inner = prev.mid(prev.indexOf(QChar::fromLatin1('(')) + 1, pe - prev.indexOf(QChar::fromLatin1('(')) - 1).trimmed();
-                    if (!inner.isEmpty() && inner.contains(QChar::fromLatin1('='))) {
-                        for (const QString& g : inner.split(QChar::fromLatin1(','))) {
-                            auto chanPart = g.split(QChar::fromLatin1('='));
-                            if (chanPart.size() >= 2) {
-                                int ch = chanPart[0].trimmed().toInt();
-                                auto angSpd = chanPart[1].split(QChar::fromLatin1(':'));
-                                if (ch >= 0 && ch < 6) {
-                                    srv[ch].channel = ch;
-                                    srv[ch].angle   = angSpd.value(0, QString()).trimmed().toDouble();
-                                    QString paramStr = (angSpd.size() >= 2) ? angSpd[1].trimmed() : QString();
-                                    if (paramStr.startsWith(QLatin1Char('T'), Qt::CaseInsensitive)
-                                        || paramStr.startsWith(QLatin1Char('t'), Qt::CaseInsensitive)) {
-                                        srv[ch].timeMs = paramStr.mid(1).trimmed().toInt();
-                                        srv[ch].speed  = 10.0;
-                                    }
-                                }
+            // 解析 SERVO(ch=ang:T<ms>, ...) 时间模式
+            ServoSlotArray srv;
+            int pe = line.indexOf(QChar::fromLatin1(')'));
+            QString inner = line.mid(line.indexOf(QChar::fromLatin1('(')) + 1, pe - line.indexOf(QChar::fromLatin1('(')) - 1).trimmed();
+            if (!inner.isEmpty() && inner.contains(QChar::fromLatin1('='))) {
+                for (const QString& g : inner.split(QChar::fromLatin1(','))) {
+                    auto chanPart = g.split(QChar::fromLatin1('='));
+                    if (chanPart.size() >= 2) {
+                        int ch = chanPart[0].trimmed().toInt();
+                        auto angSpd = chanPart[1].split(QChar::fromLatin1(':'));
+                        if (ch >= 0 && ch < 6) {
+                            srv[ch].channel = ch;
+                            srv[ch].angle   = angSpd.value(0, QString()).trimmed().toDouble();
+                            QString paramStr = (angSpd.size() >= 2) ? angSpd[1].trimmed() : QString();
+                            if (paramStr.startsWith(QLatin1Char('T'), Qt::CaseInsensitive)
+                                || paramStr.startsWith(QLatin1Char('t'), Qt::CaseInsensitive)) {
+                                srv[ch].timeMs = paramStr.mid(1).trimmed().toInt();
+                                srv[ch].speed  = 10.0;
                             }
                         }
-                        servosForTarget.insert(tgtName, srv);
                     }
-                    break;
                 }
-                // 碰到非 SERVO 的其他指令行则停止
-                break;
             }
+            servoEntries.append({i, srv});
         }
     }
 
@@ -985,7 +971,7 @@ void UiController::showTargetEditDialog()
     mainLayout->addLayout(topBar);
 
     // ===== 检测程序中是否有 SERVO 指令 =====
-    bool hasServo = !servosForTarget.isEmpty();
+    bool hasServo = !servoEntries.isEmpty();
 
     // ===== 顶部切换按钮：点位 / 舵机 =====
     auto* toggleBar = new QHBoxLayout;
@@ -1047,12 +1033,12 @@ void UiController::showTargetEditDialog()
 
     // ===== 舵机面板的卡片（一行一个，对应一条 SERVO 指令）=====
     struct ServoGroup {
-        QString name;                          // 关联的 target 名（从 SERVO 解析得到）
+        int servoIndex = -1;                   // 对应 servoEntries 中的序号
         QWidget* servoRow = nullptr;
         QLineEdit* servoAngle[6] = {nullptr};
         QLineEdit* servoSpeed[6] = {nullptr};
         // 标记每一路舵机是否被用户编辑过；只有 true 时 OK 才把该路写入
-        // m_targetServos，避免默认 0/1000 被误判为"启用"
+        // m_servoSlots，避免默认 0/1000 被误判为"启用"
         bool servoUserEdited[6] = {false, false, false, false, false, false};
         QLineEdit* servoCommentEdit = nullptr;
         QPushButton* delBtn = nullptr;          // 只有"删除"，没有"复制"
@@ -1399,21 +1385,8 @@ void UiController::showTargetEditDialog()
             pointRow->deleteLater();
             pointGroups.removeAt(delIdx);
 
-            // 联动：若 servoGroups 里有同名 SERVO 卡，一并删
-            for (int k = servoGroups.size() - 1; k >= 0; --k) {
-                if (servoGroups[k].name == delName) {
-                    if (servoGroups[k].servoRow) {
-                        servoRowsLayout->removeWidget(servoGroups[k].servoRow);
-                        servoGroups[k].servoRow->deleteLater();
-                    }
-                    servoGroups.removeAt(k);
-                }
-            }
-
             m_targetMotion.remove(delName);
             m_targets.remove(delName);
-            m_targetServos.remove(delName);
-            removeServoForTarget(delName);
             if (m_taskExecutor) {
                 m_taskExecutor->setTargets(m_targets);
                 m_taskExecutor->setTargetMotion(m_targetMotion);
@@ -1425,14 +1398,12 @@ void UiController::showTargetEditDialog()
     };
 
     // ===== 辅助函数：创建一行舵机控件（对应一条 SERVO 指令）=====
-    std::function<ServoGroup(const QString&, const ServoSlotArray*)> createServoRow;
-    createServoRow = [&](const QString& name,
-                          const ServoSlotArray* srvData) -> ServoGroup {
+    std::function<ServoGroup(const ServoSlotArray*)> createServoRow;
+    int servoSeq = 1;  // 弹窗内 SERVO 序号，每次打开弹窗重置
+    createServoRow = [&](const ServoSlotArray* srvData) -> ServoGroup {
         ServoGroup sg;
-        sg.name = name;
 
         // 注释行（独占整行）：servo 序号 + "注释:" + 注释编辑框
-        static int servoSeq = 1;     // 弹窗内全局自增，按 SERVO 出现顺序
         auto* sRow = new QWidget(servoScrollContent);
         sRow->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed);
         auto* sRowOuter = new QVBoxLayout(sRow);
@@ -1458,8 +1429,6 @@ void UiController::showTargetEditDialog()
         QString srvComment;
         if (srvData && !srvData->comment.isEmpty()) {
             srvComment = srvData->comment;
-        } else if (m_targetServos.contains(name)) {
-            srvComment = m_targetServos[name].comment;
         }
         if (!srvComment.isEmpty()) {
             srvCommentEdit->setText(srvComment);
@@ -1566,7 +1535,7 @@ void UiController::showTargetEditDialog()
         // 把删除按钮放到注释行末尾（与点位面板"标题行右侧"风格一致）
         srvCommentRow->addWidget(srvDelBtn);
 
-        // 删除舵机行：仅删 servoGroups[j]，同时清理 m_targetServos[name] + progEd SERVO 行
+        // 删除舵机行：仅删 servoGroups[j]，同时清理 progEd 中对应 SERVO 行
         QObject::connect(srvDelBtn, &QPushButton::clicked, &dlg,
             [&servoGroups, &servoRowsLayout, servoRow = sRow, &dlg, this] {
             int idx = -1;
@@ -1574,22 +1543,21 @@ void UiController::showTargetEditDialog()
                 if (servoGroups[k].servoRow == servoRow) { idx = k; break; }
             }
             if (idx < 0) return;
-            const QString delName = servoGroups[idx].name;
+            int si = servoGroups[idx].servoIndex;
 
             QMessageBox::StandardButton reply = QMessageBox::question(
                 &dlg, QStringLiteral("确认删除"),
-                QStringLiteral("确定要删除舵机行「%1」对应的 SERVO 指令吗？\n"
-                                "(仅删除 SERVO，所属点位行不会被删除)").arg(delName),
+                QStringLiteral("确定要删除舵机行「servo%1」对应的 SERVO 指令吗？\n"
+                                "(仅删除 SERVO，所属点位行不会被删除)").arg(si + 1),
                 QMessageBox::Yes | QMessageBox::No, QMessageBox::No);
             if (reply != QMessageBox::Yes) return;
 
             servoRowsLayout->removeWidget(servoRow);
             servoRow->deleteLater();
             servoGroups.removeAt(idx);
-            if (!delName.isEmpty()) {
-                m_targetServos.remove(delName);
-                removeServoForTarget(delName);
-                qDebug() << "[舵机管理] 删除 SERVO 卡片:" << delName;
+            if (si >= 0) {
+                removeServoByIndex(idx);
+                qDebug() << "[舵机管理] 删除 SERVO 卡片: servo" << (si + 1);
             }
         });
 
@@ -1618,11 +1586,12 @@ void UiController::showTargetEditDialog()
         pointGroups.append(createPointRow(name, vals, labels, comment, motion));
     }
 
-    // ===== 2) 依据 servosForTarget 创建舵机卡（按 refOrder 顺序保证稳定） =====
-    for (const QString& name : refOrder) {
-        if (servosForTarget.contains(name)) {
-            servoGroups.append(createServoRow(name, &servosForTarget[name]));
-        }
+    // ===== 2) 按 servoEntries 顺序创建舵机卡片 ====
+    servoSeq = 1;  // 每次打开弹窗重置序号
+    for (int si = 0; si < servoEntries.size(); ++si) {
+        ServoGroup sg = createServoRow(&servoEntries[si].second);
+        sg.servoIndex = si;
+        servoGroups.append(sg);
     }
 
     // 垂直弹簧：吸收多余空间，防止各行被拉伸
@@ -1719,9 +1688,10 @@ void UiController::showTargetEditDialog()
             .arg(commentSeg);
     }
 
-    // 5b. 收集 SERVO 数据到 m_targetServos（只遍历 servoGroups）
+    // 5b. 收集 SERVO 数据到 m_servoSlots（只遍历 servoGroups）
     //  只有 servoUserEdited[s]=true 且 timeMs>0 的通道才视为启用；
     //  6 路全无效时 remove，避免 syncServoInMoveLines 生成 SERVO(0=0:T1000, ...) 全 0 行。
+    m_servoSlots.clear();
     for (const auto& sg : servoGroups) {
         if (!sg.servoRow) continue;
         ServoSlotArray srv;
@@ -1737,8 +1707,7 @@ void UiController::showTargetEditDialog()
             anyEnabled = true;
         }
         srv.comment = sg.servoCommentEdit ? sg.servoCommentEdit->text().trimmed() : QString();
-        if (anyEnabled) m_targetServos[sg.name] = srv;
-        else            m_targetServos.remove(sg.name);
+        if (anyEnabled) m_servoSlots.append(srv);
     }
 
     // 构建原有的 TARGET 名集合
@@ -1746,6 +1715,9 @@ void UiController::showTargetEditDialog()
     for (const QString& t : refOrder) oldTargetNames.insert(t);
 
     // 合并：原有行中的 TARGET 替换为 groupOutput，被删除的 TARGET 不追加
+    qDebug() << "[点位管理] targetLines 行数:" << targetLines.size()
+             << "groupOutput 条目:" << groupOutput.keys()
+             << "pointGroups 数量:" << pointGroups.size();
     QStringList newTargetLines;
     for (const QString& oldLine : targetLines) {
         QString trimmed = oldLine.trimmed();
@@ -1753,6 +1725,8 @@ void UiController::showTargetEditDialog()
             int eq = trimmed.indexOf(QChar::fromLatin1('='));
             if (eq > 7) {
                 QString name = trimmed.mid(7, eq - 7).trimmed();
+                qDebug() << "[点位管理] 合并扫描到 TARGET:" << name
+                         << "groupOutput含?" << groupOutput.contains(name);
                 if (groupOutput.contains(name)) {
                     newTargetLines.append(groupOutput.take(name));
                     continue;
@@ -1764,11 +1738,13 @@ void UiController::showTargetEditDialog()
         newTargetLines.append(oldLine);
     }
     // 追加新增点位（按 pointGroups 顺序）
+    qDebug() << "[点位管理] 剩余 groupOutput(新增):" << groupOutput.keys();
     for (const auto& g : pointGroups) {
         if (!g.pointRow) continue;
         if (groupOutput.contains(g.name))
             newTargetLines.append(groupOutput[g.name]);
     }
+    qDebug() << "[点位管理] newTargetLines 最终条数:" << newTargetLines.size();
 
     // blockSignals 避免在弹窗 OK 关闭瞬间触发 targetSyncTimer(100ms)→
     // onTargetEditorChanged → syncProgramComments → progEd.setPlainText 的
@@ -1784,7 +1760,7 @@ void UiController::showTargetEditDialog()
     // 先于 onTargetEditorChanged 执行，因此时 m_targetMotion 仍持有弹窗写入的正确值
     syncMotionInMoveLines();
 
-    // 同步程序编辑器中的 SERVO 舵机行：把 m_targetServos 的角度/速度写回
+    // 同步程序编辑器中的 SERVO 舵机行：用 m_servoSlots 更新
     syncServoInMoveLines();
 
     // 把更新后的 m_targetMotion 推给 TaskExecutor
@@ -1887,17 +1863,14 @@ void UiController::syncMotionInMoveLines()
 }
 
 /**
- * @brief 同步程序编辑器中的 SERVO 行(舵机角度/速度):把点位 m_targetServos
- *        的舵机值写回紧随 MOVEJ/MOVEL/MOVEJOFF/MOVELOFF 之前的 SERVO 指令;
- *        若该点位无 SERVO 行则自动插入一条。
+ * @brief 同步程序编辑器中的 SERVO 行(舵机角度/速度):用 m_servoSlots 的所有数据
+ *        更新程序中的 SERVO 行。SERVO 是独立行，不再绑定到 MOVE 指令。
  *
  * 逻辑:
- *   - 扫描程序编辑器每一行,匹配 MOVEJ/MOVEL/MOVEJOFF/MOVELOFF
- *   - 提取点位名,查 m_targetServos[name] 获取最新的6路舵机角度/速度
- *   - 向前扫描查找该 MOVE 行之前的 SERVO 行:
- *       * 找到 → 用新的舵机值重写该 SERVO 行
- *       * 没找到(遇到其他指令或文件开头) → 在该 MOVE 行上方插入一条 SERVO
- *   - 跳过空行和行注释,不跨越其他指令行
+ *   - 扫描程序编辑器，收集所有 SERVO 行的行号
+ *   - 按个数对齐：更新/插入/删除，使 SERVO 行数 = m_servoSlots.size()
+ *   - 新行插在最后一条现有 SERVO 行之后（若无则在 TARGET 块之后）
+ *   - 注释写入行尾 // comment
  */
 void UiController::syncServoInMoveLines()
 {
@@ -1907,75 +1880,82 @@ void UiController::syncServoInMoveLines()
     QString progText = progEd->toPlainText();
     QStringList lines = progText.split(QChar::fromLatin1('\n'));
 
-    QRegularExpression moveRe(QStringLiteral(
-        "^(\\s*(?:#\\s*)?(?:MOVEJ|MOVEL|MOVEJOFF|MOVELOFF)\\s*\\(\\s*)(\\w+)"),
-        QRegularExpression::CaseInsensitiveOption);
     QRegularExpression servoRe(QStringLiteral(
         "^\\s*(?:#\\s*)?SERVO\\s*\\("),
         QRegularExpression::CaseInsensitiveOption);
 
-    bool modified = false;
-
+    // 收集所有 SERVO 行位置
+    QList<int> servoLineIndices;
     for (int i = 0; i < lines.size(); ++i) {
-        auto m = moveRe.match(lines[i]);
-        if (!m.hasMatch()) continue;
+        if (servoRe.match(lines[i].trimmed()).hasMatch())
+            servoLineIndices.append(i);
+    }
 
-        QString name = m.captured(2).trimmed();
-        if (!m_targetServos.contains(name)) continue;
+    bool modified = false;
+    int newCount = m_servoSlots.size();
+    int oldCount = servoLineIndices.size();
 
-        const ServoSlotArray& srv = m_targetServos[name];
-
-        // 构建 SERVO(ch=ang:T<ms>) 字符串（时间模式）
+    // 构建新 SERVO 行的文本
+    auto buildServoLine = [](const ServoSlotArray& srv) -> QString {
         QStringList segments;
         for (int ch = 0; ch < 6; ++ch) {
             if (!srv[ch].enabled()) continue;
             int tMs = srv[ch].timeMs;
-            if (tMs <= 0) tMs = 1000;  // 默认 1000ms
+            if (tMs <= 0) tMs = 1000;
             segments.append(QStringLiteral("%1=%2:T%3")
                 .arg(srv[ch].channel)
                 .arg(srv[ch].angle, 0, 'f', 0)
                 .arg(tMs));
         }
-        if (segments.isEmpty()) continue;
+        if (segments.isEmpty()) return QString();
+        QString body = QStringLiteral("SERVO(%1)").arg(segments.join(QStringLiteral(", ")));
+        return srv.comment.isEmpty()
+            ? body
+            : QStringLiteral("%1 // %2").arg(body, srv.comment);
+    };
 
-        QString servoBody = QStringLiteral("SERVO(%1)")
-            .arg(segments.join(QStringLiteral(", ")));
-        QString newServoLine = srv.comment.isEmpty()
-            ? servoBody
-            : QStringLiteral("%1 // %2").arg(servoBody, srv.comment);
-
-        // 向前找该 MOVE 行紧邻的 SERVO 行
-        bool foundServo = false;
-        for (int j = i - 1; j >= 0; --j) {
-            QString trimmed = lines[j].trimmed();
-            if (trimmed.isEmpty()) continue;
-            if (trimmed.startsWith(QStringLiteral("//"))) continue;
-
-            if (servoRe.match(trimmed).hasMatch()) {
-                // 找到现有 SERVO → 替换
-                if (lines[j] != newServoLine) {
-                    lines[j] = newServoLine;
-                    modified = true;
-                }
-                foundServo = true;
-                break;
-            }
-            // 遇到其他非空非注释行 → 不再往上找
-            break;
+    // 步骤 1：就地更新现有 SERVO 行
+    int limit = qMin(newCount, oldCount);
+    for (int k = 0; k < limit; ++k) {
+        QString newLine = buildServoLine(m_servoSlots[k]);
+        if (newLine.isEmpty()) continue;
+        if (lines[servoLineIndices[k]] != newLine) {
+            lines[servoLineIndices[k]] = newLine;
+            modified = true;
         }
+    }
 
-        if (!foundServo) {
-            // 在 MOVE 行上方插入一条 SERVO
-            lines.insert(i, newServoLine);
-            ++i;  // 跳过刚插入的行
+    // 步骤 2：新增（newCount > oldCount）
+    if (newCount > oldCount) {
+        // 插入位置：最后一条旧 SERVO 后一行，或 TARGET 块末
+        int insertPos = oldCount > 0
+            ? servoLineIndices.last() + 1
+            : [&]() -> int {
+                // 找第一个空行 / "---" 分隔符之后
+                for (int i = 0; i < lines.size(); ++i) {
+                    if (lines[i].trimmed() == QStringLiteral("---")
+                        && i + 1 < lines.size()) return i + 1;
+                }
+                return 0;
+            }();
+        for (int k = oldCount; k < newCount; ++k) {
+            QString newLine = buildServoLine(m_servoSlots[k]);
+            if (newLine.isEmpty()) continue;
+            lines.insert(insertPos++, newLine);
+            modified = true;
+        }
+    }
+
+    // 步骤 3：删除（oldCount > newCount）
+    if (oldCount > newCount) {
+        // 从后往前删，避免索引偏移
+        for (int k = oldCount - 1; k >= newCount; --k) {
+            lines.removeAt(servoLineIndices[k]);
             modified = true;
         }
     }
 
     if (modified) {
-        // blockSignals 避免在弹窗 OK 关闭瞬间触发 syncTimer(500ms)→
-        // syncTargets→targetEd.setPlainText→targetSyncTimer(100ms)→
-        // onTargetEditorChanged 的跨编辑器同步链
         progEd->blockSignals(true);
         progEd->setPlainText(lines.join(QChar::fromLatin1('\n')));
         progEd->blockSignals(false);
@@ -1983,51 +1963,33 @@ void UiController::syncServoInMoveLines()
 }
 
 /**
- * @brief 删除指定点位的 SERVO 行：扫描程序编辑器，找到该点位对应的 MOVE 行，
- *        移除其紧邻(向上最近一条非空非注释)的 SERVO 行。
- *
- * 与 syncServoInMoveLines 对称；用于点位管理弹窗删除点位时同步清理副作用，
- * 避免下次开弹窗 SERVO 行被反向解析回来变成"幽灵 target"。
+ * @brief 按序号删除程序编辑器中的 SERVO 行（从 0 开始计数）
+ *        扫描程序编辑器收集所有 SERVO 行，按序号移除对应行。
  */
-void UiController::removeServoForTarget(const QString& name)
+void UiController::removeServoByIndex(int servoIndex)
 {
-    if (name.isEmpty()) return;
+    if (servoIndex < 0) return;
     auto* progEd = getEditor();
     if (!progEd) return;
 
-    QRegularExpression moveRe(QStringLiteral(
-        "^(\\s*(?:#\\s*)?(?:MOVEJ|MOVEL|MOVEJOFF|MOVELOFF)\\s*\\(\\s*)%1\\b")
-        .arg(QRegularExpression::escape(name)),
-        QRegularExpression::CaseInsensitiveOption);
     QRegularExpression servoRe(QStringLiteral(
         "^\\s*(?:#\\s*)?SERVO\\s*\\("),
         QRegularExpression::CaseInsensitiveOption);
 
     QStringList lines = progEd->toPlainText().split(QChar::fromLatin1('\n'));
-    bool modified = false;
-    // 自上而下扫到引用该 name 的 MOVE 行，向前找 SERVO 移除
+    QList<int> servoLineIndices;
     for (int i = 0; i < lines.size(); ++i) {
-        if (!moveRe.match(lines[i]).hasMatch()) continue;
-        for (int j = i - 1; j >= 0; --j) {
-            QString trimmed = lines[j].trimmed();
-            if (trimmed.isEmpty()) continue;
-            if (trimmed.startsWith(QStringLiteral("//"))) continue;
-            if (servoRe.match(trimmed).hasMatch()) {
-                lines.removeAt(j);
-                modified = true;
-                break;
-            }
-            // 碰到其他非空非注释行 → 停止向上找
-            break;
-        }
+        if (servoRe.match(lines[i].trimmed()).hasMatch())
+            servoLineIndices.append(i);
     }
 
-    if (modified) {
-        // blockSignals 避免在弹窗 OK 关闭瞬间触发跨编辑器同步链堆积
-        progEd->blockSignals(true);
-        progEd->setPlainText(lines.join(QChar::fromLatin1('\n')));
-        progEd->blockSignals(false);
-    }
+    if (servoIndex >= servoLineIndices.size()) return;
+
+    lines.removeAt(servoLineIndices[servoIndex]);
+
+    progEd->blockSignals(true);
+    progEd->setPlainText(lines.join(QChar::fromLatin1('\n')));
+    progEd->blockSignals(false);
 }
 
 /**
@@ -2063,7 +2025,10 @@ void UiController::syncProgramComments()
             targetComments[name] = tail.mid(commentIdx + 2).trimmed();
     }
 
-    if (targetComments.isEmpty()) return;
+    if (targetComments.isEmpty()) {
+        m_syncingComments = false;
+        return;
+    }
 
     // 2. 扫描程序编辑器，追加注释到引用有点位注释的 MOVE 行
     const QStringList progLines = progEd->toPlainText().split(QChar::fromLatin1('\n'));
@@ -2107,7 +2072,9 @@ void UiController::syncProgramComments()
     }
     QTextCursor cursor = progEd->textCursor();
     int oldPos = cursor.position();
+    progEd->blockSignals(true);
     progEd->setPlainText(newText);
+    progEd->blockSignals(false);
     int newLen = progEd->toPlainText().length();
     cursor.setPosition(qMin(oldPos, newLen));
     progEd->setTextCursor(cursor);

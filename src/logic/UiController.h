@@ -85,15 +85,13 @@ public slots:
     /// 把点位 m_targetMotion 的值同步过去,保证点位管理修改后编辑器行级参数同步
     void syncMotionInMoveLines();
 
-    /// 同步程序编辑器中的 SERVO 行(舵机角度):把点位 m_targetServos 的角度值
-    /// 写回紧随 MOVEJ/MOVEL 之前的 SERVO 指令;若该点位无 SERVO 行则插入一条
+    /// 同步程序编辑器中的 SERVO 行(舵机角度):用 m_servoSlots 的所有数据
+    /// 更新程序中的 SERVO 行。SERVO 是独立行，不再绑定到 MOVE 指令。
+    /// 支持增加、修改、删除操作，保持顺序不变。
     void syncServoInMoveLines();
 
-    /// 删除指定点位的 SERVO 行：扫描程序编辑器，找到该点位对应的 MOVE 行，
-    /// 移除其紧邻(向上最近一条非空非注释)的 SERVO 行。
-    /// 用于点位管理弹窗删除点位时同步清理 SERVO 副作用，避免下次开弹窗
-    /// SERVO 行被反向解析回 servosForTarget 变成"幽灵 target"。
-    void removeServoForTarget(const QString& name);
+    /// 按序号删除程序编辑器中的 SERVO 行（从 0 开始计数）
+    void removeServoByIndex(int servoIndex);
 
     // === 新增指令 ===
     void onProgInsertMoveOff();
@@ -165,9 +163,8 @@ private:
     /// @brief 目标名 → 点位级运动参数(speed/accel/decel/timeoutMs,0 表示未设)
     /// 与 m_targets 并行存在;在解析 TARGET 行 `}` 之后的 `#speed=..` 段时填入
     QHash<QString, MotionParams> m_targetMotion;
-    /// @brief 目标名 → 关联的 SERVO 舵机角度快照(6路)
-    /// 在 parseScript 解析 SERVO 指令时,将 SERVO 与紧随其后的 MOVEJ/MOVEL 目标名关联
-    QHash<QString, ServoSlotArray> m_targetServos;
+    /// @brief SERVO 舵机序列(按程序中出现顺序)，每条为一个独立的 SERVO 指令
+    QList<ServoSlotArray> m_servoSlots;
     bool m_syncTargetsBusy = false;           // syncTargets 防重入
     bool m_syncingComments = false;          // syncProgramComments 防重入
     int m_currentExecLine = -1;               // 当前执行源代码行号（-1=无）
