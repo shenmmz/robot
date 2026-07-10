@@ -1,4 +1,4 @@
-/*
+﻿/*
  * @file mainwindow.cpp
  * @brief 实现原始主窗口类 MainWindow 的构造和析构。
  *
@@ -1946,11 +1946,11 @@ void MainWindow::initManualProgUI()
 
     QPlainTextEdit* progTargets = new QPlainTextEdit(targetWrap);
     progTargets->setObjectName(QStringLiteral("progTargets"));  // ★ 关键:UiController 通过这个 name 找到
-    // 只读展示：所有点位修改统一通过"点位调节"按钮弹出的对话框完成
+    // 只读展示：所有点位修改统一通过"点位管理"按钮弹出的对话框完成
     progTargets->setReadOnly(true);
     progTargets->setToolTip(QStringLiteral(
         "点位定义区（只读）：显示当前 TARGET 定义；\n"
-        "如需修改请点击上方「点位调节」按钮。"));
+        "如需修改请点击上方「点位管理」按钮。"));
     progTargets->setStyleSheet(QStringLiteral(
         "QPlainTextEdit{background:#ffffff;color:#1565c0;"
         "border-top:1px solid #e0e0e0;border-left:1px solid #e0e0e0;border-right:none;border-bottom:none;"
@@ -2118,8 +2118,8 @@ void MainWindow::initManualProgUI()
         }
     });
 
-    // "点位调节"按钮：弹出当前流程中所有引用点位的编辑对话框
-    QPushButton* btnEditTargets = new QPushButton(QStringLiteral("点位调节"));
+    // "点位管理"按钮：弹出当前流程中所有引用点位的编辑对话框
+    QPushButton* btnEditTargets = new QPushButton(QStringLiteral("点位管理"));
     btnEditTargets->setMinimumSize(72, 36);
     btnEditTargets->setStyleSheet(
         QStringLiteral("QPushButton{background:#fff3e0;color:#e65100;border:1px solid #ffcc80;border-radius:4px;"

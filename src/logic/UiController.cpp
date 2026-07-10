@@ -1434,151 +1434,164 @@ void UiController::showTargetEditDialog()
         // 注释行（独占整行）：servo 序号 + "注释:" + 注释编辑框
         static int servoSeq = 1;     // 弹窗内全局自增，按 SERVO 出现顺序
         auto* sRow = new QWidget(servoScrollContent);
+        sRow->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed);
         auto* sRowOuter = new QVBoxLayout(sRow);
         sRowOuter->setSpacing(0);
         sRowOuter->setContentsMargins(0, 0, 0, 0);
 
-        {
-            auto* srvCommentRow = new QHBoxLayout;
-            srvCommentRow->setSpacing(4);
-            srvCommentRow->setContentsMargins(0, 0, 0, 1);
-            // servoTag 标签固定创建（因为这里进入的 target 必然有 SERVO 关联）
-            auto* servoTag = new QLabel(QStringLiteral("servo%1").arg(servoSeq++), servoScrollContent);
-            servoTag->setFixedHeight(22);
-            servoTag->setFixedWidth(60);
-            servoTag->setStyleSheet(QStringLiteral("font-size:12px;font-weight:bold;color:#1565c0;"));
-            srvCommentRow->addWidget(servoTag);
-            auto* srvCommentLabel = new QLabel(QStringLiteral("注释:"), servoScrollContent);
-            srvCommentLabel->setFixedHeight(22);
-            srvCommentLabel->setStyleSheet(QStringLiteral("font-size:12px;color:#888;"));
-            srvCommentRow->addWidget(srvCommentLabel);
-            auto* srvCommentEdit = new QLineEdit(servoScrollContent);
-            srvCommentEdit->setFixedHeight(22);
-            QString srvComment;
-            if (srvData && !srvData->comment.isEmpty()) {
-                srvComment = srvData->comment;
-            } else if (m_targetServos.contains(name)) {
-                srvComment = m_targetServos[name].comment;
-            }
-            if (!srvComment.isEmpty()) {
-                srvCommentEdit->setText(srvComment);
-            }
-            srvCommentEdit->setStyleSheet(QStringLiteral(
-                "QLineEdit{background:#fafafa;border:1px dashed #ccc;border-radius:3px;"
-                "font-size:12px;padding:1px 4px;}"
-                "QLineEdit:focus{border:1px solid #1565c0;background:#fff;}"));
-            srvCommentRow->addWidget(srvCommentEdit, 1);
-            sRowOuter->addLayout(srvCommentRow);
-            sg.servoCommentEdit = srvCommentEdit;
+        // 注释行 srvCommentRow——提到外层作用域，便于末尾追加删除按钮
+        auto* srvCommentRow = new QHBoxLayout;
+        srvCommentRow->setSpacing(4);
+        srvCommentRow->setContentsMargins(0, 0, 0, 1);
+        // servoTag 标签固定创建（因为这里进入的 target 必然有 SERVO 关联）
+        auto* servoTag = new QLabel(QStringLiteral("servo%1").arg(servoSeq++), servoScrollContent);
+        servoTag->setFixedHeight(22);
+        servoTag->setFixedWidth(60);
+        servoTag->setStyleSheet(QStringLiteral("font-size:12px;font-weight:bold;color:#1565c0;"));
+        srvCommentRow->addWidget(servoTag);
+        auto* srvCommentLabel = new QLabel(QStringLiteral("注释:"), servoScrollContent);
+        srvCommentLabel->setFixedHeight(22);
+        srvCommentLabel->setStyleSheet(QStringLiteral("font-size:12px;color:#888;"));
+        srvCommentRow->addWidget(srvCommentLabel);
+        auto* srvCommentEdit = new QLineEdit(servoScrollContent);
+        srvCommentEdit->setFixedHeight(22);
+        QString srvComment;
+        if (srvData && !srvData->comment.isEmpty()) {
+            srvComment = srvData->comment;
+        } else if (m_targetServos.contains(name)) {
+            srvComment = m_targetServos[name].comment;
         }
+        if (!srvComment.isEmpty()) {
+            srvCommentEdit->setText(srvComment);
+        }
+        srvCommentEdit->setStyleSheet(QStringLiteral(
+            "QLineEdit{background:#fafafa;border:1px dashed #ccc;border-radius:3px;"
+            "font-size:12px;padding:1px 4px;}"
+            "QLineEdit:focus{border:1px solid #1565c0;background:#fff;}"));
+        srvCommentRow->addWidget(srvCommentEdit, 1);
+        sRowOuter->addLayout(srvCommentRow);
+        sg.servoCommentEdit = srvCommentEdit;
 
-        // 编辑控件行：6 路 A/T 横向并排
-        auto* sRowLayout = new QHBoxLayout;
-        sRowLayout->setSpacing(1);
-        sRowLayout->setContentsMargins(0, 0, 0, 0);
-        sRowOuter->addLayout(sRowLayout);
+        // 6 路舵机：每路一个竖列（A标签 → A编辑 → T标签 → T编辑），包在固定宽度容器内，全屏不散开
+        auto* dataContainer = new QWidget(servoScrollContent);
+        dataContainer->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Preferred);
+        auto* dataRow = new QHBoxLayout(dataContainer);
+        dataRow->setSpacing(2);
+        dataRow->setContentsMargins(0, 2, 0, 0);
+        sRowOuter->addWidget(dataContainer);
 
         for (int s = 0; s < 6; ++s) {
-            auto* aLabel = new QLabel(QStringLiteral("A%1:").arg(s), servoScrollContent);
-            aLabel->setFixedHeight(24);
-            aLabel->setFixedWidth(32);
-            aLabel->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
-            aLabel->setStyleSheet(QStringLiteral("font-size:12px;font-weight:bold;color:#555;padding-right:2px;"));
-            sRowLayout->addWidget(aLabel);
+            auto* colWidget = new QWidget(servoScrollContent);
+            colWidget->setFixedWidth(66);
+            auto* colLayout = new QVBoxLayout(colWidget);
+            colLayout->setSpacing(1);
+            colLayout->setContentsMargins(0, 0, 0, 0);
 
-            auto* aEdit = new QLineEdit(servoScrollContent);
+            // A 标签
+            auto* aLbl = new QLabel(QStringLiteral("A%1").arg(s), colWidget);
+            aLbl->setAlignment(Qt::AlignCenter);
+            aLbl->setFixedHeight(16);
+            aLbl->setMinimumWidth(54);
+            aLbl->setMaximumWidth(66);
+            aLbl->setStyleSheet(QStringLiteral("color:#222;font-weight:bold;font-size:11px;"
+                                                "font-family:Consolas,'Microsoft YaHei UI';"));
+            colLayout->addWidget(aLbl);
+
+            // A 编辑框
+            auto* aEdit = new QLineEdit(colWidget);
             double defAngle = (srvData && (*srvData)[s].enabled()) ? (*srvData)[s].angle : 0.0;
             aEdit->setText(QString::number(defAngle, 'f', 0));
             aEdit->setFixedHeight(24);
-            aEdit->setMinimumWidth(50);
-            aEdit->setMaximumWidth(60);
+            aEdit->setMinimumWidth(54);
+            aEdit->setMaximumWidth(66);
+            aEdit->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed);
             aEdit->setAlignment(Qt::AlignCenter);
             aEdit->setStyleSheet(QStringLiteral(
                 "QLineEdit{border:1px solid #d0d5dd;border-radius:3px;"
-                "padding:1px 1px;font-size:13px;background:#ffffff;"
+                "padding:1px 2px;font-size:13px;background:#ffffff;"
                 "selection-background-color:#264f78;selection-color:#ffffff;}"
                 "QLineEdit:focus{border:1px solid #1565c0;}"));
             auto* aVal = new QDoubleValidator(0.0, 180.0, 0, aEdit);
             aVal->setNotation(QDoubleValidator::StandardNotation);
             aEdit->setValidator(aVal);
-            sRowLayout->addWidget(aEdit);
+            colLayout->addWidget(aEdit);
             sg.servoAngle[s] = aEdit;
             QObject::connect(aEdit, &QLineEdit::editingFinished,
                              &dlg, [&sg, s]{ sg.servoUserEdited[s] = true; });
 
-            auto* sLabel = new QLabel(QStringLiteral("T%1:").arg(s), servoScrollContent);
-            sLabel->setFixedHeight(24);
-            sLabel->setFixedWidth(32);
-            sLabel->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
-            sLabel->setStyleSheet(QStringLiteral("font-size:12px;font-weight:bold;color:#555;padding-right:2px;"));
-            sRowLayout->addWidget(sLabel);
+            // T 标签
+            auto* tLbl = new QLabel(QStringLiteral("T%1").arg(s), colWidget);
+            tLbl->setAlignment(Qt::AlignCenter);
+            tLbl->setFixedHeight(16);
+            tLbl->setMinimumWidth(54);
+            tLbl->setMaximumWidth(66);
+            tLbl->setStyleSheet(QStringLiteral("color:#222;font-weight:bold;font-size:11px;"
+                                                "font-family:Consolas,'Microsoft YaHei UI';"));
+            colLayout->addWidget(tLbl);
 
-            auto* spdEdit = new QLineEdit(servoScrollContent);
+            // T 编辑框
+            auto* spdEdit = new QLineEdit(colWidget);
             int defTime = (srvData && (*srvData)[s].enabled()) ? (*srvData)[s].timeMs : 1000;
             if (defTime <= 0) defTime = 1000;
             spdEdit->setText(QString::number(defTime));
             spdEdit->setFixedHeight(24);
-            spdEdit->setMinimumWidth(50);
-            spdEdit->setMaximumWidth(60);
+            spdEdit->setMinimumWidth(54);
+            spdEdit->setMaximumWidth(66);
+            spdEdit->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed);
             spdEdit->setAlignment(Qt::AlignCenter);
             spdEdit->setStyleSheet(QStringLiteral(
                 "QLineEdit{border:1px solid #d0d5dd;border-radius:3px;"
-                "padding:1px 1px;font-size:13px;background:#ffffff;"
+                "padding:1px 2px;font-size:13px;background:#ffffff;"
                 "selection-background-color:#264f78;selection-color:#ffffff;}"
                 "QLineEdit:focus{border:1px solid #1565c0;}"));
             auto* sVal = new QIntValidator(10, 30000, spdEdit);
             spdEdit->setValidator(sVal);
-            sRowLayout->addWidget(spdEdit);
+            colLayout->addWidget(spdEdit);
             sg.servoSpeed[s] = spdEdit;
             QObject::connect(spdEdit, &QLineEdit::editingFinished,
                              &dlg, [&sg, s]{ sg.servoUserEdited[s] = true; });
+
+            dataRow->addWidget(colWidget);
         }
+        dataRow->addStretch(1);
 
-        // 操作按钮行：只有"删除"，没有"复制"（按计划文件第 90 行）
-        {
-            auto* srvBtnCol = new QWidget(servoScrollContent);
-            auto* srvBtnColLayout = new QHBoxLayout(srvBtnCol);
-            srvBtnColLayout->setSpacing(3);
-            srvBtnColLayout->setContentsMargins(0, 0, 0, 0);
+        // 删除按钮：放在注释行末尾（与点位面板"标题行右侧"风格一致）
+        auto* srvDelBtn = new QPushButton(QStringLiteral("删除"), &dlg);
+        QString btnStyle = QStringLiteral(
+            "QPushButton{background:#fff; border:1px solid #ccc; border-radius:3px;"
+            "padding:4px 8px; font-size:13px;}"
+            "QPushButton:hover{background:#f5f5f5;}");
+        srvDelBtn->setStyleSheet(btnStyle);
+        srvDelBtn->setFixedSize(52, 28);
+        // 把删除按钮放到注释行末尾（与点位面板"标题行右侧"风格一致）
+        srvCommentRow->addWidget(srvDelBtn);
 
-            auto* srvDelBtn = new QPushButton(QStringLiteral("删除"), srvBtnCol);
-            QString btnStyle = QStringLiteral(
-                "QPushButton{background:#fff; border:1px solid #ccc; border-radius:3px;"
-                "padding:4px 8px; font-size:13px;}"
-                "QPushButton:hover{background:#f5f5f5;}");
-            srvDelBtn->setStyleSheet(btnStyle);
-            srvDelBtn->setFixedSize(52, 28);
-            srvBtnColLayout->addWidget(srvDelBtn);
-            sRowLayout->addWidget(srvBtnCol);
+        // 删除舵机行：仅删 servoGroups[j]，同时清理 m_targetServos[name] + progEd SERVO 行
+        QObject::connect(srvDelBtn, &QPushButton::clicked, &dlg,
+            [&servoGroups, &servoRowsLayout, servoRow = sRow, &dlg, this] {
+            int idx = -1;
+            for (int k = 0; k < servoGroups.size(); ++k) {
+                if (servoGroups[k].servoRow == servoRow) { idx = k; break; }
+            }
+            if (idx < 0) return;
+            const QString delName = servoGroups[idx].name;
 
-            // 删除舵机行：仅删 servoGroups[j]，同时清理 m_targetServos[name] + progEd SERVO 行
-            QObject::connect(srvDelBtn, &QPushButton::clicked, &dlg,
-                [&servoGroups, &servoRowsLayout, servoRow = sRow, &dlg, this] {
-                int idx = -1;
-                for (int k = 0; k < servoGroups.size(); ++k) {
-                    if (servoGroups[k].servoRow == servoRow) { idx = k; break; }
-                }
-                if (idx < 0) return;
-                const QString delName = servoGroups[idx].name;
+            QMessageBox::StandardButton reply = QMessageBox::question(
+                &dlg, QStringLiteral("确认删除"),
+                QStringLiteral("确定要删除舵机行「%1」对应的 SERVO 指令吗？\n"
+                                "(仅删除 SERVO，所属点位行不会被删除)").arg(delName),
+                QMessageBox::Yes | QMessageBox::No, QMessageBox::No);
+            if (reply != QMessageBox::Yes) return;
 
-                QMessageBox::StandardButton reply = QMessageBox::question(
-                    &dlg, QStringLiteral("确认删除"),
-                    QStringLiteral("确定要删除舵机行「%1」对应的 SERVO 指令吗？\n"
-                                    "(仅删除 SERVO，所属点位行不会被删除)").arg(delName),
-                    QMessageBox::Yes | QMessageBox::No, QMessageBox::No);
-                if (reply != QMessageBox::Yes) return;
-
-                servoRowsLayout->removeWidget(servoRow);
-                servoRow->deleteLater();
-                servoGroups.removeAt(idx);
-                if (!delName.isEmpty()) {
-                    m_targetServos.remove(delName);
-                    removeServoForTarget(delName);
-                    qDebug() << "[舵机管理] 删除 SERVO 卡片:" << delName;
-                }
-            });
-        }
-        sRowLayout->addStretch();
+            servoRowsLayout->removeWidget(servoRow);
+            servoRow->deleteLater();
+            servoGroups.removeAt(idx);
+            if (!delName.isEmpty()) {
+                m_targetServos.remove(delName);
+                removeServoForTarget(delName);
+                qDebug() << "[舵机管理] 删除 SERVO 卡片:" << delName;
+            }
+        });
 
         sg.servoRow = sRow;
         servoRowsLayout->addWidget(sRow);
@@ -1611,6 +1624,9 @@ void UiController::showTargetEditDialog()
             servoGroups.append(createServoRow(name, &servosForTarget[name]));
         }
     }
+
+    // 垂直弹簧：吸收多余空间，防止各行被拉伸
+    servoRowsLayout->addStretch(1);
 
     // ===== "增加"按钮 =====
     QObject::connect(addBtn, &QPushButton::clicked, &dlg, [&] {
