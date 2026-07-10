@@ -7,13 +7,8 @@
 3. 通过 `stage1_comm.protocol` 打包消息并用 QTcpSocket 发送；
 4. 接收外部控制命令并回 ACK。
 
-电机映射：
-- 6号电机：手腕翻转角（signed_roll_deg），左转负/右转正
-- 5号电机：手腕上下角（wrist_pitch_deg），上翻正/下翻负
-- 4号电机：肘部左右翻转（elbow_abduction_deg），左偏负/右偏正
-- 3号电机：肘部上下翻转（elbow_flex_deg），上抬正/下垂负
-- 2号电机：肩部左右（shoulder_abduction_deg）
-- 1号电机：肩部上下（shoulder_flexion_deg）
+电机映射不在本文件硬编码，统一由 `solver.motor_mapping` 提供。
+本文件只负责把映射表中的角度字段翻译成发送 payload。
 """
 
 from __future__ import annotations
@@ -25,10 +20,11 @@ from typing import Any
 from PySide6.QtCore import QObject, QTimer, Signal
 from PySide6.QtNetwork import QAbstractSocket, QTcpSocket
 
+from solver.motor_mapping import MotorMapping, iter_motor_mappings
 from stage1_comm.protocol import build_message, decode_message, encode_message
 
 _PROTOCOL_VERSION = "vision_motor_v1"
-_CONTROL_STAGE = "right_wrist_motor_6_only"
+_CONTROL_STAGE = "mapped_motor_outputs"
 
 
 def _jsonable(value: Any) -> Any:
@@ -78,177 +74,167 @@ def _round_deg(value: Any) -> float | None:
     return round(number, 1)
 
 
-def _motor_direction_text(direction: str) -> str:
-    """将 6 号电机方向枚举转换为中文文本。"""
-    if direction == "left":
-        return "左旋转"
-    if direction == "right":
-        return "右旋转"
-    return "保持"
-
-
-def _wrist_pitch_direction_text(pitch_deg: float | None) -> str:
-    """手腕上下方向中文文本。上翻为正（伸展/dorsiflexion），下翻为负（屈曲/palmar flexion）。"""
-    if pitch_deg is None:
-        return "保持"
-    threshold = 3.0
-    if pitch_deg > threshold:
-        return "上翻"
-    if pitch_deg < -threshold:
-        return "下翻"
-    return "保持"
-
-
-def _wrist_pitch_direction(pitch_deg: float | None) -> str:
-    """手腕上下方向枚举值。"""
-    if pitch_deg is None:
-        return "hold"
-    threshold = 3.0
-    if pitch_deg > threshold:
-        return "up"
-    if pitch_deg < -threshold:
-        return "down"
-    return "hold"
-
-
-def _compact_motor_6(motor: Any) -> dict[str, Any]:
-    """压缩 6 号电机命令。
+def _nested_get(data: Any, field_path: str) -> Any:
+    """按 `a.b.c` 路径从嵌套 dict 中取值。
 
     输入：
-    - motor：完整 payload 中的 `motor_6` 字段。
+    - data：待读取的字典；
+    - field_path：字段路径，如 `wrist_rotation.horizontal_deg`。
 
     输出：
-    - 面向外部控制端的紧凑字典，包含方向、角度、状态和原因。
-
-    功能实现：
-    - 缺失/无效时输出保持状态；
-    - 有效时提取手腕 roll 和 pitch；
-    - `motion_allowed=True` 时状态为 send，否则为 hold。
+    - 字段值；任一级缺失时返回 None。
     """
-    if not isinstance(motor, dict):
-        return {
-            "motor_id": 6,
-            "pwm_index": 6,
-            "target": "right_wrist_roll",
-            "state": "hold",
-            "valid": False,
-            "motion_allowed": False,
-            "direction": "unknown",
-            "direction_text": "保持",
-            "angle_deg": None,
-            "signed_angle_deg": None,
-            "reason": "motor_6_missing",
-            "wrist_pitch_deg": None,
-            "motor_5": "hold",
-            "motor_5_direction_text": "保持",
-        }
-
-    direction = str(motor.get("direction") or "unknown")
-    angle_deg = _round_deg(motor.get("angle_deg", motor.get("roll_deg")))
-    signed_angle_deg = _round_deg(motor.get("signed_angle_deg", motor.get("signed_roll_deg")))
-    wrist_pitch_deg = _round_deg(motor.get("wrist_pitch_deg"))
-    pitch_direction = _wrist_pitch_direction(wrist_pitch_deg)
-    pitch_direction_text = _wrist_pitch_direction_text(wrist_pitch_deg)
-    valid = _as_bool(motor.get("valid"))
-    # 最终是否允许发送动作由推理有效性和过滤层 motion_allowed 同时决定。
-    motion_allowed = valid and _as_bool(motor.get("motion_allowed"))
-    state = "send" if motion_allowed else "hold"
-    reason = str(motor.get("reason") or ("ok" if motion_allowed else "hold"))
-
-    return {
-        "motor_id": 6,
-        "pwm_index": 6,
-        "target": "right_wrist_roll",
-        "joint": "wrist",
-        "axis": "roll",
-        "state": state,
-        "valid": valid,
-        "motion_allowed": motion_allowed,
-        "direction": direction,
-        "direction_text": _motor_direction_text(direction),
-        "rotation_side": str(motor.get("rotation_side") or "unknown"),
-        "angle_deg": angle_deg,
-        "signed_angle_deg": signed_angle_deg,
-        "confidence": _round_deg(motor.get("confidence")),
-        "reason": reason,
-        "wrist_pitch_deg": wrist_pitch_deg,
-        "motor_5": pitch_direction,
-        "motor_5_direction_text": pitch_direction_text,
-    }
+    current = data
+    for part in field_path.split("."):
+        if not isinstance(current, dict):
+            return None
+        current = current.get(part)
+    return current
 
 
-def _extract_right_arm_angle(angles: list | None, field: str) -> float | None:
-    """从 angles 列表中提取右臂的指定角度字段。"""
-    if not angles or not isinstance(angles, list):
+def _normalize_side(value: Any) -> str:
+    """把 side 字段标准化为字符串。"""
+    return str(getattr(value, "value", value) or "").lower()
+
+
+def _extract_arm_angle(angles: Any, mapping: MotorMapping) -> float | None:
+    """根据映射表从 `angles` 列表中提取角度。
+
+    输入：
+    - angles：推理 payload 中的左右臂角度列表；
+    - mapping：单个电机映射配置。
+
+    输出：
+    - 映射字段对应的角度，无法提取时返回 None。
+    """
+    if not isinstance(angles, list):
         return None
-    for a in angles:
-        if isinstance(a, dict) and a.get("side") == "right":
-            val = a.get(field)
-            if val is not None:
-                return _round_deg(val)
+
+    for arm in angles:
+        if not isinstance(arm, dict):
+            continue
+        if _normalize_side(arm.get("side")) != mapping.side:
+            continue
+        return _round_deg(_nested_get(arm, mapping.angle_field))
     return None
 
 
-def _compact_motor_3(angles: list | None) -> dict[str, Any]:
-    """Motor 3：肘部上下（elbow_flex_deg）。"""
-    flex_deg = _extract_right_arm_angle(angles, "elbow_flex_deg")
-    return {
-        "motor_id": 3,
-        "pwm_index": 3,
-        "target": "right_elbow_flexion",
-        "joint": "elbow",
-        "axis": "flexion",
-        "valid": flex_deg is not None,
-        "angle_deg": flex_deg,
-    }
-
-
-def _compact_motor_4(angles: list | None) -> dict[str, Any]:
-    """Motor 4：肘部左右翻转（elbow_abduction_deg）。"""
-    abduction_deg = _extract_right_arm_angle(angles, "elbow_abduction_deg")
-    direction = "hold"
-    if abduction_deg is not None:
-        threshold = 3.0
-        if abduction_deg > threshold:
-            direction = "right"   # 向右偏
-        elif abduction_deg < -threshold:
-            direction = "left"    # 向左偏
-    return {
-        "motor_id": 4,
-        "pwm_index": 4,
-        "target": "right_elbow_abduction",
-        "joint": "elbow",
-        "axis": "abduction",
-        "valid": abduction_deg is not None,
-        "angle_deg": abduction_deg,
-        "direction": direction,
-    }
-
-
-def _motor_summary(command: dict[str, Any]) -> str:
-    """生成发送给 UI/日志使用的电机摘要文本。
+def _extract_motor_angle(body: dict[str, Any], mapping: MotorMapping) -> tuple[float | None, dict[str, Any] | None]:
+    """根据映射表从完整 payload 中提取角度和原始来源字典。
 
     输入：
-    - command：`_compact_motor_6()` 输出的紧凑命令。
+    - body：过滤后的完整推理 payload；
+    - mapping：单个电机映射配置。
 
     输出：
-    - 中文摘要字符串。
+    - `(angle, source_dict)`：角度值和原始来源字典；来源不是 dict 时返回 None。
     """
-    reason = command.get("reason") or "-"
-    pitch_direction_text = command.get("motor_5_direction_text") or "保持"
-    pitch_deg = command.get("wrist_pitch_deg")
-    pitch_part = ""
-    if pitch_deg is not None:
-        pitch_part = f"\n5号电机: {pitch_direction_text} {pitch_deg}°"
-    if not command.get("valid"):
-        return f"6号电机：保持 | 右手未有效识别 | reason={reason}{pitch_part}"
+    if mapping.source == "angles":
+        return _extract_arm_angle(body.get("angles"), mapping), None
 
-    angle = command.get("angle_deg")
-    angle_text = "-" if angle is None else f"{angle:g}°"
-    direction_text = command.get("direction_text") or _motor_direction_text(str(command.get("direction") or "unknown"))
-    if not command.get("motion_allowed"):
-        return f"6号电机：保持 | {direction_text} {angle_text} | reason={reason}{pitch_part}"
-    return f"6号电机：发送 | {direction_text} {angle_text}{pitch_part}"
+    source = body.get(mapping.source)
+    if isinstance(source, dict):
+        return _round_deg(_nested_get(source, mapping.angle_field)), source
+    return None, None
+
+
+def _direction_from_angle(angle: float | None, mapping: MotorMapping) -> tuple[str, str]:
+    """根据角度正负和映射表生成方向枚举与中文文案。"""
+    if angle is None:
+        return mapping.neutral_direction, mapping.neutral_text
+    if angle > mapping.threshold_deg:
+        return mapping.positive_direction, mapping.positive_text
+    if angle < -mapping.threshold_deg:
+        return mapping.negative_direction, mapping.negative_text
+    return mapping.neutral_direction, mapping.neutral_text
+
+
+def _mapped_motor_command(body: dict[str, Any], mapping: MotorMapping) -> dict[str, Any]:
+    """把单条映射配置转换为外部控制端电机命令。
+
+    输入：
+    - body：过滤后的完整推理 payload；
+    - mapping：单个电机映射配置。
+
+    输出：
+    - 面向通信协议的电机命令字典。
+
+    功能实现：
+    - 本函数不写死任何关节字段；
+    - 所有关节字段、电机编号、方向文案均来自 `solver.motor_mapping`；
+    - 推理字段缺失时输出保持状态，不影响程序运行。
+    """
+    raw_angle, source_dict = _extract_motor_angle(body, mapping)
+    signed_angle = _round_deg(raw_angle + mapping.angle_offset_deg) if raw_angle is not None else None
+    direction, direction_text = _direction_from_angle(signed_angle, mapping)
+
+    valid = signed_angle is not None
+    source_valid = True
+    source_motion_allowed = True
+    reason = "ok" if valid else f"{mapping.angle_field}_missing"
+
+    if isinstance(source_dict, dict):
+        source_valid = _as_bool(source_dict.get("valid", True))
+        source_motion_allowed = _as_bool(source_dict.get("motion_allowed", True))
+        reason = str(source_dict.get("reason") or reason)
+
+    if mapping.source == "angles" and not _as_bool(body.get("pose_valid", body.get("has_pose", True))):
+        source_motion_allowed = False
+        if valid:
+            reason = "pose_not_valid"
+
+    valid = valid and source_valid
+    motion_allowed = valid and source_motion_allowed
+    state = "send" if motion_allowed and mapping.send_enabled else "hold"
+
+    angle_deg = abs(signed_angle) if (signed_angle is not None and mapping.use_absolute_angle) else signed_angle
+
+    return {
+        "motor_id": mapping.motor_id,
+        "pwm_index": mapping.resolved_pwm_index,
+        "angle_name": mapping.angle_name,
+        "description": mapping.description,
+        "target": mapping.target,
+        "joint": mapping.joint,
+        "axis": mapping.axis,
+        "side": mapping.side,
+        "source": mapping.source,
+        "angle_field": mapping.angle_field,
+        "state": state,
+        "valid": valid,
+        "motion_allowed": motion_allowed,
+        "send_enabled": mapping.send_enabled,
+        "direction": direction,
+        "direction_text": direction_text,
+        "angle_deg": angle_deg,
+        "signed_angle_deg": signed_angle,
+        "reason": reason,
+    }
+
+
+def _mapped_motor_commands(body: dict[str, Any]) -> tuple[dict[str, dict[str, Any]], list[dict[str, Any]]]:
+    """根据映射表生成全部电机输出和实际发送命令列表。"""
+    motors: dict[str, dict[str, Any]] = {}
+    commands: list[dict[str, Any]] = []
+    for mapping in iter_motor_mappings():
+        command = _mapped_motor_command(body, mapping)
+        motors[f"motor_{mapping.motor_id}"] = command
+        if command.get("state") == "send":
+            commands.append(command)
+    return motors, commands
+
+
+def _mapped_motor_summary(motors: dict[str, dict[str, Any]]) -> str:
+    """按映射表输出电机摘要文本，便于 UI/日志查看实际发送语句。"""
+    lines: list[str] = []
+    for mapping in iter_motor_mappings():
+        command = motors.get(f"motor_{mapping.motor_id}", {})
+        state_text = "发送" if command.get("state") == "send" else "保持"
+        angle = command.get("angle_deg")
+        angle_text = "-" if angle is None else f"{angle:g}°"
+        direction_text = command.get("direction_text") or mapping.neutral_text
+        lines.append(f"{mapping.motor_id}号电机：{state_text} | {direction_text} {angle_text}")
+    return "\n".join(lines)
 
 
 def _compact_pose_payload(body: dict[str, Any], client_name: str) -> dict[str, Any]:
@@ -262,15 +248,11 @@ def _compact_pose_payload(body: dict[str, Any], client_name: str) -> dict[str, A
     - 外部控制端需要的紧凑 payload。
 
     功能实现：
-    - 提取 3/4/6 号电机输出；
+    - 按 `solver.motor_mapping` 提取所有配置的电机输出；
     - 保留过滤状态和帧号；
     - 生成 summary 便于接收端日志显示。
     """
-    # 6 号电机来自 motor_6 字段；3/4 号电机从右臂 angles 中提取。
-    command = _compact_motor_6(body.get("motor_6"))
-    angles = body.get("angles")
-    motor_3 = _compact_motor_3(angles)
-    motor_4 = _compact_motor_4(angles)
+    motors, motor_commands = _mapped_motor_commands(body)
     compact = {
         "protocol_version": _PROTOCOL_VERSION,
         "source": body.get("source", "vision"),
@@ -278,16 +260,46 @@ def _compact_pose_payload(body: dict[str, Any], client_name: str) -> dict[str, A
         "frame_id": body.get("frame_id"),
         "control_stage": _CONTROL_STAGE,
         "pose_valid": _as_bool(body.get("pose_valid", body.get("has_right_hand"))),
-        "motion_allowed": _as_bool(command.get("motion_allowed")),
+        "motion_allowed": bool(motor_commands),
         "filter_state": body.get("filter_state"),
         "filter_reason": body.get("filter_reason"),
-        "motor_3": motor_3,
-        "motor_4": motor_4,
-        "motor_6": command,
-        "motor_commands": [command] if command.get("valid") and command.get("motion_allowed") else [],
+        "motors": motors,
+        "motor_commands": motor_commands,
     }
-    compact["summary"] = _motor_summary(command)
+    # 保留 motor_1...motor_6 顶层字段，兼容已有接收端和日志查看习惯。
+    compact.update(motors)
+    compact["summary"] = _mapped_motor_summary(motors)
     return compact
+
+
+def build_compact_pose_payload(payload: Any, client_name: str = "visual-arm") -> dict[str, Any]:
+    """对外构建通信 payload。
+
+    输入：
+    - payload：过滤后的完整推理结果；
+    - client_name：客户端名称。
+
+    输出：
+    - 已按映射表压缩后的电机通信 payload。
+    """
+    body = _jsonable(payload)
+    if not isinstance(body, dict):
+        body = {"data": body}
+    body.setdefault("source", "vision")
+    body.setdefault("client", client_name)
+    return _compact_pose_payload(body, client_name)
+
+
+def format_mapped_motor_summary(payload: Any) -> str:
+    """按映射表生成 UI/日志用电机摘要。
+
+    输入：
+    - payload：过滤后的完整推理结果。
+
+    输出：
+    - 每个映射电机一行的中文摘要。
+    """
+    return build_compact_pose_payload(payload).get("summary", "")
 
 
 class PoseCommClient(QObject):
@@ -438,15 +450,12 @@ class PoseCommClient(QObject):
         body = _jsonable(payload)
         if not isinstance(body, dict):
             body = {"data": body}
-
         if frame_id is not None:
             body.setdefault("frame_id", int(frame_id))
-        body.setdefault("source", "vision")
-        body.setdefault("client", self._client_name)
 
         # 外部主控不需要完整 MediaPipe 字段，只发送紧凑电机 payload。
-        compact = _compact_pose_payload(body, self._client_name)
-        return self.send_message("pose", payload=compact, msg=compact.get("summary", "motor6 update"))
+        compact = build_compact_pose_payload(body, self._client_name)
+        return self.send_message("pose", payload=compact, msg=compact.get("summary", "mapped motor update"))
 
     def _enabled(self) -> bool:
         """判断通信端点是否配置完整。"""

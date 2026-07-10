@@ -50,20 +50,28 @@ wrist pitch    / wrist yaw
 
 ## 电机输出
 
-推理 payload 会保留完整角度信息，并进一步压缩成外部控制端需要的电机字段：
+推理 payload 会保留完整角度信息。外部控制端需要的电机字段由 `solver/motor_mapping.py` 统一生成，通信层不再硬编码“哪个角度对应哪个电机”。
+
+当前默认映射：
 
 - 1 号电机：肩部上下，来源 `shoulder_flex_deg`
 - 2 号电机：肩部左右，来源 `shoulder_abduction_deg`
 - 3 号电机：肘部上下，来源 `elbow_flex_deg`
 - 4 号电机：肘部左右，来源 `elbow_abduction_deg`
-- 5 号电机：手腕上下，来源 `wrist_pitch_deg`
-- 6 号电机：手腕左右翻转，来源 `signed_roll_deg`
+- 5 号电机：手腕上下，来源 `wrist_flex_deg`
+- 6 号电机：手腕左右翻转，来源 `wrist_rotation.horizontal_deg - 90`
+
+修改电机对应关系时，只调整 `solver/motor_mapping.py` 中的 `_MOTOR_MAPPINGS`。若映射字段缺失，通信层会输出保持状态，不会影响推理模块运行。
 
 通信模块输出的紧凑字段包括：
 
 ```text
+motors
+motor_1
+motor_2
 motor_3
 motor_4
+motor_5
 motor_6
 motor_commands
 summary

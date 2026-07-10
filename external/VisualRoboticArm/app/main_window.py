@@ -30,7 +30,7 @@ from PySide6.QtWidgets import (
 )
 
 from app.rs485 import RS485Config, RS485Manager
-from app.pose_comm import PoseCommClient
+from app.pose_comm import PoseCommClient, format_mapped_motor_summary
 from app.pose_filter import PoseMotionFilter
 from app.worker import FrameProcessorThread
 
@@ -560,17 +560,17 @@ class MainWindow(QMainWindow):
         # 过滤层负责低幅抖动保持、无检测时沿用上一次有效值。
         payload = self.pose_filter.filter_payload(payload)
         angles = payload.get("angles", [])
-        motor_6_summary = _format_motor_6_summary(payload.get("motor_6"), payload.get("angles", []))
+        motor_summary = format_mapped_motor_summary(payload)
         if angles:
             summary = _format_arm_rotation_summary(angles)
             if not payload.get("motion_allowed", True):
                 summary = f"[保持] {summary}"
             # action_value 显示电机动作摘要，runtime_text 显示完整左右臂角度。
-            self.action_value.setPlainText(motor_6_summary or summary.splitlines()[0])
+            self.action_value.setPlainText(motor_summary or summary.splitlines()[0])
             self.runtime_text.setHtml(_format_arm_rotation_html(angles))
         else:
-            if motor_6_summary:
-                self.action_value.setPlainText(motor_6_summary)
+            if motor_summary:
+                self.action_value.setPlainText(motor_summary)
             self.runtime_text.setHtml(_angle_placeholder_html())
 
         if self.pose_comm is not None:
@@ -892,94 +892,6 @@ def _format_arm_rotation_summary(angles):
         )
 
     return " | ".join(parts) if parts else "等待推理结果"
-
-
-def _format_motor_6_summary(command, angles=None):
-    if not isinstance(command, dict):
-        return ""
-
-    reason = str(command.get("reason") or "-")
-    direction = _direction_label(command.get("direction"), "horizontal")
-    rotation_side = _rotation_side_label(command.get("rotation_side"))
-    roll = _fmt_whole(command.get("roll_deg"))
-
-    if not command.get("valid"):
-        lines = [f"6号电机 保持 | 右手未有效识别 | reason={reason}"]
-    elif not command.get("motion_allowed"):
-        lines = [f"6号电机 保持 | {rotation_side}/{direction} {roll}° | reason={reason}"]
-    else:
-        lines = [f"6号电机 发送 | {rotation_side}/{direction} {roll}° | 掌面+拇指平面"]
-
-    pitch_deg = command.get("wrist_pitch_deg")
-    if pitch_deg is not None:
-        motor_5_text = command.get("motor_5_direction_text", "保持")
-        lines.append(f"5号电机 {motor_5_text} {_fmt_whole(pitch_deg)}°")
-
-    # Motor 3 & Motor 4：肘部角度
-    elbow_flex = None
-    elbow_abduction = None
-    if angles and isinstance(angles, list):
-        for arm in angles:
-            if isinstance(arm, dict) and arm.get("side") == "right":
-                elbow_flex = arm.get("elbow_flex_deg")
-                elbow_abduction = arm.get("elbow_abduction_deg")
-                break
-
-    # 1号电机：肩部上下（shoulder_flex_deg） & 2号电机：肩部左右（shoulder_abduction_deg）
-    shoulder_flex = None
-    shoulder_abduction = None
-    if angles and isinstance(angles, list):
-        for arm in angles:
-            if isinstance(arm, dict) and arm.get("side") == "right":
-                shoulder_flex = arm.get("shoulder_flex_deg")
-                shoulder_abduction = arm.get("shoulder_abduction_deg")
-                break
-
-    # 1号电机：肩部上下翻转
-    sflex_dir = "保持"
-    if shoulder_flex is not None:
-        if shoulder_flex > 3.0:
-            sflex_dir = "上抬"
-        elif shoulder_flex < -3.0:
-            sflex_dir = "下垂"
-        else:
-            sflex_dir = "水平"
-    lines.append(f"1号电机 {sflex_dir} | 俯仰 {_fmt_whole(shoulder_flex)}°")
-
-    # 2号电机：肩部左右翻转
-    sabd_dir = "保持"
-    if shoulder_abduction is not None:
-        if shoulder_abduction > 3.0:
-            sabd_dir = "右偏"
-        elif shoulder_abduction < -3.0:
-            sabd_dir = "左偏"
-        else:
-            sabd_dir = "居中"
-    lines.append(f"2号电机 {sabd_dir} | 偏转 {_fmt_whole(shoulder_abduction)}°")
-
-    # 3号电机：肘部上下（elbow_flex_deg）
-    flex_dir = "保持"
-    if elbow_flex is not None:
-        if elbow_flex > 3.0:
-            flex_dir = "上抬"
-        elif elbow_flex < -3.0:
-            flex_dir = "下垂"
-        else:
-            flex_dir = "水平"
-    lines.append(f"3号电机 {flex_dir} | 俯仰 {_fmt_whole(elbow_flex)}°")
-
-    # 4号电机：肘部左右翻转（elbow_abduction_deg）
-    abd_dir = "保持"
-    if elbow_abduction is not None:
-        if elbow_abduction > 3.0:
-            abd_dir = "右偏"
-        elif elbow_abduction < -3.0:
-            abd_dir = "左偏"
-        else:
-            abd_dir = "中位"
-    lines.append(f"4号电机 {abd_dir} | 偏转 {_fmt_whole(elbow_abduction)}°")
-
-    return " | ".join(lines)
 
 
 def _format_arm_rotation_html(angles):

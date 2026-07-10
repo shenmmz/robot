@@ -23,11 +23,31 @@ from typing import Iterable
 import numpy as np
 
 from app.models import ArmAngles, Direction, JointRotation, Motor6Command, Side
+from solver.motor_mapping import iter_motor_mappings
 
 
 _X_GLOBAL = np.array([1.0, 0.0, 0.0], dtype=np.float32)
 _Y_GLOBAL = np.array([0.0, 1.0, 0.0], dtype=np.float32)
 _Z_GLOBAL = np.array([0.0, 0.0, 1.0], dtype=np.float32)
+
+
+def _build_angle_motor_labels() -> dict[str, str]:
+    """根据映射表生成角度字段对应的电机标签。
+
+    输入：无，读取 `solver.motor_mapping.iter_motor_mappings()`。
+    输出：`{angle_field: "M1/M2"}` 形式的字典。
+
+    功能：让画面叠字只依赖映射表，不在推理绘制逻辑里硬编码电机编号。
+    """
+    grouped: dict[str, list[int]] = {}
+    for mapping in iter_motor_mappings():
+        if mapping.source != "angles":
+            continue
+        grouped.setdefault(mapping.angle_field, []).append(mapping.motor_id)
+    return {
+        field: "/".join(f"M{motor_id}" for motor_id in sorted(motor_ids))
+        for field, motor_ids in grouped.items()
+    }
 
 
 class MediaPipePoseHandService:
@@ -76,6 +96,7 @@ class MediaPipePoseHandService:
             "LEFT_PINKY": self._mp_pose.PoseLandmark.LEFT_PINKY,
             "LEFT_INDEX": self._mp_pose.PoseLandmark.LEFT_INDEX,
         }
+        self._angle_motor_labels = _build_angle_motor_labels()
 
         self._pose = self._mp_pose.Pose(
             # 视频模式：MediaPipe 会利用上一帧跟踪结果，实时性优于静态图模式。
@@ -383,26 +404,41 @@ class MediaPipePoseHandService:
         输出：无，直接修改 `image_bgr`。
 
         说明：
+        - 电机编号来自 `solver.motor_mapping`，映射表变更后画面叠字同步变化；
         - OpenCV Hershey 字体不稳定支持中文，因此画面叠字保留英文缩写；
         - 代码注释与文档统一使用中文 UTF-8。
         """
         label_sets = (
-            (f"{side}_SHOULDER", ("Sh Pitch", values[0]), ("Sh Yaw", values[1])),
-            (f"{side}_ELBOW", ("El Pitch", values[2]), ("El Yaw", values[3])),
-            (f"{side}_WRIST", ("W Pitch", values[4]), ("W Yaw", values[5])),
+            (
+                f"{side}_SHOULDER",
+                ("shoulder_flex_deg", "Sh Pitch", values[0]),
+                ("shoulder_abduction_deg", "Sh Yaw", values[1]),
+            ),
+            (
+                f"{side}_ELBOW",
+                ("elbow_flex_deg", "El Pitch", values[2]),
+                ("elbow_abduction_deg", "El Yaw", values[3]),
+            ),
+            (
+                f"{side}_WRIST",
+                ("wrist_flex_deg", "W Pitch", values[4]),
+                ("wrist_rotation.horizontal_deg", "W Yaw", values[5]),
+            ),
         )
         for landmark_name, line1, line2 in label_sets:
             # 文本锚点取对应关节的归一化图像坐标，再换算为像素坐标。
             lm = img_lms[self._kp[landmark_name].value]
             x_base = int(np.clip(lm.x, 0.0, 1.0) * (width - 1))
             y_base = int(np.clip(lm.y, 0.0, 1.0) * (height - 1))
-            for row, (label, value) in enumerate((line1, line2)):
-                text = f"{label}:{float(value):.1f}deg"
+            for row, (field, label, value) in enumerate((line1, line2)):
+                motor_label = self._angle_motor_labels.get(field, "")
+                label_text = f"{motor_label} {label}" if motor_label else label
+                text = f"{label_text}:{float(value):.1f}deg"
+                text_width = self._cv2.getTextSize(text, self._cv2.FONT_HERSHEY_SIMPLEX, 0.6, 1)[0][0]
                 if align_left:
-                    x = x_base + 8
+                    x = min(x_base + 8, max(0, width - text_width - 2))
                 else:
                     # 右侧身体的文字向左展开，避免跑出画面右边缘。
-                    text_width = self._cv2.getTextSize(text, self._cv2.FONT_HERSHEY_SIMPLEX, 0.6, 1)[0][0]
                     x = x_base - text_width - 8
                 y = y_base + row * 20
                 self._cv2.putText(
