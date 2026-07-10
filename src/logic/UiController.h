@@ -89,6 +89,12 @@ public slots:
     /// 写回紧随 MOVEJ/MOVEL 之前的 SERVO 指令;若该点位无 SERVO 行则插入一条
     void syncServoInMoveLines();
 
+    /// 删除指定点位的 SERVO 行：扫描程序编辑器，找到该点位对应的 MOVE 行，
+    /// 移除其紧邻(向上最近一条非空非注释)的 SERVO 行。
+    /// 用于点位管理弹窗删除点位时同步清理 SERVO 副作用，避免下次开弹窗
+    /// SERVO 行被反向解析回 servosForTarget 变成"幽灵 target"。
+    void removeServoForTarget(const QString& name);
+
     // === 新增指令 ===
     void onProgInsertMoveOff();
     void onProgInsertMoveLOff();

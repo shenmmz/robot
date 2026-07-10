@@ -30,8 +30,8 @@ struct ServoSlot {
     int    channel = -1;     // 0..5
     double angle   = 0.0;    // 0..180
     double speed   = 0.0;    // °/s,1..360
-    int    timeMs  = 0;      // >0 = 时间模式;0 = 速度模式
-    bool   enabled() const { return channel >= 0; }
+    int    timeMs  = 0;      // >0 = 时间模式;0 = 未设(不参与 SERVO 行生成)
+    bool   enabled() const { return channel >= 0 && timeMs > 0; }
 };
 
 /// 完整 TARGET 定义(替换原来的 QList<double> 6 轴)
