@@ -2189,7 +2189,11 @@ void MainWindow::initManualProgUI()
 void MainWindow::showPointAdjustDialog(bool isJoint)
 {
     // 仅调试模式下可打开调节
-    if (!ui->chkDebugMode->isChecked()) return;
+    if (!ui->chkDebugMode->isChecked()) {
+        QMessageBox::information(this, QStringLiteral("提示"),
+            QStringLiteral("想使用该功能请在调试模式下使用"));
+        return;
+    }
 
     QDialog dlg(this);
     double step = this->ui->debugStep->text().toDouble();
