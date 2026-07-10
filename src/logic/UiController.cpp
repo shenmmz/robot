@@ -1028,6 +1028,7 @@ void UiController::showTargetEditDialog()
         QSpinBox* spinTimeout = nullptr;
         QPushButton* copyBtn = nullptr;
         QPushButton* delBtn = nullptr;
+        QPushButton* teachBtn = nullptr;
     };
     QVector<PointGroup> pointGroups;
 
@@ -1303,20 +1304,25 @@ void UiController::showTargetEditDialog()
             btnSpacer->setFixedHeight(16);
             btnColLayout->addWidget(btnSpacer);
 
-            auto* copyBtnLocal = new QPushButton(QStringLiteral("复制"), btnCol);
-            auto* delBtnLocal  = new QPushButton(QStringLiteral("删除"), btnCol);
-            copyBtn = copyBtnLocal;
-            delBtn = delBtnLocal;
+            auto* copyBtnLocal  = new QPushButton(QStringLiteral("复制"), btnCol);
+            auto* delBtnLocal   = new QPushButton(QStringLiteral("删除"), btnCol);
+            auto* teachBtnLocal = new QPushButton(QStringLiteral("示教"), btnCol);
+            copyBtn  = copyBtnLocal;
+            delBtn   = delBtnLocal;
+            teachBtn = teachBtnLocal;
             QString btnStyle = QStringLiteral(
                 "QPushButton{background:#fff; border:1px solid #ccc; border-radius:3px;"
                 "padding:4px 8px; font-size:13px;}"
                 "QPushButton:hover{background:#f5f5f5;}");
             copyBtnLocal->setStyleSheet(btnStyle);
             delBtnLocal->setStyleSheet(btnStyle);
+            teachBtnLocal->setStyleSheet(btnStyle);
             copyBtnLocal->setFixedSize(52, 28);
             delBtnLocal->setFixedSize(52, 28);
+            teachBtnLocal->setFixedSize(52, 28);
             btnColLayout->addWidget(copyBtnLocal);
             btnColLayout->addWidget(delBtnLocal);
+            btnColLayout->addWidget(teachBtnLocal);
 
             row2Layout->addWidget(btnCol);
         }
@@ -1334,6 +1340,7 @@ void UiController::showTargetEditDialog()
         g.spinTimeout = spinTimeout_local;
         g.copyBtn = copyBtn;
         g.delBtn  = delBtn;
+        g.teachBtn = teachBtn;
         groupsLayout->addWidget(pRow);
 
         // ---------- 点位行复制按钮：仅追加新点位行，不复制 SERVO 数据 ----------
@@ -1392,6 +1399,40 @@ void UiController::showTargetEditDialog()
                 m_taskExecutor->setTargetMotion(m_targetMotion);
             }
             qDebug() << "[点位管理] 删除点位:" << delName;
+        });
+
+        // ---------- 点位行示教按钮：从 RobotState 读取当前位置并填入编辑框 ----------
+        QObject::connect(teachBtn, &QPushButton::clicked, &dlg,
+                [this, &pointGroups, name] {
+            if (!m_robotController || !m_robotController->getState()) return;
+            PointGroup* grp = nullptr;
+            for (auto& pg : pointGroups) {
+                if (pg.name == name) { grp = &pg; break; }
+            }
+            if (!grp) return;
+
+            RobotState* state = m_robotController->getState();
+            if (grp->typeLabel == QStringLiteral("关节")) {
+                // 关节坐标：J0~J5
+                for (int i = 0; i < 6; ++i) {
+                    QString label = QStringLiteral("J%1").arg(i);
+                    if (grp->edits.contains(label)) {
+                        double val = state->getAxisPosition(i);
+                        grp->edits[label]->setText(QString::number(val, 'f', 3));
+                    }
+                }
+            } else {
+                // 笛卡尔坐标：X/Y/Z/A/B/C
+                QStringList cartLabels = { QStringLiteral("X"), QStringLiteral("Y"),
+                    QStringLiteral("Z"), QStringLiteral("A"), QStringLiteral("B"),
+                    QStringLiteral("C") };
+                for (int i = 0; i < cartLabels.size(); ++i) {
+                    if (grp->edits.contains(cartLabels[i])) {
+                        double val = state->getCartesianPosition(i);
+                        grp->edits[cartLabels[i]]->setText(QString::number(val, 'f', 3));
+                    }
+                }
+            }
         });
 
         return g;
