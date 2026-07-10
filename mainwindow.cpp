@@ -2197,8 +2197,8 @@ void MainWindow::showPointAdjustDialog(bool isJoint)
     ui.setupUi(&dlg);
 
     dlg.setWindowTitle(QStringLiteral("调节"));
-    dlg.resize(860, 800);
-    dlg.setMinimumSize(400, 500);
+    dlg.resize(580, 560);
+    dlg.setMinimumSize(380, 420);
 
     // 隐藏 "目标点位" GroupBox 标题(下面 J0/X 标签已足够清晰)
     ui.groupBox->setTitle(QString());
