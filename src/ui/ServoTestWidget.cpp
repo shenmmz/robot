@@ -104,9 +104,7 @@ void ServoTestWidget::showEvent(QShowEvent* event)
     if (!m_servo) return;
     for (int i = 0; i < 6; ++i) {
         float cur = m_servo->getCurrentAngle(i);
-        // 1. 始终刷新"当前角度"标签
-        m_currentLabels[i]->setText(QString("%1°").arg(cur, 0, 'f', 1));
-        // 2. 未勾选通道：把滑块/spinbox 同步到 currentAngle（让"角度"列与实际位置一致）
+        // 未勾选通道：把滑块/spinbox 同步到 currentAngle（让"角度"列与实际位置一致）
         if (!m_checkedChannels[i]) {
             m_angleSliders[i]->blockSignals(true);
             m_angleSpins[i]->blockSignals(true);
@@ -149,7 +147,7 @@ void ServoTestWidget::setupUI()
     QLabel* h1 = new QLabel("选择", this);
     QLabel* h2 = new QLabel("通道", this);
     QLabel* h3 = new QLabel("角度 (°)", this);
-    QLabel* h4 = new QLabel("当前", this);
+    QLabel* h4 = new QLabel("应用", this);
     QLabel* h5 = new QLabel("速度 (°/s)", this);
     QString headerStyle = "font-size:16px;font-weight:bold;color:#555;";
     h1->setStyleSheet(headerStyle);
@@ -212,18 +210,26 @@ void ServoTestWidget::setupUI()
         m_angleSpins[i]->setStyleSheet("font-size:16px;font-weight:bold;");
         rowLayout->addWidget(m_angleSpins[i]);
 
-        // 当前角度显示
-        m_currentLabels[i] = new QLabel("90°", this);
-        m_currentLabels[i]->setStyleSheet(
+        // 应用按钮
+        m_applyBtns[i] = new QPushButton("应用", this);
+        m_applyBtns[i]->setStyleSheet(
+            "QPushButton {"
             "background-color: #E3F2FD; "
             "border: 1px solid #2196F3; "
             "border-radius: 3px; "
             "padding: 2px 8px; "
             "min-width: 70px;"
             "font-size: 16px;"
+            "}"
+            "QPushButton:hover {"
+            "background-color: #BBDEFB;"
+            "}"
+            "QPushButton:pressed {"
+            "background-color: #90CAF9;"
+            "}"
         );
-        m_currentLabels[i]->setAlignment(Qt::AlignCenter);
-        rowLayout->addWidget(m_currentLabels[i]);
+        m_applyBtns[i]->setCursor(Qt::PointingHandCursor);
+        rowLayout->addWidget(m_applyBtns[i]);
 
         // 速度输入框
         m_speedSpins[i] = new QLineEdit(this);
@@ -276,6 +282,14 @@ void ServoTestWidget::setupUI()
             if (!m_servo) return;
             if (!m_checkedChannels[i]) return;   // 未勾选：不同步默认速度
             m_servo->setDefaultSpeed(i, static_cast<float>(m_speedSpins[i]->text().toDouble()));
+        });
+
+        // 应用按钮：读取角度和速度输入框，驱动舵机
+        connect(m_applyBtns[i], &QPushButton::clicked, this, [this, i]() {
+            if (!m_servo) return;
+            float angle = static_cast<float>(m_angleSpins[i]->text().toDouble());
+            float speed = static_cast<float>(m_speedSpins[i]->text().toDouble());
+            m_servo->setAngleWithSpeed(i, angle, speed);
         });
 
         // 初始化该行的锁定状态（默认未勾选 → 角度控件禁用）
@@ -346,9 +360,6 @@ void ServoTestWidget::onAngleChanged(int channel, float angle)
     if (channel < 0 || channel >= 6) return;
     if (!m_servo) return;
 
-    // 始终刷新"当前角度"显示（让用户看到舵机实际走到哪里）
-    m_currentLabels[channel]->setText(QString("%1°").arg(angle, 0, 'f', 1));
-
     // 拖动中（用户正握着滑块）不更新滑块/spinbox，避免和用户手抖对抗
     if (m_servo->isMoving(channel)) {
         return;
@@ -366,7 +377,7 @@ void ServoTestWidget::onAngleChanged(int channel, float angle)
  *
  * - 勾选：滑块 + 角度输入框启用，灰底变白底，可拖可改
  * - 未勾选：滑块 + 角度输入框禁用，灰底变浅灰，拖动/改值都无效（实现"必须勾选才能控制"）
- *   速度输入框和当前角度显示始终启用（速度即使未勾选也可改默认速度，但只对勾选通道生效）
+ *   速度输入框和"应用"按钮始终启用（速度即使未勾选也可改默认速度，但只对勾选通道生效）
  */
 void ServoTestWidget::updateChannelLockState(int channel)
 {

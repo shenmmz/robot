@@ -82,7 +82,7 @@ private:
     QSlider* m_angleSliders[6];        // 角度滑块
     QLineEdit* m_angleSpins[6];        // 角度输入
     QLineEdit* m_speedSpins[6];        // 速度输入
-    QLabel* m_currentLabels[6];         // 当前角度显示
+    QPushButton* m_applyBtns[6];       // 应用按钮（蓝色）
 
     // 插入到编辑器的时间参数（ms，默认 500）
     QLineEdit* m_insertTimeSpin = nullptr;

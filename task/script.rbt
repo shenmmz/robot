@@ -1,15 +1,21 @@
-TARGET Target2 = {J0: 0.000, J1: 0.000, J2: 0.000, J3: 0.000, J4: 89.992, J5: 0.000}
-TARGET Target3 = {X: 306.418, Y: 0.000, Z: 651.320, A: 180.000, B: 0.008, C: 180.000}
-TARGET Target4 = {X: 306.418, Y: 0.000, Z: 500.000, A: 180.000, B: 0.008, C: 180.000}
-TARGET Target1 = {J0: 0.000, J1: 0.000, J2: 0.000, J3: 0.000, J4: 89.992, J5: 0.000}
+TARGET Target1 = { J0:0.000, J1:0.000, J2:0.000, J3:0.000, J4:0.000, J5:89.993 }
+TARGET Target2 = { X:359.590, Y:0.000, Z:500.000, A:90.000, B:0.007, C:90.000 }
+TARGET Target3 = { X:292.104, Y:39.873, Z:156.137, A:90.000, B:0.007, C:90.000 }// 待抓取
+TARGET Target4 = { X:385.517, Y:28.873, Z:156.137, A:90.000, B:0.007, C:90.000 }// 抓取点
+TARGET Target5 = { X:385.517, Y:28.873, Z:500.000, A:90.000, B:0.007, C:90.000 }// 抬起
+TARGET Target6 = { X:405.000, Y:28.873, Z:170.000, A:90.000, B:0.007, C:90.000 }// 放置点
+TARGET Target8 = { J0:0.000, J1:0.000, J2:0.000, J3:0.000, J4:-59.990, J5:179.986 }// 待变手势的点位
 ---
-FOR(i, 0, 100)
-MOVEJ(Target2, speed=150, acc=500, dec=600)
-MOVEL(Target3, speed=150, acc=500, dec=600)
-MOVEL(Target4, speed=150, acc=500, dec=600)
-CALL("close.rbt")
-DELAY(100)
-MOVEL(Target3, speed=150, acc=500, dec=600)
-CALL("open.rbt")
-DELAY(100)
-END_FOR
+MOVEJ(Target1, speed=100, acc=100, dec=120)
+SERVO(0=140:T10, 1=140:T10, 2=30:T10, 3=140:T10, 4=35:T10, 5=140:T10)
+MOVEL(Target2, speed=100, acc=100, dec=120)
+MOVEL(Target3, speed=100, acc=100, dec=120)// 待抓取
+SERVO(0=31:T10)
+MOVEL(Target4, speed=100, acc=100, dec=120)// 抓取点
+SERVO(0=31:T10, 1=83:T10, 2=140:T10, 3=0:T10, 4=140:T10, 5=37:T10)
+MOVEL(Target5, speed=100, acc=100, dec=120)// 抬起
+MOVEL(Target6, speed=100, acc=100, dec=120)// 放置点
+SERVO(0=30:T10, 1=140:T10, 2=0:T10, 3=140:T10, 4=30:T10, 5=140:T10)
+MOVEL(Target5, speed=100, acc=100, dec=120)// 抬起
+MOVEJ(Target1, speed=100, acc=100, dec=120)
+MOVEJ(Target8, speed=25, acc=50, dec=60)// 待变手势的点位
