@@ -231,13 +231,13 @@ void ServoTestWidget::setupUI()
         m_applyBtns[i]->setCursor(Qt::PointingHandCursor);
         rowLayout->addWidget(m_applyBtns[i]);
 
-        // 速度输入框
+        // 速度输入框（固定1.0，不可编辑）
         m_speedSpins[i] = new QLineEdit(this);
-        m_speedSpins[i]->setValidator(new QDoubleValidator(1.0, 180.0, 1, m_speedSpins[i]));
         m_speedSpins[i]->setText("1.0");
+        m_speedSpins[i]->setReadOnly(true);
         m_speedSpins[i]->setAlignment(Qt::AlignCenter);
         m_speedSpins[i]->setMinimumWidth(100);
-        m_speedSpins[i]->setStyleSheet("font-size:16px;font-weight:bold;");
+        m_speedSpins[i]->setStyleSheet("font-size:16px;font-weight:bold;color:#999;background:#f0f0f0;");
         rowLayout->addWidget(m_speedSpins[i]);
 
         mainLayout->addLayout(rowLayout);
@@ -260,13 +260,12 @@ void ServoTestWidget::setupUI()
             m_servo->setAngleDrag(i, static_cast<float>(value));
         });
 
-        // 拖动结束：用 setAngleWithSpeed 兜底（带速度控制，确保最后一帧到位）
+        // 拖动结束：用 setAngleWithSpeed 兜底
         connect(m_angleSliders[i], &QSlider::sliderReleased, this, [this, i]() {
             if (!m_servo) return;
-            if (!m_checkedChannels[i]) return;   // 未勾选：松手也不动
+            if (!m_checkedChannels[i]) return;
             float angle = static_cast<float>(m_angleSpins[i]->text().toDouble());
-            float speed = static_cast<float>(m_speedSpins[i]->text().toDouble());
-            m_servo->setAngleWithSpeed(i, angle, speed);
+            m_servo->setAngleWithSpeed(i, angle, 1.0f);
         });
 
         // 角度输入框编辑结束后同步滑块
@@ -284,13 +283,12 @@ void ServoTestWidget::setupUI()
             m_servo->setDefaultSpeed(i, static_cast<float>(m_speedSpins[i]->text().toDouble()));
         });
 
-        // 应用按钮：仅勾选通道生效，读取角度和速度输入框，驱动舵机
+        // 应用按钮：仅勾选通道生效，读取角度驱动舵机（速度固定1°/s）
         connect(m_applyBtns[i], &QPushButton::clicked, this, [this, i]() {
             if (!m_servo) return;
             if (!m_checkedChannels[i]) return;
             float angle = static_cast<float>(m_angleSpins[i]->text().toDouble());
-            float speed = static_cast<float>(m_speedSpins[i]->text().toDouble());
-            m_servo->setAngleWithSpeed(i, angle, speed);
+            m_servo->setAngleWithSpeed(i, angle, 1.0f);
         });
 
         // 初始化该行的锁定状态（默认未勾选 → 角度控件禁用）
