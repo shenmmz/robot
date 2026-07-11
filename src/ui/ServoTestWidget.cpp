@@ -108,9 +108,7 @@ void ServoTestWidget::showEvent(QShowEvent* event)
         if (!m_checkedChannels[i]) {
             m_angleSliders[i]->blockSignals(true);
             m_angleSpins[i]->blockSignals(true);
-            int sliderVal = (i == 4) ? qBound(150, static_cast<int>(cur * 5.0f), 700)
-                                     : qBound(30, static_cast<int>(cur), 140);
-            m_angleSliders[i]->setValue(sliderVal);
+            m_angleSliders[i]->setValue(qBound(30, static_cast<int>(cur), 140));
             m_angleSpins[i]->setText(QString::number(cur, 'f', 1));
             m_angleSliders[i]->blockSignals(false);
             m_angleSpins[i]->blockSignals(false);
@@ -189,15 +187,9 @@ void ServoTestWidget::setupUI()
 
         // 角度滑块
         m_angleSliders[i] = new QSlider(Qt::Horizontal, this);
-        if (i == 4) {   // P5：放大5倍范围以支持0.2°微调
-            m_angleSliders[i]->setMinimum(150);
-            m_angleSliders[i]->setMaximum(700);
-            m_angleSliders[i]->setValue(450);
-        } else {
-            m_angleSliders[i]->setMinimum(30);
-            m_angleSliders[i]->setMaximum(140);
-            m_angleSliders[i]->setValue(90);
-        }
+        m_angleSliders[i]->setMinimum(30);
+        m_angleSliders[i]->setMaximum(140);
+        m_angleSliders[i]->setValue(90);
         m_angleSliders[i]->setMinimumWidth(280);
         m_angleSliders[i]->setMaximumWidth(400);
         m_angleSliders[i]->setFixedHeight(40);
@@ -241,13 +233,8 @@ void ServoTestWidget::setupUI()
 
         // 速度输入框
         m_speedSpins[i] = new QLineEdit(this);
-        if (i == 4) {   // P5 通道：更低的速度和步进以补偿硬件响应粗糙
-            m_speedSpins[i]->setValidator(new QDoubleValidator(0.01, 180.0, 2, m_speedSpins[i]));
-            m_speedSpins[i]->setText("0.2");
-        } else {
-            m_speedSpins[i]->setValidator(new QDoubleValidator(1.0, 180.0, 1, m_speedSpins[i]));
-            m_speedSpins[i]->setText("1.0");
-        }
+        m_speedSpins[i]->setValidator(new QDoubleValidator(1.0, 180.0, 1, m_speedSpins[i]));
+        m_speedSpins[i]->setText("1.0");
         m_speedSpins[i]->setAlignment(Qt::AlignCenter);
         m_speedSpins[i]->setMinimumWidth(100);
         m_speedSpins[i]->setStyleSheet("font-size:16px;font-weight:bold;");
@@ -265,13 +252,12 @@ void ServoTestWidget::setupUI()
         connect(m_angleSliders[i], &QSlider::sliderMoved, this, [this, i](int value) {
             if (!m_servo) return;
             if (!m_checkedChannels[i]) return;   // 未勾选：拖动无效
-            float angle = (i == 4) ? value / 5.0f : static_cast<float>(value);
             // 同步角度输入框显示（用 blockSignals 避免触发 spin 的 valueChanged 死循环）
             m_angleSpins[i]->blockSignals(true);
-            m_angleSpins[i]->setText(QString::number(angle, 'f', 1));
+            m_angleSpins[i]->setText(QString::number(value, 'f', 1));
             m_angleSpins[i]->blockSignals(false);
             // 关键：setAngleDrag 走 50ms timer 批量下发 6 路，不卡
-            m_servo->setAngleDrag(i, angle);
+            m_servo->setAngleDrag(i, static_cast<float>(value));
         });
 
         // 拖动结束：用 setAngleWithSpeed 兜底（带速度控制，确保最后一帧到位）
@@ -288,7 +274,7 @@ void ServoTestWidget::setupUI()
                 this, [this, i]() {
             if (!m_checkedChannels[i]) return;   // 未勾选：改值也不动舵机
             double value = m_angleSpins[i]->text().toDouble();
-            m_angleSliders[i]->setValue(static_cast<int>((i == 4) ? value * 5.0 : value));
+            m_angleSliders[i]->setValue(static_cast<int>(value));
         });
 
         // 速度输入框编辑结束后同步给舵机控制器作为默认速度
@@ -382,7 +368,7 @@ void ServoTestWidget::onAngleChanged(int channel, float angle)
 
     // 非移动：把实际角度回写到滑块和输入框（勾选通道不打断用户的输入）
     if (!m_checkedChannels[channel]) {
-        m_angleSliders[channel]->setValue(static_cast<int>((channel == 4) ? angle * 5.0f : angle));
+        m_angleSliders[channel]->setValue(static_cast<int>(angle));
         m_angleSpins[channel]->setText(QString::number(angle, 'f', 1));
     }
 }
