@@ -872,6 +872,13 @@ void UiController::showTargetEditDialog()
             ServoSlotArray srv;
             int pe = line.indexOf(QChar::fromLatin1(')'));
             QString inner = line.mid(line.indexOf(QChar::fromLatin1('(')) + 1, pe - line.indexOf(QChar::fromLatin1('(')) - 1).trimmed();
+
+            // 提取行尾 // 注释（在 ')' 之后）
+            int tailCommentIdx = line.indexOf(QStringLiteral("//"), pe + 1);
+            if (tailCommentIdx >= 0) {
+                srv.comment = line.mid(tailCommentIdx + 2).trimmed();
+            }
+
             if (!inner.isEmpty() && inner.contains(QChar::fromLatin1('='))) {
                 for (const QString& g : inner.split(QChar::fromLatin1(','))) {
                     auto chanPart = g.split(QChar::fromLatin1('='));
@@ -1761,7 +1768,7 @@ void UiController::showTargetEditDialog()
             anyEnabled = true;
         }
         srv.comment = sg.servoCommentEdit ? sg.servoCommentEdit->text().trimmed() : QString();
-        if (anyEnabled) m_servoSlots.append(srv);
+        if (anyEnabled || !srv.comment.isEmpty()) m_servoSlots.append(srv);
     }
 
     // 构建原有的 TARGET 名集合
