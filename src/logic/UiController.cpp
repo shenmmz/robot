@@ -186,6 +186,10 @@ void UiController::init()
         connect(btn, &QPushButton::clicked, this, &UiController::onProgNew);
     if (auto* btn = m_mainWindow->findChild<QPushButton*>(QStringLiteral("btnProgDeleteLine")))
         connect(btn, &QPushButton::clicked, this, &UiController::onProgDeleteLine);
+    if (auto* btn = m_mainWindow->findChild<QPushButton*>(QStringLiteral("btnProgCopy")))
+        connect(btn, &QPushButton::clicked, this, &UiController::onProgCopyLine);
+    if (auto* btn = m_mainWindow->findChild<QPushButton*>(QStringLiteral("btnProgPaste")))
+        connect(btn, &QPushButton::clicked, this, &UiController::onProgPasteLine);
 
     // === 设置页面：控制器 IP 编辑完成 → 保存到配置 ===
     if (auto* edit = m_mainWindow->findChild<QLineEdit*>(QStringLiteral("editControllerIP")))
@@ -2800,6 +2804,31 @@ void UiController::onProgDeleteLine()
     cursor.removeSelectedText();
     cursor.deleteChar(); // 删除残留换行
     editor->setTextCursor(cursor);
+}
+
+/**
+ * @brief 复制光标所在行的全部文本到暂存区
+ */
+void UiController::onProgCopyLine()
+{
+    auto* editor = getEditor();
+    if (!editor) return;
+    QTextCursor cursor = editor->textCursor();
+    cursor.select(QTextCursor::LineUnderCursor);
+    m_copiedLine = cursor.selectedText().trimmed();
+}
+
+/**
+ * @brief 将暂存的行文本粘贴到光标所在位置（插入到光标行之前）
+ */
+void UiController::onProgPasteLine()
+{
+    auto* editor = getEditor();
+    if (!editor || m_copiedLine.isEmpty()) return;
+    QTextCursor cursor = editor->textCursor();
+    cursor.movePosition(QTextCursor::StartOfBlock);
+    editor->setTextCursor(cursor);
+    editor->insertPlainText(m_copiedLine + QStringLiteral("\n"));
 }
 
 // ==================== 编程-指令插入按钮 ====================

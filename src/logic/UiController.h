@@ -133,6 +133,8 @@ private slots:
     void onProgLoad();
     void onProgNew();
     void onProgDeleteLine();
+    void onProgCopyLine();
+    void onProgPasteLine();
 
     // === 编程-指令按钮回调 ===
     void onConsoleOutput(const QString& text);
@@ -158,6 +160,7 @@ private:
     QHash<QString, bool> m_ioStateCache;
     bool m_pauseDialogActive = false;
     QString m_currentScriptPath;       // 当前打开的文件路径
+    QString m_copiedLine;              // 复制暂存的行文本
     int m_targetCounter = 0;           // 目标编号自增
     QHash<QString, QList<double>> m_targets;  // 目标名 → 6个坐标值
     /// @brief 目标名 → 点位级运动参数(speed/accel/decel/timeoutMs,0 表示未设)

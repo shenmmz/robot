@@ -2705,6 +2705,38 @@ QGroupBox::title{subcontrol-origin:margin;left:14px;padding:0 8px;}</string>
                </widget>
               </item>
               <item>
+               <widget class="QPushButton" name="btnProgCopy">
+                <property name="minimumSize">
+                 <size>
+                  <width>68</width>
+                  <height>36</height>
+                 </size>
+                </property>
+                <property name="styleSheet">
+                 <string>QPushButton{background:#fafafa;color:#555;border:1px solid #d0d0d0;border-radius:4px;padding:2px 8px;font-size:13px;font-weight:bold;}QPushButton:hover{background:#f0f0f0;}</string>
+                </property>
+                <property name="text">
+                 <string>📋 复制</string>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <widget class="QPushButton" name="btnProgPaste">
+                <property name="minimumSize">
+                 <size>
+                  <width>68</width>
+                  <height>36</height>
+                 </size>
+                </property>
+                <property name="styleSheet">
+                 <string>QPushButton{background:#fafafa;color:#555;border:1px solid #d0d0d0;border-radius:4px;padding:2px 8px;font-size:13px;font-weight:bold;}QPushButton:hover{background:#f0f0f0;}</string>
+                </property>
+                <property name="text">
+                 <string>📋 粘贴</string>
+                </property>
+               </widget>
+              </item>
+              <item>
                <spacer name="progToolSpacer">
                 <property name="orientation">
                  <enum>Qt::Orientation::Horizontal</enum>
