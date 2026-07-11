@@ -284,9 +284,10 @@ void ServoTestWidget::setupUI()
             m_servo->setDefaultSpeed(i, static_cast<float>(m_speedSpins[i]->text().toDouble()));
         });
 
-        // 应用按钮：读取角度和速度输入框，驱动舵机
+        // 应用按钮：仅勾选通道生效，读取角度和速度输入框，驱动舵机
         connect(m_applyBtns[i], &QPushButton::clicked, this, [this, i]() {
             if (!m_servo) return;
+            if (!m_checkedChannels[i]) return;
             float angle = static_cast<float>(m_angleSpins[i]->text().toDouble());
             float speed = static_cast<float>(m_speedSpins[i]->text().toDouble());
             m_servo->setAngleWithSpeed(i, angle, speed);
