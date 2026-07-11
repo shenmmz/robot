@@ -110,7 +110,7 @@ void ServoTestWidget::showEvent(QShowEvent* event)
         if (!m_checkedChannels[i]) {
             m_angleSliders[i]->blockSignals(true);
             m_angleSpins[i]->blockSignals(true);
-            m_angleSliders[i]->setValue(qBound(0, static_cast<int>(cur), 180));
+            m_angleSliders[i]->setValue(qBound(30, static_cast<int>(cur), 140));
             m_angleSpins[i]->setText(QString::number(cur, 'f', 1));
             m_angleSliders[i]->blockSignals(false);
             m_angleSpins[i]->blockSignals(false);
@@ -189,8 +189,8 @@ void ServoTestWidget::setupUI()
 
         // 角度滑块
         m_angleSliders[i] = new QSlider(Qt::Horizontal, this);
-        m_angleSliders[i]->setMinimum(0);
-        m_angleSliders[i]->setMaximum(180);
+        m_angleSliders[i]->setMinimum(30);
+        m_angleSliders[i]->setMaximum(140);
         m_angleSliders[i]->setValue(90);
         m_angleSliders[i]->setMinimumWidth(280);
         m_angleSliders[i]->setMaximumWidth(400);
@@ -205,7 +205,7 @@ void ServoTestWidget::setupUI()
 
         // 角度输入框
         m_angleSpins[i] = new QLineEdit(this);
-        m_angleSpins[i]->setValidator(new QDoubleValidator(0.0, 180.0, 1, m_angleSpins[i]));
+        m_angleSpins[i]->setValidator(new QDoubleValidator(30.0, 140.0, 1, m_angleSpins[i]));
         m_angleSpins[i]->setText("90.0");
         m_angleSpins[i]->setAlignment(Qt::AlignCenter);
         m_angleSpins[i]->setMinimumWidth(100);
