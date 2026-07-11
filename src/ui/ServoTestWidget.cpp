@@ -320,7 +320,7 @@ void ServoTestWidget::setupUI()
     actionRow->addWidget(timeLabel);
 
     m_insertTimeSpin = new QLineEdit(this);
-    m_insertTimeSpin->setValidator(new QDoubleValidator(10.0, 30000.0, 0, m_insertTimeSpin));
+    m_insertTimeSpin->setValidator(new QDoubleValidator(1.0, 30000.0, 0, m_insertTimeSpin));
     m_insertTimeSpin->setText("500");
     m_insertTimeSpin->setAlignment(Qt::AlignCenter);
     m_insertTimeSpin->setMinimumWidth(110);
@@ -330,7 +330,7 @@ void ServoTestWidget::setupUI()
     // 失焦时若值 <10 自动归正为 10，与生成逻辑对齐
     connect(m_insertTimeSpin, &QLineEdit::editingFinished, this, [this]() {
         int v = static_cast<int>(m_insertTimeSpin->text().toDouble());
-        if (v < 10) m_insertTimeSpin->setText("10");
+        if (v < 1) m_insertTimeSpin->setText("1");
     });
 
     // 插入到编辑器按钮：按勾选通道生成 SERVO(ch=ang:Tms,...) 多路表达式

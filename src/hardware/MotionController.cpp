@@ -208,7 +208,7 @@ void MotionController::setStateUpdateInterval(int intervalMs)
 {
     // 限制范围：10ms ~ 5000ms（0.01秒 ~ 5秒）
     // 避免更新过于频繁（CPU占用过高）或过于稀疏（状态更新不及时）
-    m_updateIntervalMs = qBound(10, intervalMs, 5000);
+    m_updateIntervalMs = qBound(1, intervalMs, 5000);
     
     // 如果定时器正在运行，更新间隔并重启
     if (m_updateTimer->isActive()) {
