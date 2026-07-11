@@ -233,8 +233,13 @@ void ServoTestWidget::setupUI()
 
         // 速度输入框
         m_speedSpins[i] = new QLineEdit(this);
-        m_speedSpins[i]->setValidator(new QDoubleValidator(1.0, 180.0, 1, m_speedSpins[i]));
-        m_speedSpins[i]->setText("1.0");    // 默认速度 1°/s（用户偏好：更慢，便于手动观察）
+        if (i == 4) {   // P5 通道：更低的速度和步进以补偿硬件响应粗糙
+            m_speedSpins[i]->setValidator(new QDoubleValidator(0.2, 180.0, 1, m_speedSpins[i]));
+            m_speedSpins[i]->setText("0.2");
+        } else {
+            m_speedSpins[i]->setValidator(new QDoubleValidator(1.0, 180.0, 1, m_speedSpins[i]));
+            m_speedSpins[i]->setText("1.0");
+        }
         m_speedSpins[i]->setAlignment(Qt::AlignCenter);
         m_speedSpins[i]->setMinimumWidth(100);
         m_speedSpins[i]->setStyleSheet("font-size:16px;font-weight:bold;");
