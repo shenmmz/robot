@@ -402,6 +402,27 @@ QPushButton:checked{background:rgba(21,101,192,0.18);color:#fff;border-left:3px 
            </widget>
           </item>
           <item>
+           <widget class="QPushButton" name="btnNavVision">
+            <property name="minimumSize">
+             <size>
+              <width>0</width>
+              <height>56</height>
+             </size>
+            </property>
+            <property name="styleSheet">
+             <string>QPushButton{background:transparent;color:#b0bec5;border:none;border-left:3px solid transparent;text-align:left;padding:10px 14px 10px 6px;font-size:14px;}
+QPushButton:hover{background:rgba(255,255,255,0.06);color:#cfd8dc;}
+QPushButton:checked{background:rgba(21,101,192,0.18);color:#fff;border-left:3px solid #1565c0;font-weight:bold;}</string>
+            </property>
+            <property name="text">
+             <string>视觉运动</string>
+            </property>
+            <property name="checkable">
+             <bool>true</bool>
+            </property>
+           </widget>
+          </item>
+          <item>
            <spacer name="sideSpacer">
             <property name="orientation">
              <enum>Qt::Orientation::Vertical</enum>
@@ -5391,6 +5412,203 @@ QPushButton:hover{background:#f0f0f0;border-color:#b0b0b0;}</string>
                </widget>
               </item>
              </layout>
+            </widget>
+           </item>
+          </layout>
+         </widget>
+         <widget class="QWidget" name="pageVision">
+          <layout class="QVBoxLayout" name="pageVisionLayout">
+           <property name="spacing">
+            <number>8</number>
+           </property>
+           <property name="margin" stdset="0">
+            <number>12</number>
+           </property>
+           <item>
+            <widget class="QLabel" name="breadcrumbVision">
+             <property name="styleSheet">
+              <string>color:#888;font-size:11px;border:none;background:transparent;font-weight:normal;</string>
+             </property>
+             <property name="text">
+              <string>视觉运动 &gt; 6 轴勾选控制</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QFrame" name="visionGlobalSpeedBar">
+             <property name="styleSheet">
+              <string>QFrame#visionGlobalSpeedBar{background:#fff;border:1px solid #d0d5dd;border-radius:6px;}</string>
+             </property>
+             <property name="minimumSize">
+              <size>
+               <width>0</width>
+               <height>52</height>
+              </size>
+             </property>
+             <layout class="QHBoxLayout" name="visionGlobalSpeedLayout">
+              <property name="spacing">
+               <number>12</number>
+              </property>
+              <property name="margin" stdset="0">
+               <number>10</number>
+              </property>
+              <item>
+               <widget class="QLabel" name="visionGlobalSpeedLabel">
+                <property name="styleSheet">
+                 <string>color:#37474f;font-size:13px;font-weight:bold;border:none;background:transparent;</string>
+                </property>
+                <property name="text">
+                 <string>整体速度 (°/s)：</string>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <widget class="QDoubleSpinBox" name="spinVisionGlobalSpeed">
+                <property name="minimumSize">
+                 <size>
+                  <width>110</width>
+                  <height>32</height>
+                 </size>
+                </property>
+                <property name="styleSheet">
+                 <string>QDoubleSpinBox{font-family:Consolas,'Microsoft YaHei UI';font-size:14px;font-weight:bold;color:#1565c0;background:#fff;border:1px solid #1565c0;border-radius:4px;padding:2px 8px;}
+QDoubleSpinBox:focus{border-color:#0d47a1;}
+QDoubleSpinBox::up-button,QDoubleSpinBox::down-button{width:20px;}</string>
+                </property>
+                <property name="minimum">
+                 <double>1.000000000000000</double>
+                </property>
+                <property name="maximum">
+                 <double>500.000000000000000</double>
+                </property>
+                <property name="singleStep">
+                 <double>5.000000000000000</double>
+                </property>
+                <property name="value">
+                 <double>25.000000000000000</double>
+                </property>
+                <property name="decimals">
+                 <number>1</number>
+                </property>
+                <property name="suffix">
+                 <string>  °/s</string>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <widget class="QPushButton" name="btnVisionApplySpeed">
+                <property name="minimumSize">
+                 <size>
+                  <width>120</width>
+                  <height>32</height>
+                 </size>
+                </property>
+                <property name="styleSheet">
+                 <string>QPushButton{background:#1565c0;color:#fff;font-size:13px;font-weight:bold;border:none;border-radius:4px;}
+QPushButton:hover{background:#1976d2;}
+QPushButton:pressed{background:#0d47a1;}</string>
+                </property>
+                <property name="text">
+                 <string>应用到全部轴</string>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <spacer name="visionGlobalSpeedSpacer">
+                <property name="orientation">
+                 <enum>Qt::Orientation::Horizontal</enum>
+                </property>
+                <property name="sizeHint" stdset="0">
+                 <size>
+                  <width>0</width>
+                  <height>0</height>
+                 </size>
+                </property>
+               </spacer>
+              </item>
+             </layout>
+            </widget>
+           </item>
+           <item>
+            <widget class="QGroupBox" name="visionAxisGroup">
+             <property name="styleSheet">
+              <string>QGroupBox{background:#ffffff;border:1px solid #d0d5dd;border-radius:8px;margin-top:14px;padding:14px 12px 10px 12px;font-weight:bold;font-size:13px;color:#1a1a2e;}
+QGroupBox::title{subcontrol-origin:margin;left:14px;padding:0 8px;}</string>
+             </property>
+             <property name="title">
+              <string>启用视觉控制的关节轴 (勾选 → 该轴将被视觉 pose 驱动)</string>
+             </property>
+             <layout class="QGridLayout" name="visionAxisGrid">
+              <property name="spacing">
+               <number>10</number>
+              </property>
+              <property name="margin" stdset="0">
+               <number>8</number>
+              </property>
+              <item row="0" column="0">
+               <widget class="QLabel" name="visionHeaderEnable">
+                <property name="styleSheet">
+                 <string>color:#888;font-size:12px;font-weight:bold;border:none;background:transparent;padding-left:6px;</string>
+                </property>
+                <property name="text">
+                 <string>启用</string>
+                </property>
+               </widget>
+              </item>
+              <item row="0" column="1">
+               <widget class="QLabel" name="visionHeaderAxis">
+                <property name="styleSheet">
+                 <string>color:#888;font-size:12px;font-weight:bold;border:none;background:transparent;padding-left:6px;</string>
+                </property>
+                <property name="text">
+                 <string>轴标签</string>
+                </property>
+               </widget>
+              </item>
+              <item row="0" column="2">
+               <widget class="QLabel" name="visionHeaderAngle">
+                <property name="styleSheet">
+                 <string>color:#888;font-size:12px;font-weight:bold;border:none;background:transparent;padding-left:6px;</string>
+                </property>
+                <property name="text">
+                 <string>视觉下发角度</string>
+                </property>
+               </widget>
+              </item>
+              <item row="0" column="3">
+               <widget class="QLabel" name="visionHeaderDot">
+                <property name="styleSheet">
+                 <string>color:#888;font-size:12px;font-weight:bold;border:none;background:transparent;padding-left:6px;</string>
+                </property>
+                <property name="text">
+                 <string>转速 (°/s)</string>
+                </property>
+               </widget>
+              </item>
+             </layout>
+            </widget>
+           </item>
+           <item>
+            <widget class="QLabel" name="lblVisionStatus">
+             <property name="styleSheet">
+              <string>color:#37474f;font-size:13px;font-weight:bold;border:none;background:transparent;padding:4px 0;</string>
+             </property>
+             <property name="text">
+              <string>视觉程序：已停止 (由左侧【功能测试】按钮启动)</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QPlainTextEdit" name="visionLogView">
+             <property name="styleSheet">
+              <string>QPlainTextEdit{font-family:Consolas,'Microsoft YaHei UI';font-size:12px;background:#fafbfc;border:1px solid #d0d5dd;border-radius:4px;padding:4px;color:#333;}</string>
+             </property>
+             <property name="readOnly">
+              <bool>true</bool>
+             </property>
+             <property name="maximumBlockCount">
+              <number>200</number>
+             </property>
             </widget>
            </item>
           </layout>

@@ -13,13 +13,19 @@
 #include <QTimer>
 #include <QByteArray>
 #include <QLineEdit>
+#include <QHash>
+#include <QList>
+#include <QPair>
+#include <QSet>
+#include <QPlainTextEdit>
 
 class RobotController;
 class UiController;
 class Rs485Controller;
 class ServoController;
 class VisionController;
-class QPlainTextEdit;
+class QCheckBox;
+class QDoubleSpinBox;
 class ServoTestWidget;  // 舵机设置界面
 
 QT_BEGIN_NAMESPACE
@@ -96,7 +102,10 @@ private slots:
     void onVisionStopped(int exitCode);
     void onVisionError(const QString &error);
     void onVisionMessage(const QString &channel, const QString &line);
-    void onVisionMotorCommand(double angle);
+    void onVisionMotorCommands(const QList<QPair<int, double>>& commands);  // axis(0-5)+signed_angle_deg
+    void onAxisEnableToggled(int axis, bool enabled);
+    void initVisionControlUI();
+    void onApplyGlobalSpeedClicked();  // 把总速度广播到 6 个轴的转速输入框
 
 private:
     Ui::MainWindow *ui;
@@ -106,13 +115,26 @@ private:
     ServoController* m_servo = nullptr;
     VisionController* m_vision = nullptr;
     QElapsedTimer m_visionThrottleTimer;
+    QHash<int, double> m_lastVisionAnglePerAxis;            // axis → 最近一次下发的角度
+    QHash<int, int>    m_visionConsecutiveCountPerAxis;     // axis → 连续相同角度次数
+    QHash<int, qint64> m_lastVisionSendMsPerAxis;           // axis → 上次下发时间戳(ms since epoch)
     double m_lastVisionAngle = 0;
     int m_visionConsecutiveCount = 0;
-    static constexpr int kVisionConfirmCount = 10;
+    static constexpr int kVisionConfirmCount = 10;          // 连续相同角度确认次数（防抖阈值）
     ServoTestWidget* m_servoTestWidget = nullptr;  // 舵机设置界面
     QList<QLineEdit*> m_servoSpins;   // 6通道舵机角度 QLineEdit（已废弃，由 ServoTestWidget 管理）
     QList<QLineEdit*> m_servoSpeedSpins;  // 6通道舵机速度 QLineEdit（已废弃，由 ServoTestWidget 管理）
     QList<QLabel*> m_servoAngleLabels;  // 手动页舵机板块 6 通道只读角度显示（被动显示）
+
+    // ----- 视觉运动页面（pageVision）-----
+    QCheckBox* m_axisEnableCks[6] = {nullptr, nullptr, nullptr, nullptr, nullptr, nullptr};
+    QLabel*    m_axisAngleLabels[6] = {nullptr, nullptr, nullptr, nullptr, nullptr, nullptr};
+    QLabel*    m_axisNameLabels[6] = {nullptr, nullptr, nullptr, nullptr, nullptr, nullptr};
+    QLineEdit* m_axisSpeedSpins[6] = {nullptr, nullptr, nullptr, nullptr, nullptr, nullptr};
+    bool       m_axisEnabled[6] = {false, false, false, false, false, false};
+    double     m_axisSpeed[6] = {25.0, 25.0, 25.0, 25.0, 25.0, 25.0};
+    QLabel*    m_visionStatusLabel = nullptr;
+    QPlainTextEdit* m_visionLogView = nullptr;
 
     QButtonGroup* m_navGroup;
     QTimer* m_jogResetTimerJoint = nullptr;   // 关节点动5s自动复位

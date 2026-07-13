@@ -102,6 +102,7 @@ MainWindow::MainWindow(QWidget *parent)
     m_navGroup->addButton(ui->btnNavAlarm, 3);
     m_navGroup->addButton(ui->btnNavSettings, 4);
     m_navGroup->addButton(ui->btnNavRs485, 5);
+    m_navGroup->addButton(ui->btnNavVision, 6);                  // 视觉运动（第 7 个导航页）
 
     // 默认显示"运行"页 (UI文件设置的是index=6，需纠正)
     ui->contentStack->setCurrentIndex(0);
@@ -121,11 +122,12 @@ MainWindow::MainWindow(QWidget *parent)
 
     // --- 视觉系统：管理外部 VisualRoboticArmQtController.exe ---
     m_vision = new VisionController(this);
-    connect(m_vision, &VisionController::started,        this, &MainWindow::onVisionStarted);
-    connect(m_vision, &VisionController::stopped,        this, &MainWindow::onVisionStopped);
-    connect(m_vision, &VisionController::errorOccurred,  this, &MainWindow::onVisionError);
-    connect(m_vision, &VisionController::outputMessage,  this, &MainWindow::onVisionMessage);
-    connect(m_vision, &VisionController::motorCommand,   this, &MainWindow::onVisionMotorCommand);
+    connect(m_vision, &VisionController::started,            this, &MainWindow::onVisionStarted);
+    connect(m_vision, &VisionController::stopped,            this, &MainWindow::onVisionStopped);
+    connect(m_vision, &VisionController::errorOccurred,      this, &MainWindow::onVisionError);
+    connect(m_vision, &VisionController::outputMessage,      this, &MainWindow::onVisionMessage);
+    // 视觉下发多轴指令：commands[i] = (axis 0-5, signed_angle_deg)
+    connect(m_vision, &VisionController::motorCommands,      this, &MainWindow::onVisionMotorCommands);
 
     // 切换到手动编程页时强制刷新布局
     connect(ui->contentStack, &QStackedWidget::currentChanged, this, [this](int idx) {
@@ -134,6 +136,9 @@ MainWindow::MainWindow(QWidget *parent)
             ui->pageManualLayout->activate();
         }
     });
+
+    // 初始化"视觉运动"页（6 轴勾选 + 实时下发日志）
+    initVisionControlUI();
 }
 
 /**
@@ -909,8 +914,8 @@ void MainWindow::onGetCart()
 void MainWindow::onNavButtonClicked(int index)
 {
     ui->contentStack->setCurrentIndex(index);
-    const QString names[] = {"运行", "程序编程", "IO 监控", "报警日志", "设置", "通信"};
-    if (index >= 0 && index < 6)
+    const QString names[] = {"运行", "程序编程", "IO 监控", "报警日志", "设置", "通信", "视觉运动"};
+    if (index >= 0 && index < 7)
         ui->statusbar->showMessage(QStringLiteral("切换到: %1").arg(names[index]));
 }
 
@@ -2511,12 +2516,25 @@ void MainWindow::onVisionStarted()
 {
     qDebug() << "[MainWindow] 视觉程序已启动";
     ui->pushButton_6->setText(QStringLiteral("停止测试"));
+    if (m_visionStatusLabel) {
+        m_visionStatusLabel->setText(QStringLiteral("视觉程序：运行中 (页签已切到【视觉运动】即可驱动)"));
+    }
+    if (m_visionLogView) {
+        m_visionLogView->appendPlainText(QStringLiteral("--- 视觉程序已启动 ---"));
+    }
 }
 
 void MainWindow::onVisionStopped(int exitCode)
 {
     qDebug() << "[MainWindow] 视觉程序已退出，exitCode=" << exitCode;
     ui->pushButton_6->setText(QStringLiteral("功能测试"));
+    if (m_visionStatusLabel) {
+        m_visionStatusLabel->setText(QStringLiteral("视觉程序：已停止 (由左侧【功能测试】按钮启动)"));
+    }
+    if (m_visionLogView) {
+        m_visionLogView->appendPlainText(
+            QStringLiteral("--- 视觉程序已退出 (exitCode=%1) ---").arg(exitCode));
+    }
 }
 
 void MainWindow::onVisionError(const QString &error)
@@ -2528,42 +2546,215 @@ void MainWindow::onVisionError(const QString &error)
 void MainWindow::onVisionMessage(const QString &channel, const QString &line)
 {
     qDebug() << "[MainWindow] vision" << channel << ":" << line;
+    if (m_visionLogView) {
+        m_visionLogView->appendPlainText(QStringLiteral("[%1] %2").arg(channel, line));
+    }
 }
 
-void MainWindow::onVisionMotorCommand(double angle)
+/**
+ * @brief 视觉多轴指令统一入口
+ *
+ * 每帧解析 motion_commands 数组后调用本函数 (axis 0-5, signed_angle_deg)。
+ * 行为：
+ * - 仅当对应 axis 的 QCheckBox 被勾选时才下发 jogJoint（用户在 pageVision 控制）；
+ * - 仍沿用防抖 + 500ms 节流策略（按 axis 独立统计），避免 Python 高频 pose 把机器人抖死；
+ * - 同一帧内 axis 顺序不影响，下发按 axis 升序遍历即可。
+ *
+ * @param commands 多轴指令列表，每条 (axis 0~5, signed_angle_deg 弧度？度)
+ */
+void MainWindow::onVisionMotorCommands(const QList<QPair<int, double>>& commands)
 {
-    qDebug() << "[MainWindow] 视觉控制 J0 -> angle =" << angle;
-
+    qDebug() << "[MainWindow] onVisionMotorCommands n=" << commands.size();
+    if (commands.isEmpty()) return;
     if (!m_robotController || !m_robotController->isConnected()) {
-        qWarning() << "[MainWindow] 视觉 J0 指令未执行：控制器未连接";
+        qWarning() << "[MainWindow] 视觉多轴指令未执行：控制器未连接";
         return;
     }
 
-    // 连续相同值消抖：需相同值连续出现 N 次才有效
-    if (qAbs(angle - m_lastVisionAngle) < 1e-6) {
-        m_visionConsecutiveCount++;
-    } else {
-        m_lastVisionAngle = angle;
-        m_visionConsecutiveCount = 1;
-        return;
+    for (const auto& cmd : commands) {
+        const int axis = cmd.first;
+        const double angle = cmd.second;
+        if (axis < 0 || axis > 5) {
+            qWarning() << "[MainWindow] 视觉指令 axis 越界:" << axis;
+            continue;
+        }
+
+        // 按用户勾选决定是否下发：未勾选轴跳过（视觉 pose 仍接收，仅不下发）
+        if (!m_axisEnabled[axis]) {
+            continue;
+        }
+
+        // 独立防抖：每轴的相同 angle 需连续出现 kVisionConfirmCount 次才认为稳定
+        const double lastAngle = m_lastVisionAnglePerAxis.value(axis, 1e9);
+        int& cnt = m_visionConsecutiveCountPerAxis[axis];
+        if (qAbs(angle - lastAngle) < 1e-6) {
+            cnt++;
+        } else {
+            m_lastVisionAnglePerAxis[axis] = angle;
+            cnt = 1;
+            continue;
+        }
+        if (cnt < kVisionConfirmCount) {
+            continue;
+        }
+
+        // 节流：达到确认次数后首次立即下发，后续按 500ms 间隔
+        const qint64 nowMs = QDateTime::currentMSecsSinceEpoch();
+        const qint64 lastMs = m_lastVisionSendMsPerAxis.value(axis, 0);
+        if (cnt > kVisionConfirmCount && (nowMs - lastMs) < 500) {
+            continue;
+        }
+
+        const double speed = m_axisSpeed[axis];
+        if (!m_robotController->jogJoint(axis, angle, speed, 50.0, 60.0)) {
+            qWarning() << "[MainWindow] jogJoint(" << axis << ", " << angle << ") 失败";
+            continue;
+        }
+        m_lastVisionSendMsPerAxis[axis] = nowMs;
+
+        // 更新 UI：角度标签 + 日志
+        if (m_axisAngleLabels[axis]) {
+            const QString sign = angle >= 0 ? QStringLiteral("+") : QString();
+            m_axisAngleLabels[axis]->setText(
+                QStringLiteral("%1%2°").arg(sign).arg(angle, 0, 'f', 3));
+        }
+        if (m_visionLogView) {
+            const QString sign = angle >= 0 ? QStringLiteral("+") : QString();
+            m_visionLogView->appendPlainText(
+                QStringLiteral("J%1 → %2%3°").arg(axis).arg(sign).arg(angle, 0, 'f', 3));
+        }
+    }
+}
+
+/**
+ * @brief pageVision 页 6 个轴勾选框回调
+ * @param axis     0-5
+ * @param enabled  当前勾选状态
+ *
+ * 仅切换 m_axisEnabled，硬件驱动由 onVisionMotorCommands 按此状态过滤；
+ * 状态变化写入 visionLogView 便于观察。
+ */
+void MainWindow::onAxisEnableToggled(int axis, bool enabled)
+{
+    if (axis < 0 || axis > 5) return;
+    m_axisEnabled[axis] = enabled;
+    if (m_visionLogView) {
+        m_visionLogView->appendPlainText(
+            QStringLiteral("J%1 %2视觉控制").arg(axis).arg(enabled ? "已启用" : "已禁用"));
+    }
+}
+
+/**
+ * @brief 把顶部"整体速度"SpinBox 的值广播到 6 个轴的转速输入框
+ *
+ * 行为：
+ * - 读 ui->spinVisionGlobalSpeed 的 value (1.0~500.0)
+ * - 写回 m_axisSpeed[0..5] 与 6 个 QLineEdit (m_axisSpeedSpins[i])
+ * - 在 visionLogView 写一行汇总，便于观察
+ *
+ * 单个轴的输入框仍可单独微调；总速度只在你按按钮时统一覆盖。
+ */
+void MainWindow::onApplyGlobalSpeedClicked()
+{
+    if (!ui || !ui->spinVisionGlobalSpeed) return;
+    const double v = ui->spinVisionGlobalSpeed->value();
+    for (int i = 0; i < 6; ++i) {
+        m_axisSpeed[i] = v;
+        if (m_axisSpeedSpins[i]) {
+            m_axisSpeedSpins[i]->blockSignals(true);
+            m_axisSpeedSpins[i]->setText(QString::number(v, 'f', 1));
+            m_axisSpeedSpins[i]->blockSignals(false);
+        }
+    }
+    if (m_visionLogView) {
+        m_visionLogView->appendPlainText(
+            QStringLiteral("已将所有 6 轴速度统一为 %1 °/s").arg(v, 0, 'f', 1));
+    }
+}
+
+/**
+ * @brief 初始化 pageVision（视觉运动）页面
+ *
+ * 在 ui->pageVision 已 setupUi 好的 QGroupBox visionAxisGrid 上动态添加 6 行
+ * (勾选框 / 轴标签 / 实时角度 / 转速)。每个轴一行，命名与 ServoTestWidget 风格保持一致。
+ * 已存在 visualAxisGrid / lblVisionStatus / visionLogView（mainwindow.ui 已建好），
+ * 本函数仅做"行内控件"的 row-by-row add。
+ */
+void MainWindow::initVisionControlUI()
+{
+    if (!ui || !ui->pageVision) return;
+    QGridLayout* grid = ui->visionAxisGrid;
+    if (!grid) return;
+
+    // 6 行数据行（index 0~5 → row 1~6, 与 header row 0 错开）
+    static const char* kAxisNames[6] = {"J0", "J1", "J2", "J3", "J4", "J5"};
+    for (int i = 0; i < 6; ++i) {
+        const int row = i + 1;  // header 在 row 0
+
+        // 列 0：勾选框
+        m_axisEnableCks[i] = new QCheckBox(ui->visionAxisGroup);
+        m_axisEnableCks[i]->setObjectName(QStringLiteral("chkVisionAxisJ%1").arg(i));
+        m_axisEnableCks[i]->setStyleSheet(
+            QStringLiteral("QCheckBox{spacing:0px;}QCheckBox::indicator{width:22px;height:22px;}"
+                           "QCheckBox::indicator:unchecked{border:1px solid #90a4ae;border-radius:4px;background:#fff;}"
+                           "QCheckBox::indicator:checked{border:1px solid #1565c0;border-radius:4px;background:#1565c0;image:url(:/icon/check.png);}"
+                           "QCheckBox::indicator:unchecked:hover{border-color:#1565c0;}"));
+        connect(m_axisEnableCks[i], &QCheckBox::toggled, this, [this, i](bool en){ onAxisEnableToggled(i, en); });
+        grid->addWidget(m_axisEnableCks[i], row, 0, Qt::AlignCenter);
+
+        // 列 1：轴标签
+        m_axisNameLabels[i] = new QLabel(QString::fromUtf8(kAxisNames[i]), ui->visionAxisGroup);
+        m_axisNameLabels[i]->setStyleSheet(
+            QStringLiteral("color:#1565c0;font-size:16px;font-weight:bold;font-family:Consolas,'Microsoft YaHei UI';border:none;background:transparent;"));
+        grid->addWidget(m_axisNameLabels[i], row, 1);
+
+        // 列 2：实时下发角度
+        m_axisAngleLabels[i] = new QLabel(QStringLiteral("-"), ui->visionAxisGroup);
+        m_axisAngleLabels[i]->setStyleSheet(
+            QStringLiteral("font-family:Consolas,'Microsoft YaHei UI';font-size:14px;color:#333;"
+                           "background:#f5f5f5;border:1px solid #e8e8e8;border-radius:4px;padding:3px 8px;"));
+        m_axisAngleLabels[i]->setMinimumWidth(110);
+        m_axisAngleLabels[i]->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
+        grid->addWidget(m_axisAngleLabels[i], row, 2);
+
+        // 列 3：转速输入
+        m_axisSpeedSpins[i] = new QLineEdit(QStringLiteral("25.0"), ui->visionAxisGroup);
+        m_axisSpeedSpins[i]->setObjectName(QStringLiteral("lineVisionSpeedJ%1").arg(i));
+        m_axisSpeedSpins[i]->setMaximumWidth(72);
+        m_axisSpeedSpins[i]->setStyleSheet(
+            QStringLiteral("QLineEdit{font-family:Consolas,'Microsoft YaHei UI';font-size:13px;"
+                           "background:#fff;border:1px solid #d0d5dd;border-radius:4px;padding:2px 6px;}"
+                           "QLineEdit:focus{border-color:#1565c0;}"));
+        connect(m_axisSpeedSpins[i], &QLineEdit::editingFinished, this, [this, i]() {
+            bool ok = false;
+            const double v = m_axisSpeedSpins[i]->text().toDouble(&ok);
+            if (ok && v > 0.0 && v <= 500.0) {
+                m_axisSpeed[i] = v;
+            } else {
+                m_axisSpeedSpins[i]->setText(QString::number(m_axisSpeed[i], 'f', 1));
+            }
+        });
+        grid->addWidget(m_axisSpeedSpins[i], row, 3, Qt::AlignCenter);
     }
 
-    if (m_visionConsecutiveCount < kVisionConfirmCount) {
-        return;
+    // 列宽分配：列 2（角度）占大头
+    grid->setColumnStretch(0, 0);
+    grid->setColumnStretch(1, 0);
+    grid->setColumnStretch(2, 2);  // 角度
+    grid->setColumnStretch(3, 0);
+
+    // 状态标签与日志视图（.ui 已创建好，wire 到成员指针）
+    m_visionStatusLabel = ui->lblVisionStatus;
+    m_visionLogView = ui->visionLogView;
+    if (m_visionStatusLabel) {
+        m_visionStatusLabel->setText(QStringLiteral("视觉程序：已停止 (由左侧【功能测试】按钮启动)"));
     }
 
-    // 达到确认次数后，首次立即下发，后续加 500ms 间隔
-    if (m_visionConsecutiveCount == kVisionConfirmCount) {
-        m_visionThrottleTimer.start();
-        m_robotController->jogJoint(0, angle, 25.0, 50.0, 60.0);
-        return;
+    // 顶部总速度 SpinBox + "应用到全部轴" 按钮
+    if (ui->spinVisionGlobalSpeed) {
+        ui->spinVisionGlobalSpeed->setValue(25.0);  // 与每轴默认一致
+        connect(ui->btnVisionApplySpeed, &QPushButton::clicked,
+                this, &MainWindow::onApplyGlobalSpeedClicked);
     }
-
-    if (m_visionThrottleTimer.elapsed() < 500) {
-        return;
-    }
-
-    m_visionThrottleTimer.restart();
-    m_robotController->jogJoint(0, angle, 25.0, 50.0, 60.0);
 }
 

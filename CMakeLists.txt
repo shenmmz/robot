@@ -53,6 +53,7 @@ endif()
 
 target_link_libraries(Robot_R06 PRIVATE
     Qt${QT_VERSION_MAJOR}::Widgets
+    Qt${QT_VERSION_MAJOR}::Network
     robot_models
     robot_hardware
     robot_logic
