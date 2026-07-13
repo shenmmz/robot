@@ -32,6 +32,7 @@ from PySide6.QtWidgets import (
 from app.rs485 import RS485Config, RS485Manager
 from app.pose_comm import PoseCommClient, format_mapped_motor_summary
 from app.pose_filter import PoseMotionFilter
+from app.inference_logger import InferenceLogSession
 from app.worker import FrameProcessorThread
 
 
@@ -55,6 +56,7 @@ class MainWindow(QMainWindow):
         self.rs485_manager = None
         self.rs485_ports = []
         self.pose_comm = None
+        self.inference_log = InferenceLogSession()
         self.pose_filter = PoseMotionFilter(
             movement_threshold_deg=float(os.environ.get("VISUAL_ARM_POSE_MOVE_THRESHOLD_DEG", "5.0"))
         )
@@ -413,6 +415,7 @@ class MainWindow(QMainWindow):
         self.connected_camera = None
         self.connected_camera_name = ""
         self.is_capturing = False
+        self._save_inference_log()
         self.frame_count = 0
         self.frame_info_label.setText("Frame: -")
         self.camera_map = self._enumerate_cameras()
@@ -455,6 +458,7 @@ class MainWindow(QMainWindow):
         self.connected_camera = None
         self.connected_camera_name = ""
         self.is_capturing = False
+        self._save_inference_log()
         self.frame_count = 0
         self.last_processed_image = None
         self.frame_info_label.setText("Frame: -")
@@ -478,6 +482,7 @@ class MainWindow(QMainWindow):
         self._ensure_frame_worker()
         self.frame_count = 0
         self.pose_filter.reset()
+        self.inference_log.start()
         self.is_capturing = True
         self.preview_timer.setInterval(self.interval_spin.value())
         self.preview_timer.start()
@@ -496,6 +501,7 @@ class MainWindow(QMainWindow):
         self.action_value.setPlainText("成功: 已停止采集")
         self.statusBar().showMessage("采集已停止", 3000)
         self._update_preview("采集已停止")
+        self._save_inference_log()
         self._refresh_control_state()
 
     def on_params_clicked(self):
@@ -561,6 +567,7 @@ class MainWindow(QMainWindow):
         payload = self.pose_filter.filter_payload(payload)
         angles = payload.get("angles", [])
         motor_summary = format_mapped_motor_summary(payload)
+        self.inference_log.append_result(motor_summary)
         if angles:
             summary = _format_arm_rotation_summary(angles)
             if not payload.get("motion_allowed", True):
@@ -843,8 +850,18 @@ class MainWindow(QMainWindow):
         painter.end()
         self.preview_frame.setPixmap(pixmap)
 
+    def _save_inference_log(self):
+        try:
+            log_path = self.inference_log.save()
+        except OSError as exc:
+            self.statusBar().showMessage(f"推理日志保存失败: {exc}", 5000)
+            return
+        if log_path is not None:
+            self.statusBar().showMessage(f"推理日志已保存: {log_path}", 5000)
+
     def closeEvent(self, event):
         self.preview_timer.stop()
+        self._save_inference_log()
         self._teardown_camera(clear_preview=False)
         if self.pose_comm is not None:
             self.pose_comm.stop()
