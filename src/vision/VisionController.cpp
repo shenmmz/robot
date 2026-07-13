@@ -10,7 +10,6 @@
 #include <QFile>
 #include <QFileInfo>
 #include <QProcess>
-#include <QTcpServer>
 #include <QTcpSocket>
 #include <QJsonDocument>
 #include <QJsonObject>
@@ -19,8 +18,10 @@
 VisionController::VisionController(QObject *parent)
     : QObject(parent)
 {
-    m_tcpServer = new QTcpServer(this);
-    connect(m_tcpServer, &QTcpServer::newConnection, this, &VisionController::onNewConnection);
+    m_tcpSocket = new QTcpSocket(this);
+    connect(m_tcpSocket, &QTcpSocket::connected, this, &VisionController::onConnected);
+    connect(m_tcpSocket, &QTcpSocket::readyRead, this, &VisionController::onReadyRead);
+    connect(m_tcpSocket, &QTcpSocket::disconnected, this, &VisionController::onClientDisconnected);
 }
 
 VisionController::~VisionController()
@@ -33,8 +34,8 @@ VisionController::~VisionController()
             m_process->waitForFinished(500);
         }
     }
-    if (m_tcpServer) {
-        m_tcpServer->close();
+    if (m_tcpSocket) {
+        m_tcpSocket->disconnectFromHost();
     }
 }
 
@@ -62,14 +63,7 @@ bool VisionController::start()
     }
     m_projectPath = projectDir;
 
-    // 2) 启动 TCP Server（监听 5001）
-    if (!m_tcpServer->listen(QHostAddress::LocalHost, kServerPort)) {
-        emit errorOccurred(QStringLiteral("TCP Server 监听 5001 失败: %1").arg(m_tcpServer->errorString()));
-        return false;
-    }
-    qDebug() << "[Vision] TCP Server 已监听 127.0.0.1:5001";
-
-    // 3) 启动 Python 进程（使用项目自带的 .venv）
+    // 2) 启动 Python 进程（使用项目自带的 .venv）
     const QString pythonExe = projectDir + "/.venv/Scripts/python.exe";
     m_process = new QProcess(this);
     m_process->setWorkingDirectory(projectDir);
@@ -93,21 +87,24 @@ bool VisionController::start()
         emit errorOccurred(QStringLiteral("Python 启动失败: ") + err);
         m_process->deleteLater();
         m_process = nullptr;
-        m_tcpServer->close();
+        m_tcpSocket->disconnectFromHost();
         return false;
     }
 
     qDebug() << "[Vision] Python 已启动 PID=" << m_process->processId();
+
+    // 3) 连接到 Python 的 TCP 5001（Client 模式）
+    m_tcpSocket->connectToHost(QHostAddress::LocalHost, kServerPort);
+    qDebug() << "[Vision] 正在连接 Python TCP 127.0.0.1:5001 ...";
     return true;
 }
 
 void VisionController::stop()
 {
-    // 关闭 TCP Server
-    if (m_tcpServer) {
-        m_tcpServer->close();
+    // 断开 TCP 连接
+    if (m_tcpSocket) {
+        m_tcpSocket->disconnectFromHost();
     }
-    m_clientSocket = nullptr;
     m_tcpBuffer.clear();
 
     if (!m_process || m_process->state() == QProcess::NotRunning) {
@@ -194,34 +191,19 @@ void VisionController::drainLines(const QByteArray &data, const QString &channel
     }
 }
 
-// ==================== TCP Server ====================
+// ==================== TCP Client ====================
 
-void VisionController::onNewConnection()
+void VisionController::onConnected()
 {
-    // 只保留一个客户端连接（与 Python 一一对应）
-    if (m_clientSocket) {
-        QTcpSocket *extra = m_tcpServer->nextPendingConnection();
-        qWarning() << "[Vision] 已有客户端连接，拒绝新连接";
-        extra->disconnectFromHost();
-        extra->deleteLater();
-        return;
-    }
-
-    m_clientSocket = m_tcpServer->nextPendingConnection();
-    connect(m_clientSocket, &QTcpSocket::readyRead, this, &VisionController::onClientReadyRead);
-    connect(m_clientSocket, &QTcpSocket::disconnected, this, &VisionController::onClientDisconnected);
     m_tcpBuffer.clear();
-
-    qDebug() << "[Vision] Python 已连接 TCP Server"
-             << m_clientSocket->peerAddress().toString()
-             << m_clientSocket->peerPort();
+    qDebug() << "[Vision] 已连接到 Python TCP 127.0.0.1:5001";
 }
 
-void VisionController::onClientReadyRead()
+void VisionController::onReadyRead()
 {
-    if (!m_clientSocket) return;
+    if (!m_tcpSocket) return;
 
-    m_tcpBuffer.append(m_clientSocket->readAll());
+    m_tcpBuffer.append(m_tcpSocket->readAll());
 
     while (true) {
         const int idx = m_tcpBuffer.indexOf('\n');
@@ -239,10 +221,6 @@ void VisionController::onClientReadyRead()
 void VisionController::onClientDisconnected()
 {
     qDebug() << "[Vision] Python 已断开 TCP 连接";
-    if (m_clientSocket) {
-        m_clientSocket->deleteLater();
-        m_clientSocket = nullptr;
-    }
 }
 
 // ==================== JSON 解析 ====================

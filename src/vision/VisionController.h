@@ -1,10 +1,10 @@
 /*
  * @file VisionController.h
- * @brief 启动 Python 视觉程序并以 TCP Server 接收姿态数据。
+ * @brief 启动 Python 视觉程序并以 TCP Client 连接接收姿态数据。
  *
  * 职责：
- * - 用 QProcess 启动 Python 视觉程序（python -m main，默认连接 5001）
- * - 开启 QTcpServer 监听 5001，接收 Python 的 pose 数据
+ * - 用 QProcess 启动 Python 视觉程序（python -m main，默认监听 5001）
+ * - 以 QTcpSocket 连接到 Python 的 5001 端口，接收 pose 数据
  * - 解析 JSON 提取 motor_6.angle_deg，通过 motorCommand 信号下发
  * - 监控子进程的 stdout / stderr / 退出事件
  * - 提供 isRunning() / stop() 业务接口和 started / stopped / errorOccurred / outputMessage 信号
@@ -20,7 +20,6 @@
 #include <QJsonObject>
 
 class QProcess;
-class QTcpServer;
 class QTcpSocket;
 
 class VisionController : public QObject
@@ -32,13 +31,13 @@ public:
     ~VisionController() override;
 
     /**
-     * @brief 启动 TCP Server 并拉起 Python 视觉程序
-     * @return true 表示 Server 监听成功且 QProcess 启动成功
+     * @brief 连接 Python 的 TCP 5001 并拉起 Python 视觉程序
+     * @return true 表示连接成功且 QProcess 启动成功
      */
     bool start();
 
     /**
-     * @brief 停止 Python 子进程并关闭 TCP Server
+     * @brief 停止 Python 子进程并断开 TCP 连接
      */
     void stop();
 
@@ -68,9 +67,9 @@ private slots:
     void onFinished(int exitCode, int exitStatus);
     void onProcessError(int error);
 
-    // --- TCP Server ---
-    void onNewConnection();
-    void onClientReadyRead();
+    // --- TCP Client ---
+    void onConnected();
+    void onReadyRead();
     void onClientDisconnected();
 
 private:
@@ -82,8 +81,7 @@ private:
     QByteArray m_stdoutBuffer;
     QByteArray m_stderrBuffer;
 
-    QTcpServer *m_tcpServer = nullptr;
-    QTcpSocket *m_clientSocket = nullptr;
+    QTcpSocket *m_tcpSocket = nullptr;
     QByteArray m_tcpBuffer;
     static constexpr quint16 kServerPort = 5001;
 };
