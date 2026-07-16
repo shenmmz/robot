@@ -459,8 +459,8 @@ QPushButton:checked{background:rgba(21,101,192,0.18);color:#fff;border-left:3px 
          <property name="currentIndex">
           <number>1</number>
          </property>
-         <widget class="QWidget" name="pageRun">
-          <layout class="QVBoxLayout" name="pageRunLayout">
+<widget class="QWidget" name="pageRun">
+          <layout class="QHBoxLayout" name="pageRunLayout">
            <property name="spacing">
             <number>8</number>
            </property>
@@ -475,7 +475,7 @@ QPushButton:checked{background:rgba(21,101,192,0.18);color:#fff;border-left:3px 
              <property name="text">
               <string>🏠 运行 &gt; 主控面板</string>
              </property>
-            </widget>
+            <property name="visible"><bool>false</bool></property></widget>
            </item>
            <item>
             <widget class="QGroupBox" name="positionGroupBox">
@@ -486,8 +486,7 @@ QPushButton:checked{background:rgba(21,101,192,0.18);color:#fff;border-left:3px 
               </size>
              </property>
              <property name="styleSheet">
-              <string>QGroupBox{background:#ffffff;border:1px solid #d0d5dd;border-radius:8px;margin-top:14px;padding:12px 10px 8px 10px;font-weight:bold;font-size:13px;color:#1a1a2e;}
-QGroupBox::title{subcontrol-origin:margin;left:14px;padding:0 8px;}</string>
+              <string>QGroupBox{background:#ffffff;border:2px solid #1e3a8a;border-radius:0;margin-top:14px;} QGroupBox::title{subcontrol-origin:margin;left:12px;padding:0 4px;color:#1e3a8a;font-weight:bold;}</string>
              </property>
              <property name="title">
               <string>实时位置</string>
@@ -763,7 +762,7 @@ QGroupBox::title{subcontrol-origin:margin;left:14px;padding:0 8px;}</string>
               <item>
                <widget class="QFrame" name="frame_0">
                 <property name="styleSheet">
-                 <string>color:#e0e0e0;</string>
+                 <string>QFrame{background:#f8f9fb;border:1px solid #e8ecf1;border-radius:0;}</string>
                 </property>
                 <property name="frameShape">
                  <enum>QFrame::Shape::VLine</enum>
@@ -938,8 +937,7 @@ QGroupBox::title{subcontrol-origin:margin;left:14px;padding:0 8px;}</string>
            <item>
             <widget class="QGroupBox" name="controlGroupBox">
              <property name="styleSheet">
-              <string>QGroupBox{background:#ffffff;border:1px solid #d0d5dd;border-radius:8px;margin-top:14px;padding:10px 10px 8px 10px;font-weight:bold;font-size:13px;color:#1a1a2e;}
-QGroupBox::title{subcontrol-origin:margin;left:14px;padding:0 8px;}</string>
+              <string>QGroupBox{background:#ffffff;border:2px solid #1e3a8a;border-radius:0;margin-top:14px;} QGroupBox::title{subcontrol-origin:margin;left:12px;padding:0 4px;color:#1e3a8a;font-weight:bold;}</string>
              </property>
              <property name="title">
               <string>控制</string>
@@ -957,7 +955,7 @@ QGroupBox::title{subcontrol-origin:margin;left:14px;padding:0 8px;}</string>
                  </size>
                 </property>
                 <property name="styleSheet">
-                 <string>QFrame#modePanel{background:#f8f9fb;border:1px solid #e8ecf1;border-radius:6px;padding:8px;}</string>
+                 <string>QFrame{background:#f8f9fb;border:1px solid #e8ecf1;border-radius:0;}</string>
                 </property>
                 <layout class="QVBoxLayout" name="modeLayout">
                  <property name="spacing">
@@ -1010,7 +1008,7 @@ QGroupBox::title{subcontrol-origin:margin;left:14px;padding:0 8px;}</string>
                   </widget>
                  </item>
                  <item>
-                  <layout class="QHBoxLayout" name="oldModeBtnRow">
+                  <layout class="QVBoxLayout" name="oldModeBtnRow">
                    <item>
                     <widget class="QPushButton" name="pushButton_2">
                      <property name="minimumSize">
@@ -1020,7 +1018,7 @@ QGroupBox::title{subcontrol-origin:margin;left:14px;padding:0 8px;}</string>
                       </size>
                      </property>
                      <property name="styleSheet">
-                      <string>QPushButton{background:#e8f4e8;color:#2d7d2d;border:1px solid #b8d8b8;border-radius:4px;padding:2px 6px;font-size:11px;font-weight:bold;}QPushButton:hover{background:#d0ead0;border-color:#90c090;}</string>
+                      <string>QPushButton{background:#ffffff;color:#c0392b;border:2px solid #c0392b;border-radius:0;padding:6px 12px;} QPushButton:hover{background:#fdecea;} QPushButton:pressed{background:#f8d7d3;}</string>
                      </property>
                      <property name="text">
                       <string>正解</string>
@@ -1036,7 +1034,7 @@ QGroupBox::title{subcontrol-origin:margin;left:14px;padding:0 8px;}</string>
                       </size>
                      </property>
                      <property name="styleSheet">
-                      <string>QPushButton{background:#e8eaf6;color:#3d3d9d;border:1px solid #c0c0e0;border-radius:4px;padding:2px 6px;font-size:11px;font-weight:bold;}QPushButton:hover{background:#d5d8f0;border-color:#a0a0d0;}</string>
+                      <string>QPushButton{background:#ffffff;color:#c0392b;border:2px solid #c0392b;border-radius:0;padding:6px 12px;} QPushButton:hover{background:#fdecea;} QPushButton:pressed{background:#f8d7d3;}</string>
                      </property>
                      <property name="text">
                       <string>逆解</string>
@@ -1051,7 +1049,7 @@ QGroupBox::title{subcontrol-origin:margin;left:14px;padding:0 8px;}</string>
               <item>
                <widget class="QFrame" name="motionPanel">
                 <property name="styleSheet">
-                 <string>QFrame#motionPanel{background:#f8f9fb;border:1px solid #e8ecf1;border-radius:6px;padding:8px;}</string>
+                 <string>QFrame{background:#f8f9fb;border:1px solid #e8ecf1;border-radius:0;}</string>
                 </property>
                 <layout class="QVBoxLayout" name="motionLayout">
                  <property name="spacing">
@@ -1078,7 +1076,7 @@ QGroupBox::title{subcontrol-origin:margin;left:14px;padding:0 8px;}</string>
                       </size>
                      </property>
                      <property name="styleSheet">
-                      <string>QPushButton{background:#e8f5e9;color:#2e7d32;border:1px solid #a5d6a7;border-radius:4px;padding:4px 8px;font-weight:bold;font-size:12px;}QPushButton:hover{background:#c8e6c9;border-color:#66bb6a;}</string>
+                      <string>QPushButton{background:#ffffff;color:#c0392b;border:2px solid #c0392b;border-radius:0;padding:6px 12px;} QPushButton:hover{background:#fdecea;} QPushButton:pressed{background:#f8d7d3;}</string>
                      </property>
                      <property name="text">
                       <string>🏠 回零</string>
@@ -1094,7 +1092,7 @@ QGroupBox::title{subcontrol-origin:margin;left:14px;padding:0 8px;}</string>
                       </size>
                      </property>
                      <property name="styleSheet">
-                      <string>QPushButton{background:#fff3e0;color:#e65100;border:1px solid #ffcc80;border-radius:4px;padding:4px 8px;font-weight:bold;font-size:12px;}QPushButton:hover{background:#ffe0b2;border-color:#ff9800;}</string>
+                      <string>QPushButton{background:#ffffff;color:#c0392b;border:2px solid #c0392b;border-radius:0;padding:6px 12px;} QPushButton:hover{background:#fdecea;} QPushButton:pressed{background:#f8d7d3;}</string>
                      </property>
                      <property name="text">
                       <string>⏸ 暂停</string>
@@ -1110,7 +1108,7 @@ QGroupBox::title{subcontrol-origin:margin;left:14px;padding:0 8px;}</string>
                       </size>
                      </property>
                      <property name="styleSheet">
-                      <string>QPushButton{background:#fbe9e7;color:#b71c1c;border:1px solid #ffcccb;border-radius:4px;padding:4px 8px;font-weight:bold;font-size:12px;}QPushButton:hover{background:#ffcdd2;border-color:#ef9a9a;}</string>
+                      <string>QPushButton{background:#ffffff;color:#c0392b;border:2px solid #c0392b;border-radius:0;padding:6px 12px;} QPushButton:hover{background:#fdecea;} QPushButton:pressed{background:#f8d7d3;}</string>
                      </property>
                      <property name="text">
                       <string>关机</string>
@@ -1125,7 +1123,7 @@ QGroupBox::title{subcontrol-origin:margin;left:14px;padding:0 8px;}</string>
               <item>
                <widget class="QFrame" name="frame_1">
                 <property name="styleSheet">
-                 <string>color:#e0e0e0;</string>
+                 <string>QFrame{background:#f8f9fb;border:1px solid #e8ecf1;border-radius:0;}</string>
                 </property>
                 <property name="frameShape">
                  <enum>QFrame::Shape::VLine</enum>
@@ -1141,7 +1139,7 @@ QGroupBox::title{subcontrol-origin:margin;left:14px;padding:0 8px;}</string>
                  </size>
                 </property>
                 <property name="styleSheet">
-                 <string>QFrame#toolPanel{background:#f8f9fb;border:1px solid #e8ecf1;border-radius:6px;padding:8px;}</string>
+                 <string>QFrame{background:#f8f9fb;border:1px solid #e8ecf1;border-radius:0;}</string>
                 </property>
                 <layout class="QVBoxLayout" name="toolLayout">
                  <property name="spacing">
@@ -1166,7 +1164,7 @@ QGroupBox::title{subcontrol-origin:margin;left:14px;padding:0 8px;}</string>
                     </size>
                    </property>
                    <property name="styleSheet">
-                    <string>QPushButton{background:#fafafa;color:#555;border:1px solid #d0d0d0;border-radius:4px;padding:3px 8px;font-size:12px;}QPushButton:hover{background:#f0f0f0;border-color:#b0b0b0;}</string>
+                    <string>QPushButton{background:#ffffff;color:#c0392b;border:2px solid #c0392b;border-radius:0;padding:6px 12px;} QPushButton:hover{background:#fdecea;} QPushButton:pressed{background:#f8d7d3;}</string>
                    </property>
                    <property name="text">
                     <string>验证建模</string>
@@ -1182,7 +1180,7 @@ QGroupBox::title{subcontrol-origin:margin;left:14px;padding:0 8px;}</string>
                     </size>
                    </property>
                    <property name="styleSheet">
-                    <string>QPushButton{background:#fce8e8;color:#b03030;border:1px solid #e8c0c0;border-radius:4px;padding:3px 8px;font-size:12px;}QPushButton:hover{background:#f8d5d5;border-color:#d8a0a0;}</string>
+                    <string>QPushButton{background:#ffffff;color:#c0392b;border:2px solid #c0392b;border-radius:0;padding:6px 12px;} QPushButton:hover{background:#fdecea;} QPushButton:pressed{background:#f8d7d3;}</string>
                    </property>
                    <property name="text">
                     <string>老化测试</string>
@@ -1198,7 +1196,7 @@ QGroupBox::title{subcontrol-origin:margin;left:14px;padding:0 8px;}</string>
                     </size>
                    </property>
                    <property name="styleSheet">
-                    <string>QPushButton{background:#e8eaf6;color:#3d3d9d;border:1px solid #c0c0e0;border-radius:4px;padding:3px 8px;font-size:12px;}QPushButton:hover{background:#d5d8f0;border-color:#a0a0d0;}</string>
+                    <string>QPushButton{background:#ffffff;color:#c0392b;border:2px solid #c0392b;border-radius:0;padding:6px 12px;} QPushButton:hover{background:#fdecea;} QPushButton:pressed{background:#f8d7d3;}</string>
                    </property>
                    <property name="text">
                     <string>功能测试</string>
@@ -1214,8 +1212,7 @@ QGroupBox::title{subcontrol-origin:margin;left:14px;padding:0 8px;}</string>
            <item>
             <widget class="QGroupBox" name="motionParamGroup">
              <property name="styleSheet">
-              <string>QGroupBox{background:#ffffff;border:1px solid #d0d5dd;border-radius:8px;margin-top:14px;padding:8px 12px 6px 12px;font-weight:bold;font-size:13px;color:#1a1a2e;}
-QGroupBox::title{subcontrol-origin:margin;left:14px;padding:0 8px;}</string>
+              <string>QGroupBox{background:#ffffff;border:2px solid #1e3a8a;border-radius:0;margin-top:14px;} QGroupBox::title{subcontrol-origin:margin;left:12px;padding:0 4px;color:#1e3a8a;font-weight:bold;}</string>
              </property>
              <property name="title">
               <string>运动参数</string>
@@ -1313,9 +1310,8 @@ QGroupBox::title{subcontrol-origin:margin;left:14px;padding:0 8px;}</string>
              </property>
             </spacer>
            </item>
-          </layout>
-         </widget>
-         <widget class="QWidget" name="pageManual">
+          <property name="stretch"><string>0,1,1,1,1</string></property></layout>
+         </widget><widget class="QWidget" name="pageManual">
           <layout class="QVBoxLayout" name="pageManualLayout">
            <property name="spacing">
             <number>8</number>
