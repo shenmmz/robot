@@ -75,6 +75,10 @@ MainWindow::MainWindow(QWidget *parent)
 {
     ui->setupUi(this);
 
+    // pageRun 外层垂直布局：三栏占上半部分，下半留空
+    ui->pageRunVLayout->setStretch(0, 1);  // 三栏容器（上半）
+    ui->pageRunVLayout->setStretch(1, 1);  // 底部留白 spacer（下半）
+
     // pageRun 横排三栏均分：实时位置 / 控制 / 运动参数
     ui->pageRunLayout->setStretch(0, 0);  // breadcrumbRun 隐藏
     ui->pageRunLayout->setStretch(1, 1);  // positionGroupBox

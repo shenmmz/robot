@@ -460,7 +460,7 @@ QPushButton:checked{background:rgba(21,101,192,0.18);color:#fff;border-left:3px 
           <number>1</number>
          </property>
 <widget class="QWidget" name="pageRun">
-          <layout class="QHBoxLayout" name="pageRunLayout">
+          <layout class="QVBoxLayout" name="pageRunVLayout"><item><layout class="QHBoxLayout" name="pageRunLayout">
            <property name="spacing">
             <number>8</number>
            </property>
@@ -1310,8 +1310,7 @@ QPushButton:checked{background:rgba(21,101,192,0.18);color:#fff;border-left:3px 
              </property>
             </spacer>
            </item>
-          </layout>
-         </widget><widget class="QWidget" name="pageManual">
+          </layout></item><item><spacer name="pageRunBottomSpacer"><property name="orientation"><enum>Qt::Vertical</enum></property><property name="sizeHint"><size><width>-1</width><height>20</height></size></property></spacer></item></layout></widget><widget class="QWidget" name="pageManual">
           <layout class="QVBoxLayout" name="pageManualLayout">
            <property name="spacing">
             <number>8</number>
