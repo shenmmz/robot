@@ -75,6 +75,13 @@ MainWindow::MainWindow(QWidget *parent)
 {
     ui->setupUi(this);
 
+    // pageRun 横排三栏均分：实时位置 / 控制 / 运动参数
+    ui->pageRunLayout->setStretch(0, 0);  // breadcrumbRun 隐藏
+    ui->pageRunLayout->setStretch(1, 1);  // positionGroupBox
+    ui->pageRunLayout->setStretch(2, 1);  // controlGroupBox
+    ui->pageRunLayout->setStretch(3, 1);  // motionParamGroup
+    ui->pageRunLayout->setStretch(4, 1);  // runSpacer
+
     // 初始化机器人控制器（从JSON配置文件加载机械参数）
     m_robotController = new RobotController(this);
     m_robotController->initialize(findConfigFile());

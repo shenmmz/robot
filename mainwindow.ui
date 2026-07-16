@@ -1310,7 +1310,7 @@ QPushButton:checked{background:rgba(21,101,192,0.18);color:#fff;border-left:3px 
              </property>
             </spacer>
            </item>
-          <property name="stretch"><string>0,1,1,1,1</string></property></layout>
+          </layout>
          </widget><widget class="QWidget" name="pageManual">
           <layout class="QVBoxLayout" name="pageManualLayout">
            <property name="spacing">
