@@ -81,9 +81,9 @@ MainWindow::MainWindow(QWidget *parent)
 
     // pageRun 横排三栏均分：实时位置 / 控制 / 运动参数
     ui->pageRunLayout->setStretch(0, 0);  // breadcrumbRun 隐藏
-    ui->pageRunLayout->setStretch(1, 1);  // positionGroupBox
-    ui->pageRunLayout->setStretch(2, 1);  // controlGroupBox
-    ui->pageRunLayout->setStretch(3, 1);  // motionParamGroup
+    ui->pageRunLayout->setStretch(1, 5);  // positionGroupBox 左栏（参考图约50%）
+    ui->pageRunLayout->setStretch(2, 3);  // controlGroupBox 中栏（参考图约30%）
+    ui->pageRunLayout->setStretch(3, 2);  // motionParamGroup 右栏（参考图约20%）
     ui->pageRunLayout->setStretch(4, 1);  // runSpacer
 
     // 初始化机器人控制器（从JSON配置文件加载机械参数）
