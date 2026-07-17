@@ -93,6 +93,13 @@ void TaskExecutor::start()
     m_currentIdx = 0;
     m_state = Running;
     m_stepOnce = false;
+
+    // 停止后再运行时，rapidStop(2) 的 Cancel Buffer 会清空 CONNFRAME 管线，
+    // 导致后续 MoveAbs 只更新虚拟轴 DPOS 而不驱动关节轴。这里强制重建逆解模式。
+    if (m_robotController->getMotionController()) {
+        m_robotController->getMotionController()->setInverseKinematicsMode();
+    }
+
     emit taskStarted(m_commands.size());
     qDebug() << "[TaskExecutor] 开始执行" << m_commands.size() << "条指令";
 

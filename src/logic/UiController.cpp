@@ -2313,6 +2313,19 @@ void UiController::syncProgramComments()
  */
 void UiController::onProgRun()
 {
+    // 两态切换：已在执行/暂停 → 直接 stop 结束；空闲 → 重新开始执行
+    if (m_taskExecutor && (m_taskExecutor->isRunning() || m_taskExecutor->isPaused())) {
+        m_taskExecutor->stop();
+        // 清空编辑器行高亮
+        m_currentExecLine = -1;
+        highlightCurrentLine(-1);
+        if (auto* sb = m_mainWindow->findChild<QStatusBar*>(QStringLiteral("statusbar")))
+            sb->showMessage(QStringLiteral("任务已结束"));
+        if (auto* btn = m_mainWindow->findChild<QPushButton*>(QStringLiteral("btnProgRun")))
+            btn->setText(QStringLiteral("▶ 运行"));
+        return;
+    }
+
     if (!m_robotController || !m_robotController->isConnected()) {
         QMessageBox::warning(nullptr, QStringLiteral("未连接"),
                              QStringLiteral("请先连接控制器"));
@@ -2335,6 +2348,12 @@ void UiController::onProgRun()
         return;
     }
     runText(text, QString());
+
+    // 任务启动成功后按钮切换为"停止"
+    if (m_taskExecutor && m_taskExecutor->isRunning()) {
+        if (auto* btn = m_mainWindow->findChild<QPushButton*>(QStringLiteral("btnProgRun")))
+            btn->setText(QStringLiteral("⏹ 停止"));
+    }
 }
 
 /**
@@ -2855,11 +2874,13 @@ void UiController::onProgStop()
     if (m_taskExecutor->isRunning()) {
         // 正在执行 → 暂停
         m_taskExecutor->pause();
+        if (auto* btn = m_mainWindow->findChild<QPushButton*>(QStringLiteral("btnProgRun")))
+            btn->setText(QStringLiteral("▶ 恢复"));
     } else if (m_taskExecutor->isPaused()) {
         // 已暂停 → 彻底停止（清空队列，机械臂保持当前位置不动）
         m_taskExecutor->stop();
-        if (auto* btn = m_mainWindow->findChild<QPushButton*>(QStringLiteral("btnProgStop")))
-            btn->setText(QStringLiteral("⏸ 暂停"));
+        if (auto* btn = m_mainWindow->findChild<QPushButton*>(QStringLiteral("btnProgRun")))
+            btn->setText(QStringLiteral("▶ 运行"));
         if (auto* sb = m_mainWindow->findChild<QStatusBar*>(QStringLiteral("statusbar")))
             sb->showMessage(QStringLiteral("任务已取消"));
         // 清空编辑器行高亮
@@ -3766,8 +3787,8 @@ void UiController::onTaskProgress(int current, int total)
  */
 void UiController::onTaskPaused(int current, int total)
 {
-    // 更新停止按钮文本
-    if (auto* btn = m_mainWindow->findChild<QPushButton*>(QStringLiteral("btnProgStop")))
+    // 运行时按钮切换为"恢复"
+    if (auto* btn = m_mainWindow->findChild<QPushButton*>(QStringLiteral("btnProgRun")))
         btn->setText(QStringLiteral("▶ 恢复"));
 
     QMessageBox msgBox;
@@ -3791,8 +3812,6 @@ void UiController::onTaskPaused(int current, int total)
         confirmBox.setDefaultButton(QMessageBox::No);
         if (confirmBox.exec() == QMessageBox::Yes) {
             m_taskExecutor->stop();
-            if (auto* btn = m_mainWindow->findChild<QPushButton*>(QStringLiteral("btnProgStop")))
-                btn->setText(QStringLiteral("⏸ 暂停"));
             if (auto* sb = m_mainWindow->findChild<QStatusBar*>(QStringLiteral("statusbar")))
                 sb->showMessage(QStringLiteral("是否取消当前任务"));
         }
@@ -3804,6 +3823,10 @@ void UiController::onTaskPaused(int current, int total)
  */
 void UiController::onTaskResumed(int current, int total)
 {
+    // 恢复后按钮变回"停止"
+    if (auto* btn = m_mainWindow->findChild<QPushButton*>(QStringLiteral("btnProgRun")))
+        btn->setText(QStringLiteral("⏹ 停止"));
+
     if (auto* sb = m_mainWindow->findChild<QStatusBar*>(QStringLiteral("statusbar")))
         sb->showMessage(QStringLiteral("任务继续执行 (%1/%2)").arg(current).arg(total));
 }
@@ -3816,8 +3839,9 @@ void UiController::onTaskResumed(int current, int total)
  */
 void UiController::onTaskFinished()
 {
-    if (auto* btn = m_mainWindow->findChild<QPushButton*>(QStringLiteral("btnProgStop")))
-        btn->setText(QStringLiteral("⏹ 停止"));
+    // 任务结束按钮恢复"运行"
+    if (auto* btn = m_mainWindow->findChild<QPushButton*>(QStringLiteral("btnProgRun")))
+        btn->setText(QStringLiteral("▶ 运行"));
 
     ZmotionAPI::setVerbose(true);
     m_robotController->getMotionController()->updateState();
@@ -3848,8 +3872,9 @@ void UiController::onTaskFinished()
  */
 void UiController::onTaskError(const QString& msg)
 {
-    if (auto* btn = m_mainWindow->findChild<QPushButton*>(QStringLiteral("btnProgStop")))
-        btn->setText(QStringLiteral("⏹ 停止"));
+    // 出错按钮恢复"运行"
+    if (auto* btn = m_mainWindow->findChild<QPushButton*>(QStringLiteral("btnProgRun")))
+        btn->setText(QStringLiteral("▶ 运行"));
 
     ZmotionAPI::setVerbose(true);
     appendConsole(QStringLiteral("✘ 错误: %1").arg(msg));
