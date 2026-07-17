@@ -66,6 +66,9 @@ private slots:
 
     void on_pushButton_6_clicked();
 
+    // 开发者账号管理
+    void onBtnLogin();
+
     // 位置显示更新
     void updatePositionDisplay();
     void onSendJointMove();
@@ -158,5 +161,12 @@ private:
     QString decimalToHex(const QString& decimalStr) const;
     static quint16 calcModbusCRC16(const QByteArray& data);
     void showPointAdjustDialog(bool isJoint);
+
+    // 开发者账号管理
+    void initLoginUI();
+    void updateLoginUI();
+    bool checkLoginGate();   // 返回 true 表示已登录或弹窗已处理
+    QString getAccountConfigPath() const;
+    bool m_loggedIn = false;
 };
 #endif // MAINWINDOW_H

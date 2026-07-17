@@ -34,6 +34,7 @@
 #include <QMessageBox>
 #include <QCheckBox>
 #include <QDialog>
+#include <QVBoxLayout>
 #include <QScrollBar>
 #include <QTextCursor>
 #include <QDoubleSpinBox>
@@ -51,6 +52,8 @@
 #include <QDateTime>
 #include <QThread>
 #include <QApplication>
+#include <QCryptographicHash>
+#include <QSettings>
 
 static QString findConfigFile()
 {
@@ -150,6 +153,9 @@ MainWindow::MainWindow(QWidget *parent)
 
     // 初始化"视觉运动"页（6 轴勾选 + 实时下发日志）
     initVisionControlUI();
+
+    // 初始化开发者账号管理
+    initLoginUI();
 }
 
 /**
@@ -435,6 +441,8 @@ void MainWindow::validateKinematicsModel()
  */
 void MainWindow::on_pushButton_clicked()
 {
+    if (!checkLoginGate()) return;
+
     // 1. 执行运动学模型功能验证（仅输出到调试控制台）
     validateKinematicsModel();
     
@@ -536,6 +544,8 @@ void MainWindow::onJointModeClicked()
  */
 void MainWindow::on_pushButton_2_clicked()
 {
+    if (!checkLoginGate()) return;
+
     if (m_robotController && m_robotController->isConnected()) {
         bool success = m_robotController->switchToJointMode();
         
@@ -567,6 +577,8 @@ void MainWindow::on_pushButton_2_clicked()
  */
 void MainWindow::on_pushButton_3_clicked()
 {
+    if (!checkLoginGate()) return;
+
     if (m_robotController && m_robotController->isConnected()) {
         bool success = m_robotController->switchToCartesianMode();
         
@@ -711,6 +723,8 @@ void MainWindow::on_pushButton_4_clicked()
  */
 void MainWindow::on_pushButton_6_clicked()
 {
+    if (!checkLoginGate()) return;
+
     if (!m_vision) return;
 
     if (m_vision->isRunning()) {
@@ -2769,3 +2783,161 @@ void MainWindow::initVisionControlUI()
     }
 }
 
+// ==================== 开发者账号管理 ====================
+
+QString MainWindow::getAccountConfigPath() const
+{
+    // 从 exe 所在目录向上查找 config/ 目录（与 robot_config.json 同目录）
+    QString configDir = QFileInfo(findConfigFile()).absolutePath();
+    return configDir + "/developer_account.ini";
+}
+
+void MainWindow::initLoginUI()
+{
+    connect(ui->btnLogin, &QPushButton::clicked, this, &MainWindow::onBtnLogin);
+
+    QSettings settings(getAccountConfigPath(), QSettings::IniFormat);
+    settings.beginGroup("Account");
+    QString savedUser = settings.value("username", "").toString();
+    QString savedHash = settings.value("password_hash", "").toString();
+    settings.endGroup();
+
+    if (savedUser.isEmpty() || savedHash.isEmpty()) {
+        QDir().mkpath(QFileInfo(getAccountConfigPath()).absolutePath());
+        QSettings cfg(getAccountConfigPath(), QSettings::IniFormat);
+        cfg.beginGroup("Account");
+        cfg.setValue("username", "admin");
+        QByteArray hash = QCryptographicHash::hash(
+            QByteArray("hg123"), QCryptographicHash::Sha256);
+        cfg.setValue("password_hash", QString::fromLatin1(hash.toHex()));
+        cfg.endGroup();
+        cfg.sync();
+    }
+
+    m_loggedIn = false;
+    updateLoginUI();
+}
+
+void MainWindow::updateLoginUI()
+{
+    if (m_loggedIn) {
+        ui->btnLogin->setText(QStringLiteral("退出登录"));
+        ui->btnLogin->setStyleSheet(
+            "QPushButton{font-size:12px;font-weight:bold;min-height:28px;border-radius:4px;"
+            "background:#fff6f0;color:#d15f0a;"
+            "border-top:2px solid #fff;border-left:2px solid #fff;"
+            "border-bottom:3px solid #e67020;border-right:3px solid #e67020;}"
+            "QPushButton:hover{background:#ffe9d9;}"
+            "QPushButton:pressed{background:#ffe9d9;color:#d15f0a;"
+            "border-top:3px solid #e67020;border-left:3px solid #e67020;"
+            "border-bottom:2px solid #fff;border-right:2px solid #fff;}");
+    } else {
+        ui->btnLogin->setText(QStringLiteral("登录"));
+        ui->btnLogin->setStyleSheet(
+            "QPushButton{font-size:12px;font-weight:bold;min-height:28px;border-radius:4px;"
+            "background:#f0f6fc;color:#2c62b3;"
+            "border-top:2px solid #fff;border-left:2px solid #fff;"
+            "border-bottom:3px solid #4078c0;border-right:3px solid #4078c0;}"
+            "QPushButton:hover{background:#e1edfb;}"
+            "QPushButton:pressed{background:#e1edfb;color:#2c62b3;"
+            "border-top:3px solid #4078c0;border-left:3px solid #4078c0;"
+            "border-bottom:2px solid #fff;border-right:2px solid #fff;}");
+    }
+}
+
+void MainWindow::onBtnLogin()
+{
+    if (m_loggedIn) {
+        // 已登录 → 登出
+        m_loggedIn = false;
+        updateLoginUI();
+        ui->statusbar->showMessage(QStringLiteral("已退出开发者账号"));
+        return;
+    }
+
+    QDialog dlg(this);
+    dlg.setWindowTitle(QStringLiteral("开发者登录"));
+    dlg.setFixedSize(260, 160);
+    dlg.setStyleSheet("QDialog{background:#f5f6f8;}");
+
+    QVBoxLayout *layout = new QVBoxLayout(&dlg);
+    layout->setSpacing(10);
+    layout->setContentsMargins(20, 20, 20, 20);
+
+    QLabel *titleLabel = new QLabel(QStringLiteral("请输入开发者账号"), &dlg);
+    titleLabel->setAlignment(Qt::AlignCenter);
+    titleLabel->setStyleSheet("font-size:13px;font-weight:bold;color:#333;border:none;background:transparent;");
+
+    QLineEdit *editUser = new QLineEdit(&dlg);
+    editUser->setPlaceholderText(QStringLiteral("账号"));
+    editUser->setStyleSheet("border:1px solid #ccc;border-radius:4px;padding:4px 8px;font-size:12px;min-height:24px;");
+
+    QLineEdit *editPwd = new QLineEdit(&dlg);
+    editPwd->setPlaceholderText(QStringLiteral("密码"));
+    editPwd->setEchoMode(QLineEdit::Password);
+    editPwd->setStyleSheet("border:1px solid #ccc;border-radius:4px;padding:4px 8px;font-size:12px;min-height:24px;");
+
+    QPushButton *confirmBtn = new QPushButton(QStringLiteral("登录"), &dlg);
+    confirmBtn->setStyleSheet(
+        "QPushButton{font-size:12px;font-weight:bold;min-height:28px;border-radius:4px;"
+        "background:#f0f6fc;color:#2c62b3;border-top:2px solid #fff;border-left:2px solid #fff;"
+        "border-bottom:3px solid #4078c0;border-right:3px solid #4078c0;}"
+        "QPushButton:hover{background:#e1edfb;}"
+        "QPushButton:pressed{background:#e1edfb;border-top:3px solid #4078c0;"
+        "border-left:3px solid #4078c0;border-bottom:2px solid #fff;border-right:2px solid #fff;}");
+
+    layout->addWidget(titleLabel);
+    layout->addWidget(editUser);
+    layout->addWidget(editPwd);
+    layout->addWidget(confirmBtn);
+
+    QObject::connect(confirmBtn, &QPushButton::clicked, &dlg, [&dlg, editUser, editPwd, this]() {
+        QString username = editUser->text().trimmed();
+        QString password = editPwd->text();
+
+        if (username.isEmpty() || password.isEmpty()) {
+            QMessageBox::warning(&dlg, QStringLiteral("登录失败"), QStringLiteral("账号和密码不能为空"));
+            return;
+        }
+
+        QSettings settings(getAccountConfigPath(), QSettings::IniFormat);
+        settings.beginGroup("Account");
+        QString savedUser = settings.value("username", "").toString();
+        QString savedHash = settings.value("password_hash", "").toString();
+        settings.endGroup();
+
+        QByteArray inputHash = QCryptographicHash::hash(
+            password.toUtf8(), QCryptographicHash::Sha256);
+        QString inputHashStr = QString::fromLatin1(inputHash.toHex());
+
+        if (username == savedUser && inputHashStr == savedHash) {
+            m_loggedIn = true;
+            updateLoginUI();
+            ui->statusbar->showMessage(QStringLiteral("开发者登录成功"));
+            dlg.accept();
+        } else {
+            QMessageBox::warning(&dlg, QStringLiteral("登录失败"), QStringLiteral("账号或密码错误"));
+            editPwd->clear();
+            editPwd->setFocus();
+        }
+    });
+
+    // 回车快速登录
+    QObject::connect(editPwd, &QLineEdit::returnPressed, confirmBtn, &QPushButton::click);
+
+    // 弹出登录框前把面板上的按钮焦点去掉
+    ui->btnLogin->setFocusPolicy(Qt::NoFocus);
+    dlg.exec();
+    ui->btnLogin->setFocusPolicy(Qt::StrongFocus);
+
+    // 取消/关闭弹窗时焦点回到登录按钮
+    ui->btnLogin->setFocus();
+}
+
+bool MainWindow::checkLoginGate()
+{
+    if (m_loggedIn) return true;
+    QMessageBox::warning(this, QStringLiteral("需要登录"),
+                         QStringLiteral("请先在「开发者」面板中登录账号后使用此功能"));
+    return false;
+}
