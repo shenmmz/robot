@@ -34,7 +34,7 @@ enum class ScriptCmdType {
     TimeoutSet, // TIMEOUT(ms) 设定全局默认超时
     MoveOff,    // MOVEOFF(j0..j5) 关节相对偏移
     MoveLOff,   // MOVELOFF(x..rz) 笛卡尔相对偏移
-    IfDI,       // IF_DI(n, val) 条件判断
+    IfIO,       // IF(DI/DO, n, val) 条件判断
     Else,       // ELSE 分支
     EndIf,      // END_IF 结束
     TargetDef,  // TARGET P1 = {...} 点位定义
@@ -54,10 +54,11 @@ struct ScriptCommand {
     double decel   = 60.0;      // 减速度
     int    timeoutMs = 10000;   // 等待到位超时（毫秒）
 
-    // ===== IO 指令参数 (SetDO / WaitDI) =====
-    int ioIndex   = 0;          // IO 编号 (0-19)
+    // ===== IO 指令参数 (SetDO / WaitDI / IfIO) =====
+    QString ioType;             // IO 类型：DI / DO（仅 IfIO 使用，SetDO/WaitDI/WhileDI 为空）
+    int ioIndex   = 0;          // IO 编号 (DI: 0-23, DO: 0-19)
     int ioValue   = 0;          // IO 值 (0/1)
-    int ioTimeout = 5000;       // WaitDI 超时
+    int ioTimeout = 5000;       // WaitDI 超时（毫秒）
 
     // ===== Delay 参数 =====
     int delayMs   = 500;        // 延时毫秒

@@ -360,11 +360,16 @@ void TaskExecutor::executeNext()
     }
 
     // === IF_DI 分支入口 ===
-    if (cmd.type == ScriptCmdType::IfDI) {
-        int diVal = 0;
+    if (cmd.type == ScriptCmdType::IfIO) {
+        int ioVal = 0;
         ZmotionAPI* api = m_robotController->getMotionController()->getZmotionAPI();
-        diVal = api->getDI(cmd.ioIndex);
-        if (diVal == cmd.ioValue) {
+        // 根据 ioType 读取 DI 或 DO
+        if (cmd.ioType == QStringLiteral("DO")) {
+            ioVal = api->getDO(cmd.ioIndex);
+        } else {
+            ioVal = api->getDI(cmd.ioIndex);
+        }
+        if (ioVal == cmd.ioValue) {
             m_currentIdx++;
         } else {
             int j = m_currentIdx + 1;
@@ -744,7 +749,7 @@ bool TaskExecutor::executeCommand(const ScriptCommand& cmd)
         int    tmo = (m_globalTimeout > 0) ? m_globalTimeout : cmd.timeoutMs;
         return m_robotController->moveL(targets, spd, acc, dec, tmo);
     }
-    case ScriptCmdType::IfDI:
+    case ScriptCmdType::IfIO:
     case ScriptCmdType::Else:
     case ScriptCmdType::EndIf:
         return true;  // 由 executeNext 处理分支逻辑
@@ -956,12 +961,12 @@ void TaskExecutor::buildLoopMap()
                 m_loopStartMap[i] = head;
             }
             break;
-        case ScriptCmdType::IfDI: {
+        case ScriptCmdType::IfIO: {
             // IF_DI → ELSE or END_IF（支持嵌套）
             int j = i + 1, depth = 1;
             while (j < m_commands.size() && depth > 0) {
                 auto t = m_commands[j].type;
-                if (t == ScriptCmdType::IfDI) depth++;
+                if (t == ScriptCmdType::IfIO) depth++;
                 else if (t == ScriptCmdType::EndIf) depth--;
                 j++;
             }

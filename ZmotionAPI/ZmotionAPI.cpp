@@ -3971,6 +3971,37 @@ int ZmotionAPI::getDI(int ioNumber)
 }
 
 /**
+ * @brief getDO 获取单个输出口信号
+ * 
+ * 该函数用于获取单个输出口的状态，使用ZAux_Direct_GetOp API实现。
+ * 
+ * @param ioNumber 输出口编号
+ * @return 输出口状态值（0或1），失败返回 -1
+ */
+int ZmotionAPI::getDO(int ioNumber)
+{
+    if (ioNumber < 0) {
+        qWarning() << QString("getDO: 无效的输出口编号 %1，输出口编号不能为负数").arg(ioNumber);
+        return -1;
+    }
+    
+    if (!isConnected()) {
+        qWarning() << "getDO: 设备未连接或未初始化，无法执行输出口操作";
+        return -1;
+    }
+    
+    uint32 value = 0;
+    int ret = ZAux_Direct_GetOp(m_handle, ioNumber, &value);
+    
+    if (ret == 0) {
+        return static_cast<int>(value);
+    } else {
+        qCritical() << QString("getDO: 获取输出口%1状态失败，错误码: %2").arg(ioNumber).arg(ret);
+        return -1;
+    }
+}
+
+/**
  * @brief setInvertIn 设置输入IO的反转状态
  * 
  * 该函数用于设置指定输入IO口的电平反转状态。

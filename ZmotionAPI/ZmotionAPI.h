@@ -819,6 +819,17 @@ public:
      * @note 输入口编号要大于控制器自身最大的IO编号，不能与控制器的编号重合
      */
     int getDI(int ioNumber);
+
+    /*
+     * @brief getDO 获取单个输出口信号
+     * 
+     * 该函数用于获取单个输出口的状态，使用ZAux_Direct_GetOp API实现。
+     * 
+     * @param ioNumber 输出口编号
+     * @return 输出口状态值（0或1），失败返回 -1
+     * @note 使用示例：获取输出口1的状态
+     */
+    int getDO(int ioNumber);
     
     /**
      * @brief setInvertIn 设置输入IO的反转状态

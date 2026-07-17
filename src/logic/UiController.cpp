@@ -100,7 +100,7 @@ UiController::~UiController()
  *   4. 加载 DI/DO 自定义标签名称（loadIOLabels）
  *   5. 创建 TaskExecutor 并连接全部 7 个信号（进度 / 暂停 / 恢复 / 完成 / 错误 / 控制台输出 / 当前行变化）
  *   6. 订阅 RobotController::errorOccurred 与 MotionController::hardwareError，写入报警日志
- *   7. 连接编程页面按钮：运行 / 停止 / 指令插入（MoveJ/MoveL/Delay/IO/Print/Comment/Call/Set/ReadPos/For/Offset/Speed/Accel/Decel/Timeout/IfDI/Else/EndIf）
+ *   7. 连接编程页面按钮：运行 / 停止 / 指令插入（MoveJ/MoveL/Delay/IO/Print/Comment/Call/Set/ReadPos/For/Offset/Speed/Accel/Decel/Timeout/IfIO/Else/EndIf）
  *   8. 连接编程页面文件操作：保存 / 加载 / 新建 / 删行 / 复制 / 粘贴
  *   9. 连接设置页面：控制器 IP 编辑完成保存、保存首页按钮
  *  10. 绑定关节 J0–J5 与笛卡尔 XYZ/RxRyRz 的 ± 点动按钮（单击模式）
@@ -209,7 +209,7 @@ void UiController::init()
     connProgBtn(QStringLiteral("btnProgDecel"),    &UiController::onProgInsertDecel);
     connProgBtn(QStringLiteral("btnProgTimeout"),  &UiController::onProgInsertTimeout);
     // 条件
-    connProgBtn(QStringLiteral("btnProgIfDI"),     &UiController::onProgInsertIfDI);
+    connProgBtn(QStringLiteral("btnProgIfIO"),     &UiController::onProgInsertIfIO);
     connProgBtn(QStringLiteral("btnProgElse"),     &UiController::onProgInsertElse);
     connProgBtn(QStringLiteral("btnProgEndIf"),    &UiController::onProgInsertEndIf);
     // SERVO 按钮在 mainwindow.cpp rebuildInstrTabs() 中动态创建并连接
@@ -2450,6 +2450,162 @@ void UiController::runStep(const QString& fullText, int startLine)
 }
 
 /**
+ * @brief 解析 MOVEJ/MOVEL 关键字参数段：speed=.. acc=.. dec=.. timeout=..
+ * @param cmd  命令结构(直接就地填入 speed/accel/decel/timeoutMs)
+ * @param line 整行文本,正则从全行匹配
+ */
+void UiController::applyKeywordParams(ScriptCommand& cmd, const QString& line)
+{
+    QRegularExpression re("(\\w+)=([\\d.]+)");
+    auto it = re.globalMatch(line);
+    while (it.hasNext()) {
+        auto m = it.next();
+        const QString key = m.captured(1);
+        if      (key == QLatin1String("speed"))   cmd.speed     = m.captured(2).toDouble();
+        else if (key == QLatin1String("acc"))     cmd.accel     = m.captured(2).toDouble();
+        else if (key == QLatin1String("dec"))     cmd.decel     = m.captured(2).toDouble();
+        else if (key == QLatin1String("timeout")) cmd.timeoutMs = m.captured(2).toInt();
+    }
+}
+
+/**
+ * @brief 解析 MOVEJ/MOVEL 指令(两种格式自动兼容)
+ *   - 旧格式: MOVEJ({J0: 0, J1: 0, ...}, speed=25)
+ *   - 新格式: MOVEJ(P1, speed=25, acc=50, dec=60)
+ * @note 调用方需在 targets.size() < 6 时丢弃该 cmd
+ */
+ScriptCommand UiController::parseMoveCmd(ScriptCmdType type, const QString& line,
+                                         double defSpd, double defAcc, double defDecel, int defTimeout)
+{
+    ScriptCommand cmd;
+    cmd.type      = type;
+    cmd.speed     = defSpd;
+    cmd.accel     = defAcc;
+    cmd.decel     = defDecel;
+    cmd.timeoutMs = defTimeout;
+
+    const int s = line.indexOf(QLatin1Char('{'));
+    if (s >= 0) {
+        // 旧格式: 解析 {J0: 0, J1: 0, ...}
+        const int e = line.indexOf(QLatin1Char('}'));
+        if (e < 0) return cmd;
+        const QString raw = line.mid(s + 1, e - s - 1);
+        for (const auto& p : raw.split(QLatin1Char(','), Qt::SkipEmptyParts)) {
+            const QString t = p.trimmed();
+            const int colon = t.indexOf(QLatin1Char(':'));
+            const QString val = t.mid(colon + 1).trimmed();
+            cmd.targetRaw.append(val);
+            cmd.targets.append(val.toDouble());
+        }
+    } else {
+        // 新格式: 从 ( 之后取第一个逗号前为点位名
+        const int p0 = line.indexOf(QLatin1Char('('));
+        const int p1 = line.indexOf(QLatin1Char(','));
+        if (p0 < 0 || p1 < 0) return cmd;
+        cmd.targetName = line.mid(p0 + 1, p1 - p0 - 1).trimmed();
+        if (m_targets.contains(cmd.targetName)) {
+            cmd.targets = m_targets[cmd.targetName];
+            for (double v : cmd.targets)
+                cmd.targetRaw.append(QString::number(v, 'f', 3));
+        }
+    }
+    applyKeywordParams(cmd, line);
+    return cmd;
+}
+
+/**
+ * @brief 解析 SPEED/ACCEL/DECEL/TIMEOUT 单参数指令
+ *   - SPEED(25)   → SpeedSet,   targets[0] = 25
+ *   - ACCEL(50)   → AccelSet,   targets[0] = 50
+ *   - DECEL(60)   → DecelSet,   targets[0] = 60
+ *   - TIMEOUT(1000) → TimeoutSet, targets[0] = 1000
+ */
+ScriptCommand UiController::parseParamSet(ScriptCmdType type, int prefixLen, const QString& line,
+                                          double defSpd, double defAcc, double defDecel, int defTimeout)
+{
+    ScriptCommand cmd;
+    cmd.type      = type;
+    cmd.speed     = defSpd;
+    cmd.accel     = defAcc;
+    cmd.decel     = defDecel;
+    cmd.timeoutMs = defTimeout;
+    const int pe = line.indexOf(QLatin1Char(')'));
+    cmd.targets.append(line.mid(prefixLen, pe - prefixLen).trimmed().toDouble());
+    return cmd;
+}
+
+/**
+ * @brief 解析 IF/SET_DO/WAIT_DI/WHILE_DI 指令
+ *   - IF(DI/DO, io, val)        → IfIO
+ *   - SET_DO(io, val)             → SetDO
+ *   - WAIT_DI(io, val, timeout)   → WaitDI  (三参,多一个 ioTimeout)
+ *   - WHILE_DI(io, val)           → WhileDI
+ */
+ScriptCommand UiController::parseIO(ScriptCmdType type, int prefixLen, const QString& line,
+                                    double defSpd, double defAcc, double defDecel, int defTimeout)
+{
+    ScriptCommand cmd;
+    cmd.type      = type;
+    cmd.speed     = defSpd;
+    cmd.accel     = defAcc;
+    cmd.decel     = defDecel;
+    cmd.timeoutMs = defTimeout;
+    const int pe = line.indexOf(QLatin1Char(')'));
+    const auto parts = line.mid(prefixLen, pe - prefixLen).split(QLatin1Char(','));
+    if (parts.size() >= 2) {
+        cmd.ioIndex = parts[0].trimmed().toInt();
+        cmd.ioValue = parts[1].trimmed().toInt();
+    }
+    if (type == ScriptCmdType::WaitDI && parts.size() >= 3)
+        cmd.ioTimeout = parts[2].trimmed().toInt();
+    return cmd;
+}
+
+/**
+ * @brief 解析 PRINT/CALL 指令(双引号包裹的字符串)
+ *   - PRINT("hello")  → Print,   printText = "hello"
+ *   - CALL("sub.rbt") → Call,    callFile  = "sub.rbt"
+ */
+ScriptCommand UiController::parseQuoted(ScriptCmdType type, const QString& line,
+                                        double defSpd, double defAcc, double defDecel, int defTimeout)
+{
+    ScriptCommand cmd;
+    cmd.type      = type;
+    cmd.speed     = defSpd;
+    cmd.accel     = defAcc;
+    cmd.decel     = defDecel;
+    cmd.timeoutMs = defTimeout;
+    const int q1 = line.indexOf(QLatin1Char('"'));
+    const int q2 = line.lastIndexOf(QLatin1Char('"'));
+    if (q1 >= 0 && q2 > q1) {
+        const QString txt = line.mid(q1 + 1, q2 - q1 - 1);
+        if (type == ScriptCmdType::Print) cmd.printText = txt;
+        else                              cmd.callFile  = txt;
+    }
+    return cmd;
+}
+
+/**
+ * @brief 解析 MOVEJOFF/MOVEOFF/MOVELOFF 偏移指令
+ * @note 调用方需在 targets.size() < 6 时丢弃该 cmd
+ */
+ScriptCommand UiController::parseOffCmd(ScriptCmdType type, const QString& line,
+                                        double defSpd, double defAcc, double defDecel, int defTimeout)
+{
+    ScriptCommand cmd;
+    cmd.type      = type;
+    cmd.speed     = defSpd;
+    cmd.accel     = defAcc;
+    cmd.decel     = defDecel;
+    cmd.timeoutMs = defTimeout;
+    const int s  = line.indexOf(QLatin1Char('('));
+    const int pe = line.indexOf(QLatin1Char(')'));
+    for (const auto& p : line.mid(s + 1, pe - s - 1).split(QLatin1Char(','), Qt::SkipEmptyParts))
+        cmd.targets.append(p.trimmed().toDouble());
+    return cmd;
+}
+
+/**
  * @brief 将脚本文本解析为 ScriptCommand 列表（脚本指令的词法/语法解析核心函数）
  *
  * 支持的指令类型：
@@ -2462,7 +2618,7 @@ void UiController::runStep(const QString& fullText, int startLine)
  *   - FOR(var, start, end) ... END_FOR         → 循环
  *   - WHILE TRUE / WHILE_DI(io,val) ... END_WHILE → 循环
  *   - SPEED(x) / ACCEL(x) / DECEL(x) / TIMEOUT(x) → 运行中参数设置
- *   - IF_DI(io, val) ... END_IF                → 条件分支
+ *   - IF(DI/DO, io, val) ... END_IF             → 条件分支
  *   - <var> = <number> 或 <var> = <expr>       → 变量赋值
  *   - DELAY(ms)                                 → 延时（毫秒）
  *   - SET_DO(io, val)                           → 写数字输出
@@ -2480,31 +2636,34 @@ QList<ScriptCommand> UiController::parseScript(const QString& text)
     double defSpd, defAcc, defDecel; int defTimeout;
     readDefaultMotionParams(defSpd, defAcc, defDecel, defTimeout);
 
-    QStringList lines = text.split(QChar::fromLatin1('\n'), Qt::KeepEmptyParts);
+    QStringList lines = text.split(QLatin1Char('\n'), Qt::KeepEmptyParts);
     for (int srcLineNo = 0; srcLineNo < lines.size(); ++srcLineNo) {
         const QString& rawLine = lines[srcLineNo];
         QString line = rawLine.trimmed();
-        if (line.isEmpty() || line.startsWith(QChar::fromLatin1('#')))
+        if (line.isEmpty() || line.startsWith(QLatin1Char('#')))
             continue;
 
         ScriptCommand cmd;
-        cmd.speed = defSpd; cmd.accel = defAcc; cmd.decel = defDecel; cmd.timeoutMs = defTimeout;
-        cmd.sourceLine = line;
-        cmd.sourceLineNo = srcLineNo;
+        cmd.speed     = defSpd;
+        cmd.accel     = defAcc;
+        cmd.decel     = defDecel;
+        cmd.timeoutMs = defTimeout;
+        cmd.sourceLine    = line;
+        cmd.sourceLineNo  = srcLineNo;
 
         if (line.startsWith(QStringLiteral("TARGET "), Qt::CaseInsensitive)) {
             // TARGET P1 = {J0: 0, J1: 0, ...} 或 {X: 0, Y: 0, ...}
-            int eq = line.indexOf(QChar::fromLatin1('='));
-            int br = line.indexOf(QChar::fromLatin1('{'));
+            int eq = line.indexOf(QLatin1Char('='));
+            int br = line.indexOf(QLatin1Char('{'));
             if (eq < 0 || br < 0) continue;
             QString name = line.mid(7, eq - 7).trimmed();  // "P1"
-            int e = line.indexOf(QChar::fromLatin1('}'), br);
+            int e = line.indexOf(QLatin1Char('}'), br);
             if (e < 0) continue;
             QString raw = line.mid(br + 1, e - br - 1);
             QList<double> vals;
-            for (const auto& p : raw.split(QChar::fromLatin1(','), Qt::SkipEmptyParts)) {
+            for (const auto& p : raw.split(QLatin1Char(','), Qt::SkipEmptyParts)) {
                 QString t = p.trimmed();
-                int colon = t.indexOf(QChar::fromLatin1(':'));
+                int colon = t.indexOf(QLatin1Char(':'));
                 vals.append(t.mid(colon + 1).trimmed().toDouble());
             }
             if (vals.size() >= 6) {
@@ -2526,80 +2685,12 @@ QList<ScriptCommand> UiController::parseScript(const QString& text)
                 m_targetMotion[name] = parseMotionSuffix(line.mid(e + 1));
             }
         } else if (line.startsWith(QStringLiteral("MOVEJ("), Qt::CaseInsensitive)) {
-            cmd.type = ScriptCmdType::MoveJ;
-            int s = line.indexOf(QChar::fromLatin1('{'));
-            if (s >= 0) {
-                // 旧格式: MOVEJ({J0: 0, ...}, speed=25)
-                int e = line.indexOf(QChar::fromLatin1('}'));
-                if (e < 0) continue;
-                QString raw = line.mid(s+1, e-s-1);
-                for (const auto& p : raw.split(QChar::fromLatin1(','), Qt::SkipEmptyParts)) {
-                    QString t = p.trimmed();
-                    int colon = t.indexOf(QChar::fromLatin1(':'));
-                    QString val = t.mid(colon + 1).trimmed();
-                    cmd.targetRaw.append(val);
-                    cmd.targets.append(val.toDouble());
-                }
-                if (cmd.targets.size() < 6) continue;
-            } else {
-                // 新格式: MOVEJ(P1, speed=25, acc=50, dec=60)
-                int p0 = line.indexOf(QChar::fromLatin1('('));
-                int p1 = line.indexOf(QChar::fromLatin1(','));
-                if (p0 < 0 || p1 < 0) continue;
-                cmd.targetName = line.mid(p0 + 1, p1 - p0 - 1).trimmed();
-                if (m_targets.contains(cmd.targetName)) {
-                    cmd.targets = m_targets[cmd.targetName];
-                    for (double v : cmd.targets)
-                        cmd.targetRaw.append(QString::number(v, 'f', 3));
-                }
-                if (cmd.targets.size() < 6) continue;
-            }
-            QRegularExpression re("(\\w+)=([\\d.]+)");
-            auto it = re.globalMatch(line);
-            while (it.hasNext()) {
-                auto m = it.next();
-                if (m.captured(1) == QStringLiteral("speed")) cmd.speed = m.captured(2).toDouble();
-                else if (m.captured(1) == QStringLiteral("acc")) cmd.accel = m.captured(2).toDouble();
-                else if (m.captured(1) == QStringLiteral("dec")) cmd.decel = m.captured(2).toDouble();
-                else if (m.captured(1) == QStringLiteral("timeout")) cmd.timeoutMs = m.captured(2).toInt();
-            }
+            cmd = parseMoveCmd(ScriptCmdType::MoveJ, line, defSpd, defAcc, defDecel, defTimeout);
+            if (cmd.targets.size() < 6) continue;
             result.append(cmd);
         } else if (line.startsWith(QStringLiteral("MOVEL("), Qt::CaseInsensitive)) {
-            cmd.type = ScriptCmdType::MoveL;
-            int s = line.indexOf(QChar::fromLatin1('{'));
-            if (s >= 0) {
-                int e = line.indexOf(QChar::fromLatin1('}'));
-                if (e < 0) continue;
-                QString raw = line.mid(s+1, e-s-1);
-                for (const auto& p : raw.split(QChar::fromLatin1(','), Qt::SkipEmptyParts)) {
-                    QString t = p.trimmed();
-                    int colon = t.indexOf(QChar::fromLatin1(':'));
-                    QString val = t.mid(colon + 1).trimmed();
-                    cmd.targetRaw.append(val);
-                    cmd.targets.append(val.toDouble());
-                }
-                if (cmd.targets.size() < 6) continue;
-            } else {
-                int p0 = line.indexOf(QChar::fromLatin1('('));
-                int p1 = line.indexOf(QChar::fromLatin1(','));
-                if (p0 < 0 || p1 < 0) continue;
-                cmd.targetName = line.mid(p0 + 1, p1 - p0 - 1).trimmed();
-                if (m_targets.contains(cmd.targetName)) {
-                    cmd.targets = m_targets[cmd.targetName];
-                    for (double v : cmd.targets)
-                        cmd.targetRaw.append(QString::number(v, 'f', 3));
-                }
-                if (cmd.targets.size() < 6) continue;
-            }
-            QRegularExpression re("(\\w+)=([\\d.]+)");
-            auto it = re.globalMatch(line);
-            while (it.hasNext()) {
-                auto m = it.next();
-                if (m.captured(1) == QStringLiteral("speed")) cmd.speed = m.captured(2).toDouble();
-                else if (m.captured(1) == QStringLiteral("acc")) cmd.accel = m.captured(2).toDouble();
-                else if (m.captured(1) == QStringLiteral("dec")) cmd.decel = m.captured(2).toDouble();
-                else if (m.captured(1) == QStringLiteral("timeout")) cmd.timeoutMs = m.captured(2).toInt();
-            }
+            cmd = parseMoveCmd(ScriptCmdType::MoveL, line, defSpd, defAcc, defDecel, defTimeout);
+            if (cmd.targets.size() < 6) continue;
             result.append(cmd);
         } else if (line.startsWith(QStringLiteral("WAIT_IDLE"), Qt::CaseInsensitive)) {
             cmd.type = ScriptCmdType::WaitIdle;
@@ -2609,9 +2700,9 @@ QList<ScriptCommand> UiController::parseScript(const QString& text)
             result.append(cmd);
         } else if (line.startsWith(QStringLiteral("FOR("), Qt::CaseInsensitive)) {
             cmd.type = ScriptCmdType::ForLoop;
-            int pe = line.indexOf(QChar::fromLatin1(')'));
+            int pe = line.indexOf(QLatin1Char(')'));
             QString inner = line.mid(4, pe - 4).trimmed();
-            QStringList parts = inner.split(QChar::fromLatin1(','));
+            QStringList parts = inner.split(QLatin1Char(','));
             if (parts.size() >= 3) {
                 // FOR(var, start, end)  默认步长=1
                 cmd.varName   = parts[0].trimmed();
@@ -2631,53 +2722,41 @@ QList<ScriptCommand> UiController::parseScript(const QString& text)
             cmd.type = ScriptCmdType::WhileTrue;
             result.append(cmd);
         } else if (line.startsWith(QStringLiteral("WHILE_DI("), Qt::CaseInsensitive)) {
-            cmd.type = ScriptCmdType::WhileDI;
-            int pe = line.indexOf(QChar::fromLatin1(')'));
-            auto parts = line.mid(9, pe - 9).split(QChar::fromLatin1(','));
-            if (parts.size() >= 2) { cmd.ioIndex = parts[0].trimmed().toInt(); cmd.ioValue = parts[1].trimmed().toInt(); }
+            cmd = parseIO(ScriptCmdType::WhileDI, 9, line, defSpd, defAcc, defDecel, defTimeout);
             result.append(cmd);
         } else if (line.startsWith(QStringLiteral("END_WHILE"), Qt::CaseInsensitive)) {
             cmd.type = ScriptCmdType::EndWhile;
             result.append(cmd);
         } else if (line.startsWith(QStringLiteral("SPEED("), Qt::CaseInsensitive)) {
-            cmd.type = ScriptCmdType::SpeedSet;
-            int pe = line.indexOf(QChar::fromLatin1(')'));
-            cmd.targets.append(line.mid(6, pe - 6).trimmed().toDouble());
-            result.append(cmd);
+            result.append(parseParamSet(ScriptCmdType::SpeedSet, 6, line, defSpd, defAcc, defDecel, defTimeout));
         } else if (line.startsWith(QStringLiteral("ACCEL("), Qt::CaseInsensitive)) {
-            cmd.type = ScriptCmdType::AccelSet;
-            int pe = line.indexOf(QChar::fromLatin1(')'));
-            cmd.targets.append(line.mid(6, pe - 6).trimmed().toDouble());
-            result.append(cmd);
+            result.append(parseParamSet(ScriptCmdType::AccelSet, 6, line, defSpd, defAcc, defDecel, defTimeout));
         } else if (line.startsWith(QStringLiteral("DECEL("), Qt::CaseInsensitive)) {
-            cmd.type = ScriptCmdType::DecelSet;
-            int pe = line.indexOf(QChar::fromLatin1(')'));
-            cmd.targets.append(line.mid(6, pe - 6).trimmed().toDouble());
-            result.append(cmd);
+            result.append(parseParamSet(ScriptCmdType::DecelSet, 6, line, defSpd, defAcc, defDecel, defTimeout));
         } else if (line.startsWith(QStringLiteral("TIMEOUT("), Qt::CaseInsensitive)) {
-            cmd.type = ScriptCmdType::TimeoutSet;
-            int pe = line.indexOf(QChar::fromLatin1(')'));
-            cmd.targets.append(line.mid(8, pe - 8).trimmed().toDouble());
-            result.append(cmd);
+            result.append(parseParamSet(ScriptCmdType::TimeoutSet, 8, line, defSpd, defAcc, defDecel, defTimeout));
         } else if (line.startsWith(QStringLiteral("MOVEJOFF("), Qt::CaseInsensitive)
                    || line.startsWith(QStringLiteral("MOVEOFF("), Qt::CaseInsensitive)) {
-            cmd.type = ScriptCmdType::MoveOff;
-            int s = line.indexOf(QChar::fromLatin1('('));
-            int pe = line.indexOf(QChar::fromLatin1(')'));
-            for (const auto& p : line.mid(s + 1, pe - s - 1).split(QChar::fromLatin1(','), Qt::SkipEmptyParts))
-                cmd.targets.append(p.trimmed().toDouble());
+            cmd = parseOffCmd(ScriptCmdType::MoveOff, line, defSpd, defAcc, defDecel, defTimeout);
             if (cmd.targets.size() >= 6) result.append(cmd);
         } else if (line.startsWith(QStringLiteral("MOVELOFF("), Qt::CaseInsensitive)) {
-            cmd.type = ScriptCmdType::MoveLOff;
-            int pe = line.indexOf(QChar::fromLatin1(')'));
-            for (const auto& p : line.mid(9, pe - 9).split(QChar::fromLatin1(','), Qt::SkipEmptyParts))
-                cmd.targets.append(p.trimmed().toDouble());
+            cmd = parseOffCmd(ScriptCmdType::MoveLOff, line, defSpd, defAcc, defDecel, defTimeout);
             if (cmd.targets.size() >= 6) result.append(cmd);
-        } else if (line.startsWith(QStringLiteral("IF_DI("), Qt::CaseInsensitive)) {
-            cmd.type = ScriptCmdType::IfDI;
-            int pe = line.indexOf(QChar::fromLatin1(')'));
-            auto parts = line.mid(6, pe - 6).split(QChar::fromLatin1(','));
-            if (parts.size() >= 2) { cmd.ioIndex = parts[0].trimmed().toInt(); cmd.ioValue = parts[1].trimmed().toInt(); }
+        } else if (line.startsWith(QStringLiteral("IF("), Qt::CaseInsensitive)) {
+            // 新格式 IF(DI, idx, val) 或 IF(DO, idx, val)
+            cmd.type      = ScriptCmdType::IfIO;
+            cmd.speed     = defSpd;
+            cmd.accel     = defAcc;
+            cmd.decel     = defDecel;
+            cmd.timeoutMs = defTimeout;
+            const int pe = line.indexOf(QLatin1Char(')'));
+            const QString inner = line.mid(3, pe - 3);   // 跳过 "IF("
+            const QStringList parts = inner.split(QLatin1Char(','));
+            if (parts.size() >= 3) {
+                cmd.ioType  = parts[0].trimmed().toUpper();
+                cmd.ioIndex = parts[1].trimmed().toInt();
+                cmd.ioValue = parts[2].trimmed().toInt();
+            }
             result.append(cmd);
         } else if (line.startsWith(QStringLiteral("ELSE"), Qt::CaseInsensitive) && (line.length() == 4 || !line[4].isLetter())) {
             cmd.type = ScriptCmdType::Else;
@@ -2685,14 +2764,14 @@ QList<ScriptCommand> UiController::parseScript(const QString& text)
         } else if (line.startsWith(QStringLiteral("END_IF"), Qt::CaseInsensitive)) {
             cmd.type = ScriptCmdType::EndIf;
             result.append(cmd);
-        } else if (line.contains(QChar::fromLatin1('=')) && !line.startsWith(QChar::fromLatin1('#'))
+        } else if (line.contains(QLatin1Char('=')) && !line.startsWith(QLatin1Char('#'))
                    && !line.startsWith(QStringLiteral("SERVO("), Qt::CaseInsensitive)
                    && !line.startsWith(QStringLiteral("MOVEJ("), Qt::CaseInsensitive)
                    && !line.startsWith(QStringLiteral("MOVEL("), Qt::CaseInsensitive)) {
             // 通用 SetVar 分支（变量赋值）。排除 SERVO/MOVEJ/MOVEL，因为它们的参数
             // 也含 '=' 号（多路 SERVO(0=10:30) 或关键字参数 speed=25, acc=50 等），
             // 必须先由对应专用分支解析。
-            int eq = line.indexOf(QChar::fromLatin1('='));
+            int eq = line.indexOf(QLatin1Char('='));
             cmd.type = ScriptCmdType::SetVar;
             cmd.varName = line.left(eq).trimmed();
             QString rhs = line.mid(eq+1).trimmed();
@@ -2702,27 +2781,27 @@ QList<ScriptCommand> UiController::parseScript(const QString& text)
             result.append(cmd);
         } else if (line.startsWith(QStringLiteral("DELAY("), Qt::CaseInsensitive)) {
             cmd.type = ScriptCmdType::Delay;
-            int pe = line.indexOf(QChar::fromLatin1(')'));
+            int pe = line.indexOf(QLatin1Char(')'));
             cmd.delayMs = line.mid(6, pe - 6).trimmed().toInt();
             result.append(cmd);
         } else if (line.startsWith(QStringLiteral("SERVO("), Qt::CaseInsensitive)) {
             // 统一格式：SERVO(ch=ang:T<ms>, ...) 时间模式（仿 KPZ32 出厂协议）
             //   单路：SERVO(0=10:T2000)
             //   多路：SERVO(0=10:T2000, 1=20:T1500)
-            int pe = line.indexOf(QChar::fromLatin1(')'));
+            int pe = line.indexOf(QLatin1Char(')'));
             QString inner = line.mid(6, pe - 6).trimmed();
             if (inner.isEmpty()) continue;
-            if (!inner.contains(QChar::fromLatin1('='))) {
+            if (!inner.contains(QLatin1Char('='))) {
                 appendConsole(QStringLiteral("[错误] SERVO 语法错误: 应为 SERVO(ch=ang:T<ms>)，例如 SERVO(0=10:T2000)。原文: %1").arg(line));
                 continue;
             }
             cmd.type = ScriptCmdType::ServoMove;
-            auto groups = inner.split(QChar::fromLatin1(','));
+            auto groups = inner.split(QLatin1Char(','));
             for (const QString& g : groups) {
-                auto chanPart = g.split(QChar::fromLatin1('='));
+                auto chanPart = g.split(QLatin1Char('='));
                 if (chanPart.size() >= 2) {
                     int ch = chanPart[0].trimmed().toInt();
-                    auto angSpd = chanPart[1].split(QChar::fromLatin1(':'));
+                    auto angSpd = chanPart[1].split(QLatin1Char(':'));
                     float ang = angSpd.value(0, QString()).trimmed().toFloat();
                     QString paramStr = (angSpd.size() >= 2) ? angSpd[1].trimmed() : QString();
                     if (!paramStr.startsWith(QLatin1Char('T'), Qt::CaseInsensitive)) {
@@ -2750,30 +2829,13 @@ QList<ScriptCommand> UiController::parseScript(const QString& text)
             }
             result.append(cmd);
         } else if (line.startsWith(QStringLiteral("SET_DO("), Qt::CaseInsensitive)) {
-            cmd.type = ScriptCmdType::SetDO;
-            int pe = line.indexOf(QChar::fromLatin1(')'));
-            auto parts = line.mid(7, pe - 7).split(QChar::fromLatin1(','));
-            if (parts.size() >= 2) { cmd.ioIndex = parts[0].trimmed().toInt(); cmd.ioValue = parts[1].trimmed().toInt(); }
-            result.append(cmd);
+            result.append(parseIO(ScriptCmdType::SetDO, 7, line, defSpd, defAcc, defDecel, defTimeout));
         } else if (line.startsWith(QStringLiteral("WAIT_DI("), Qt::CaseInsensitive)) {
-            cmd.type = ScriptCmdType::WaitDI;
-            int pe = line.indexOf(QChar::fromLatin1(')'));
-            auto parts = line.mid(8, pe - 8).split(QChar::fromLatin1(','));
-            if (parts.size() >= 2) { cmd.ioIndex = parts[0].trimmed().toInt(); cmd.ioValue = parts[1].trimmed().toInt(); }
-            if (parts.size() >= 3) cmd.ioTimeout = parts[2].trimmed().toInt();
-            result.append(cmd);
+            result.append(parseIO(ScriptCmdType::WaitDI, 8, line, defSpd, defAcc, defDecel, defTimeout));
         } else if (line.startsWith(QStringLiteral("PRINT(\""), Qt::CaseInsensitive)) {
-            cmd.type = ScriptCmdType::Print;
-            int q1 = line.indexOf(QChar::fromLatin1('"'));
-            int q2 = line.lastIndexOf(QChar::fromLatin1('"'));
-            if (q1 >= 0 && q2 > q1) cmd.printText = line.mid(q1+1, q2-q1-1);
-            result.append(cmd);
+            result.append(parseQuoted(ScriptCmdType::Print, line, defSpd, defAcc, defDecel, defTimeout));
         } else if (line.startsWith(QStringLiteral("CALL(\""), Qt::CaseInsensitive)) {
-            cmd.type = ScriptCmdType::Call;
-            int q1 = line.indexOf(QChar::fromLatin1('"'));
-            int q2 = line.lastIndexOf(QChar::fromLatin1('"'));
-            if (q1 >= 0 && q2 > q1) cmd.callFile = line.mid(q1+1, q2-q1-1);
-            result.append(cmd);
+            result.append(parseQuoted(ScriptCmdType::Call, line, defSpd, defAcc, defDecel, defTimeout));
         }
     }
     return result;
@@ -2804,7 +2866,6 @@ void UiController::onProgStop()
         m_currentExecLine = -1;
         highlightCurrentLine(-1);
     }
-    // 空闲：什么都不做
 }
 
 /**
@@ -3340,22 +3401,32 @@ void UiController::onProgInsertTimeout()
 /**
  * @brief "插入 IF_DI 条件"按钮回调：弹窗输入 DI 编号与期望值，插入 IF_DI(idx, val) 与 END_IF 块
  */
-void UiController::onProgInsertIfDI()
+void UiController::onProgInsertIfIO()
 {
     bool ok = false;
-    int idx = QInputDialog::getInt(nullptr, QStringLiteral("IF_DI"),
-        QStringLiteral("DI 编号 (0-23):"), 0, 0, 23, 1, &ok);
+    // 选择信号类型：DI 或 DO
+    QStringList ioOptions = {QStringLiteral("DI"), QStringLiteral("DO")};
+    QString ioType = QInputDialog::getItem(nullptr, QStringLiteral("IF 条件 - 信号类型"),
+        QStringLiteral("请选择信号类型:"), ioOptions, 0, false, &ok);
     if (!ok) return;
-    int val = QInputDialog::getInt(nullptr, QStringLiteral("IF_DI"),
+
+    // 根据类型调整编号范围
+    int idxMax = (ioType == QStringLiteral("DI")) ? 23 : 19;
+    QString prompt = QStringLiteral("%1 编号 (0-%2):").arg(ioType).arg(idxMax);
+    int idx = QInputDialog::getInt(nullptr, QStringLiteral("IF 条件"),
+        prompt, 0, 0, idxMax, 1, &ok);
+    if (!ok) return;
+
+    int val = QInputDialog::getInt(nullptr, QStringLiteral("IF 条件"),
         QStringLiteral("期望值 (0/1):"), 1, 0, 1, 1, &ok);
     if (ok) {
-        insertAtCursor(QStringLiteral("IF_DI(%1, %2)").arg(idx).arg(val));
+        insertAtCursor(QStringLiteral("IF(%1, %2, %3)").arg(ioType).arg(idx).arg(val));
         insertAtCursor(QStringLiteral("END_IF"));
     }
 }
 
 /**
- * @brief "插入 ELSE"按钮回调：插入 ELSE 关键字（配合 IF_DI / END_IF 使用）
+ * @brief "插入 ELSE"按钮回调：插入 ELSE 关键字（配合 IF / END_IF 使用）
  */
 void UiController::onProgInsertElse()
 {
@@ -3363,7 +3434,7 @@ void UiController::onProgInsertElse()
 }
 
 /**
- * @brief "插入 END_IF"按钮回调：插入 END_IF 关键字（配合 IF_DI 使用）
+ * @brief "插入 END_IF"按钮回调：插入 END_IF 关键字（配合 IF 使用）
  */
 void UiController::onProgInsertEndIf()
 {

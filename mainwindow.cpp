@@ -1289,7 +1289,7 @@ void MainWindow::initManualProgUI()
         QFrame* s2 = new QFrame(); s2->setFrameShape(QFrame::VLine);
         s2->setStyleSheet(QStringLiteral("color:#e0e0e0;"));
         lay->addWidget(s2);
-        migrateBtn(ui->btnProgIfDI, lay);   ui->btnProgIfDI->setText(QStringLiteral("如果"));
+        migrateBtn(ui->btnProgIfIO, lay);   ui->btnProgIfIO->setText(QStringLiteral("如果"));
         migrateBtn(ui->btnProgElse, lay);   ui->btnProgElse->setText(QStringLiteral("否则"));
         QFrame* s3 = new QFrame(); s3->setFrameShape(QFrame::VLine);
         s3->setStyleSheet(QStringLiteral("color:#e0e0e0;"));
@@ -1297,7 +1297,7 @@ void MainWindow::initManualProgUI()
         migrateBtn(ui->btnProgSet, lay);    ui->btnProgSet->setText(QStringLiteral("赋值"));
         // 统一逻辑按钮样式
         for (QPushButton* b : {ui->btnProgWaitIdle, ui->btnProgDelay, ui->btnProgSetDO,
-                                ui->btnProgWaitDI, ui->btnProgIfDI, ui->btnProgElse, ui->btnProgSet}) {
+                                ui->btnProgWaitDI, ui->btnProgIfIO, ui->btnProgElse, ui->btnProgSet}) {
             b->setMinimumSize(76, 36);
             b->setFont(QFont(b->font().family(), 11, QFont::Bold));
             b->setStyleSheet(QStringLiteral(

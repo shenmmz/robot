@@ -2786,7 +2786,7 @@ QGroupBox::title{subcontrol-origin:margin;left:14px;padding:0 8px;}</string>
                               </widget>
                             </item>
                             <item>
-                              <widget class="QPushButton" name="btnProgIfDI">
+                              <widget class="QPushButton" name="btnProgIfIO">
                                 <property name="minimumSize">
                                   <size>
                                     <width>40</width>

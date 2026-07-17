@@ -10,7 +10,8 @@
 #include <QTimer>
 #include <QHash>
 #include <functional>
-#include "TargetDef.h"   // MotionParams:点位级 speed/accel/decel/timeoutMs
+#include "TargetDef.h"      // MotionParams:点位级 speed/accel/decel/timeoutMs
+#include "ScriptCommand.h"  // ScriptCmdType / ScriptCommand（parseScript 及辅助方法使用）
 
 class QWidget;
 class QPlainTextEdit;
@@ -101,7 +102,7 @@ public slots:
     void onProgInsertAccel();
     void onProgInsertDecel();
     void onProgInsertTimeout();
-    void onProgInsertIfDI();
+    void onProgInsertIfIO();
     void onProgInsertElse();
     void onProgInsertEndIf();
     void onProgInsertServo();     // SERVO(ch=ang:spd) 单/多路均可（多路：逗号分隔）
@@ -219,6 +220,14 @@ private:
 
     /// 追加到控制台
     void appendConsole(const QString& text);
+
+    // parseScript 辅助方法
+    void applyKeywordParams(ScriptCommand& cmd, const QString& line);
+    ScriptCommand parseMoveCmd(ScriptCmdType type, const QString& line, double defSpd, double defAcc, double defDecel, int defTimeout);
+    ScriptCommand parseParamSet(ScriptCmdType type, int prefixLen, const QString& line, double defSpd, double defAcc, double defDecel, int defTimeout);
+    ScriptCommand parseIO(ScriptCmdType type, int prefixLen, const QString& line, double defSpd, double defAcc, double defDecel, int defTimeout);
+    ScriptCommand parseQuoted(ScriptCmdType type, const QString& line, double defSpd, double defAcc, double defDecel, int defTimeout);
+    ScriptCommand parseOffCmd(ScriptCmdType type, const QString& line, double defSpd, double defAcc, double defDecel, int defTimeout);
 
     /// 解析脚本为指令列表
     QList<struct ScriptCommand> parseScript(const QString& text);
