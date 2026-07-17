@@ -6,6 +6,7 @@
 #define UICONTROLLER_H
 
 #include <QObject>
+#include <QEvent>
 #include <QTimer>
 #include <QHash>
 #include <functional>
@@ -108,6 +109,14 @@ public slots:
 private slots:
     // === IO监控 ===
     void refreshIO();
+    /// 事件过滤器：处理 DI/DO QFrame 鼠标点击（DO 单击翻转，DI/DO 双击重命名）
+    bool eventFilter(QObject* obj, QEvent* event) override;
+    /// 加载 IO 自定义名称配置
+    void loadIOLabels();
+    /// 保存 IO 自定义名称配置
+    void saveIOLabels();
+    /// 弹出重命名对话框，修改单个 IO 标签
+    void renameIOLabel(const QString& frameName);
 
     // === 任务执行器回调 ===
     void onTaskProgress(int current, int total);
@@ -172,6 +181,7 @@ private:
     bool m_syncingComments = false;          // syncProgramComments 防重入
     int m_currentExecLine = -1;               // 当前执行源代码行号（-1=无）
     bool m_stepMode = false;                   // 当前是否处于单步会话中（用于决定 finish 后是否自动重置）
+    QHash<QString, QString> m_ioLabels;       // IO 自定义名称（frameName → 自定义名称）
 
     // 辅助方法
     void setIOIndicator(const QString& frameName, bool active);

@@ -15,6 +15,7 @@
 #include "../utils/MathUtils.h"
 
 #include <QWidget>
+#include <QMouseEvent>
 #include <QPushButton>
 #include <QStackedWidget>
 #include <QLineEdit>
@@ -50,6 +51,7 @@
 #include <QHeaderView>
 #include <QMessageBox>
 #include <QInputDialog>
+#include <QSettings>
 #include <QRegularExpression>
 #include <QSet>
 #include <QDebug>
@@ -89,29 +91,65 @@ UiController::~UiController()
 }
 
 /**
- * @brief 初始化 UI 控制器
+ * @brief 初始化整个 UI 控制逻辑的核心入口。
  *
- * 完成以下工作：
- *   1. 查找 Qt 主窗口的 centralwidget（用于查找子控件）
- *   2. 启动 200ms 的 IO 刷新定时器，实时显示 DI/DO 状态
- *   3. 创建 TaskExecutor（任务解释执行器）并连接其所有信号
- *   4. 连接报警相关信号与按钮（机械臂错误、硬件错误、清除报警）
- *   5. 连接编程页面的"运行/停止/指令插入/文件操作"按钮
- *   6. 连接关节和笛卡尔点动按钮
- *   7. 调试模式开关与加载默认设置
- *   8. 程序区文字变化 → 500ms 去抖动 → 同步点位（TARGET）顺序
+ * 集中在 MainWindow 构造后调用一次，完成以下绑定与启动：
+ *   1. 缓存 centralwidget 引用，作为后续所有子控件查找的根
+ *   2. 启动 50ms IO 刷新定时器 → 实时更新 24 路 DI / 20 路 DO 指示灯
+ *   3. 初始化 DI/DO 的 QFrame 外观（隐藏默认圆圈，替换为整体变色 + 自定义名称标签）
+ *   4. 加载 DI/DO 自定义标签名称（loadIOLabels）
+ *   5. 创建 TaskExecutor 并连接全部 7 个信号（进度 / 暂停 / 恢复 / 完成 / 错误 / 控制台输出 / 当前行变化）
+ *   6. 订阅 RobotController::errorOccurred 与 MotionController::hardwareError，写入报警日志
+ *   7. 连接编程页面按钮：运行 / 停止 / 指令插入（MoveJ/MoveL/Delay/IO/Print/Comment/Call/Set/ReadPos/For/Offset/Speed/Accel/Decel/Timeout/IfDI/Else/EndIf）
+ *   8. 连接编程页面文件操作：保存 / 加载 / 新建 / 删行 / 复制 / 粘贴
+ *   9. 连接设置页面：控制器 IP 编辑完成保存、保存首页按钮
+ *  10. 绑定关节 J0–J5 与笛卡尔 XYZ/RxRyRz 的 ± 点动按钮（单击模式）
+ *  11. 初始化为调试模式关（禁用所有点动控件，加载默认设置）
+ *  12. 程序编辑器文字变化 → 500ms 去抖 → 按 MOVEJ/MOVEL 引用顺序重排点位编辑器
+ *  13. 点位编辑器文字变化 → 100ms 去抖 → 增量覆盖 m_targets 缓存
  */
 void UiController::init()
 {
     // 保存 centralwidget，后续通过它以 objectName 查找所有子控件
     m_centralWidget = m_mainWindow->findChild<QWidget*>(QStringLiteral("centralwidget"));
 
-    // === IO 监控定时器：每 50ms 刷新一次 DI/DO 指示灯 ===
-    // 注：原 200ms 间隔在"点动"等短脉冲场景下容易错过电平变化，
-    //     50ms 既能稳定捕获点动，也对控制器负载影响很小。
+    // === IO 监控定时器：每 50ms 轮询一次 DI/DO 状态并更新指示灯 ===
     m_ioTimer = new QTimer(this);
     connect(m_ioTimer, &QTimer::timeout, this, &UiController::refreshIO);
     m_ioTimer->start(50);
+
+    // === DI 输入指示灯初始化：di0–di23，共 24 路 ===
+    for (int i = 0; i < 24; ++i) {
+        if (QFrame* frame = m_centralWidget->findChild<QFrame*>(QStringLiteral("di%1").arg(i))) {
+            frame->installEventFilter(this);                 // 注册事件过滤器（点击弹出名称编辑对话框）
+            QList<QLabel*> labels = frame->findChildren<QLabel*>();
+            if (labels.size() >= 1) {
+                labels[0]->setStyleSheet(QStringLiteral("color:#333;font-size:15px;font-weight:bold;border:none;background:transparent;"));
+            }
+            if (labels.size() >= 2) labels[1]->hide();       // 隐藏默认圆圈图标，改为 QFrame 整体变色
+            QLabel* nameLabel = new QLabel(frame);           // 动态创建自定义名称标签
+            nameLabel->setStyleSheet(QStringLiteral("color:#e65100;font-size:14px;font-weight:bold;border:none;background:transparent;"));
+            nameLabel->setAlignment(Qt::AlignCenter);
+            frame->layout()->addWidget(nameLabel);
+        }
+    }
+    // === DO 输出指示灯初始化：do0–do19，共 20 路 ===
+    for (int i = 0; i < 20; ++i) {
+        if (QFrame* frame = m_centralWidget->findChild<QFrame*>(QStringLiteral("do%1").arg(i))) {
+            frame->installEventFilter(this);                 // 注册事件过滤器（点击切换 DO 状态）
+            frame->setCursor(Qt::PointingHandCursor);        // 鼠标悬停显示手型光标
+            QList<QLabel*> labels = frame->findChildren<QLabel*>();
+            if (labels.size() >= 1) {
+                labels[0]->setStyleSheet(QStringLiteral("color:#333;font-size:15px;font-weight:bold;border:none;background:transparent;"));
+            }
+            if (labels.size() >= 2) labels[1]->hide();       // 隐藏默认圆圈图标，改为 QFrame 整体变色
+            QLabel* nameLabel = new QLabel(frame);           // 动态创建自定义名称标签
+            nameLabel->setStyleSheet(QStringLiteral("color:#e65100;font-size:14px;font-weight:bold;border:none;background:transparent;"));
+            nameLabel->setAlignment(Qt::AlignCenter);
+            frame->layout()->addWidget(nameLabel);
+        }
+    }
+    loadIOLabels();// 加载 DI/DO 自定义标签名称
 
     // === 任务执行器：负责逐条解析并执行脚本指令 ===
     m_taskExecutor = new TaskExecutor(m_robotController, this);
@@ -286,7 +324,7 @@ void UiController::refreshIO()
         return;
     }
 
-    // 读取 DI 状态（低电平=触发=active），共 24 个（DI0~DI23）
+    // 读取 DI 状态（NPN型，低电平=触发=active），共 24 个（DI0~DI23）
     for (int i = 0; i < 24; ++i) {
         int val = api->getDI(i);
         setIOIndicator(QStringLiteral("di%1").arg(i), (val == 0));
@@ -301,14 +339,13 @@ void UiController::refreshIO()
 }
 
 /**
- * @brief 设置 IO 指示灯的视觉状态
+ * @brief 设置 IO QFrame 的背景颜色，反映当前信号状态
  *
- * 在 UI 上每个 IO 用一个 QFrame（objectName = diN/doN）承载：
- *   - labels[0] 为 IO 编号标签
- *   - labels[1] 为状态指示灯（显示 ● 绿色 / ○ 灰色）
+ * QFrame 结构：labels[0]=标题(DI 0/DO 0)，labels[1]=指示灯(已隐藏)，labels[2]=自定义标签
+ * 有信号时 QFrame 显示浅绿色背景，无信号时恢复默认灰色。
  *
  * @param frameName  对应 QFrame 的 objectName（如 "di0"、"do5"）
- * @param active     true=有信号（绿色实心圆），false=无信号（灰色空心圆）
+ * @param active     true=有信号（绿色底），false=无信号（灰色底）
  */
 void UiController::setIOIndicator(const QString& frameName, bool active)
 {
@@ -316,20 +353,142 @@ void UiController::setIOIndicator(const QString& frameName, bool active)
     QFrame* frame = m_centralWidget->findChild<QFrame*>(frameName);
     if (!frame) return;
 
-    // 取 frame 内所有 QLabel 子控件，第 2 个（labels[1]）作为指示灯
-    QList<QLabel*> labels = frame->findChildren<QLabel*>();
-    if (labels.size() < 2) return;
-
-    QLabel* indicator = labels[1];
     if (active) {
-        // 绿色实心圆 + 绿色字体
-        indicator->setText(QStringLiteral("●"));
-        indicator->setStyleSheet(QStringLiteral("color:#2e7d32;font-size:24px;border:none;background:transparent;"));
+        frame->setStyleSheet(QStringLiteral(
+            "QFrame{background:#c8e6c9;border:1px solid #a5d6a7;border-radius:6px;}"));
     } else {
-        // 灰色空心圆
-        indicator->setText(QStringLiteral("○"));
-        indicator->setStyleSheet(QStringLiteral("color:#bdbdbd;font-size:24px;border:none;background:transparent;"));
+        frame->setStyleSheet(QStringLiteral(
+            "QFrame{background:#f5f5f5;border:1px solid #ddd;border-radius:6px;}"));
     }
+}
+
+/**
+ * @brief 事件过滤器：处理 DI/DO QFrame 鼠标事件
+ *
+ * - DO 左键单击：翻转对应输出通道（需硬件已连接）
+ * - DI/DO 双击：弹出重命名对话框，为 IO 通道设置自定义名称
+ */
+bool UiController::eventFilter(QObject* obj, QEvent* event)
+{
+    QFrame* frame = qobject_cast<QFrame*>(obj);
+    if (!frame) return QObject::eventFilter(obj, event);
+
+    QString name = frame->objectName();
+    bool isDI = name.startsWith(QStringLiteral("di"));
+    bool isDO = name.startsWith(QStringLiteral("do"));
+    if (!isDI && !isDO) return QObject::eventFilter(obj, event);
+
+    // 提取编号
+    bool ok = false;
+    int ioIndex = name.mid(2).toInt(&ok);
+    if (!ok) return QObject::eventFilter(obj, event);
+
+    // === 双击 → 重命名 ===
+    if (event->type() == QEvent::MouseButtonDblClick) {
+        renameIOLabel(name);
+        return true;
+    }
+
+    // === 左键单击 → DO 翻转（仅 DO） ===
+    if (event->type() == QEvent::MouseButtonPress && isDO) {
+        QMouseEvent* me = static_cast<QMouseEvent*>(event);
+        if (me->button() != Qt::LeftButton)
+            return QObject::eventFilter(obj, event);
+
+        ZmotionAPI* api = nullptr;
+        if (m_robotController->getMotionController() &&
+            m_robotController->getMotionController()->isConnected()) {
+            api = m_robotController->getMotionController()->getZmotionAPI();
+        }
+        if (!api) return true;
+
+        uint32 curVal = 0;
+        ZAux_Direct_GetOp(api->getHandle(), ioIndex, &curVal);
+        int newVal = (curVal != 0) ? 0 : 1;
+        ZAux_Direct_SetOp(api->getHandle(), ioIndex, newVal);
+        setIOIndicator(name, (newVal != 0));
+        return true;
+    }
+
+    return QObject::eventFilter(obj, event);
+}
+
+/**
+ * @brief 弹出重命名对话框，修改 IO 的自定义标签
+ *
+ * 自定义标签显示在指示灯下方（第3行），原始 DI/DO 编号标题保持不变。
+ * 输入空字符串则清空自定义标签。
+ */
+void UiController::renameIOLabel(const QString& frameName)
+{
+    QFrame* frame = m_centralWidget->findChild<QFrame*>(frameName);
+    if (!frame) return;
+
+    QList<QLabel*> labels = frame->findChildren<QLabel*>();
+    if (labels.size() < 3) return;   // 需要 title + indicator + custom_name 三个标签
+
+    QString oldName = m_ioLabels.value(frameName);
+    bool isDI = frameName.startsWith(QStringLiteral("di"));
+    QString prefix = isDI ? QStringLiteral("DI ") : QStringLiteral("DO ");
+    QString defaultName = prefix + frameName.mid(2);
+
+    QString newName = QInputDialog::getText(m_mainWindow,
+        QStringLiteral("重命名 IO"),
+        QStringLiteral("为 %1 设置自定义标签：").arg(defaultName),
+        QLineEdit::Normal, oldName);
+
+    if (newName.isEmpty()) {
+        m_ioLabels.remove(frameName);
+        labels[2]->setText(QString());
+    } else {
+        m_ioLabels[frameName] = newName;
+        labels[2]->setText(newName);
+    }
+    saveIOLabels();
+}
+
+/**
+ * @brief 从 config/io_labels.ini 加载 IO 自定义名称
+ *
+ * 加载后立即应用到界面上各 DI/DO QFrame 的标题标签。
+ */
+void UiController::loadIOLabels()
+{
+    QString configPath = QCoreApplication::applicationDirPath() + QStringLiteral("/config/io_labels.ini");
+    QSettings settings(configPath, QSettings::IniFormat);
+    settings.beginGroup(QStringLiteral("Labels"));
+    for (const QString& key : settings.childKeys()) {
+        m_ioLabels[key] = settings.value(key).toString();
+    }
+    settings.endGroup();
+
+    // 应用到界面（第3行标签）
+    for (auto it = m_ioLabels.constBegin(); it != m_ioLabels.constEnd(); ++it) {
+        QFrame* frame = m_centralWidget->findChild<QFrame*>(it.key());
+        if (!frame) continue;
+        QList<QLabel*> labelsList = frame->findChildren<QLabel*>();
+        if (labelsList.size() >= 3) {
+            labelsList[2]->setText(it.value());
+        }
+    }
+}
+
+/**
+ * @brief 将 IO 自定义名称持久化到 config/io_labels.ini
+ */
+void UiController::saveIOLabels()
+{
+    QString dirPath = QCoreApplication::applicationDirPath() + QStringLiteral("/config");
+    QDir().mkpath(dirPath);
+    QString configPath = dirPath + QStringLiteral("/io_labels.ini");
+    QSettings settings(configPath, QSettings::IniFormat);
+    settings.beginGroup(QStringLiteral("Labels"));
+    settings.remove(QStringLiteral(""));  // 清空旧内容
+    for (auto it = m_ioLabels.constBegin(); it != m_ioLabels.constEnd(); ++it) {
+        settings.setValue(it.key(), it.value());
+    }
+    settings.endGroup();
+    settings.sync();
 }
 
 // ==================== 报警日志 ====================

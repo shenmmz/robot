@@ -110,13 +110,13 @@ MainWindow::MainWindow(QWidget *parent)
     // 初始化导航栏
     m_navGroup = new QButtonGroup(this);
     m_navGroup->setExclusive(true);
-    m_navGroup->addButton(ui->btnNavRun, 0);
-    m_navGroup->addButton(ui->btnNavManual, 1);
-    m_navGroup->addButton(ui->btnNavIO, 2);
-    m_navGroup->addButton(ui->btnNavAlarm, 3);
-    m_navGroup->addButton(ui->btnNavSettings, 4);
-    m_navGroup->addButton(ui->btnNavRs485, 5);
-    m_navGroup->addButton(ui->btnNavVision, 6);                  // 视觉运动（第 7 个导航页）
+    m_navGroup->addButton(ui->btnNavRun, 0); // 运行页（第 0 个导航页）
+    m_navGroup->addButton(ui->btnNavManual, 1);// 手动编程页（第 1 个导航页）
+    m_navGroup->addButton(ui->btnNavIO, 2);// 输入输出页（第 2 个导航页）
+    m_navGroup->addButton(ui->btnNavAlarm, 3);// 报警日志页（第 3 个导航页）
+    m_navGroup->addButton(ui->btnNavSettings, 4);// 设置页（第 4 个导航页）
+    m_navGroup->addButton(ui->btnNavRs485, 5);// RS485 测试页（第 5 个导航页）
+    m_navGroup->addButton(ui->btnNavVision, 6);      // 视觉运动（第 7 个导航页）
 
     // 默认显示"运行"页 (UI文件设置的是index=6，需纠正)
     ui->contentStack->setCurrentIndex(0);
@@ -187,6 +187,7 @@ void MainWindow::initConnectionUI()
     connect(ui->btnScan, &QPushButton::clicked,this, &MainWindow::onScanClicked);
     connect(ui->btnConnect, &QPushButton::clicked,this, &MainWindow::onConnectClicked);
     connect(ui->btnDisconnect, &QPushButton::clicked,this, &MainWindow::onDisconnectClicked);
+    connect(ui->pushButton_4, &QPushButton::clicked, this, &MainWindow::onHomingClicked);
 
     // RobotController 信号
     connect(m_robotController, &RobotController::hardwareConnected,this, &MainWindow::onHardwareConnected);
@@ -312,23 +313,6 @@ void MainWindow::onHardwareConnected()
 {
     setConnectionStatus(QStringLiteral("已连接"), QStringLiteral("green"));
     updateConnectionUI(true);
-
-    // TODO: 暂时注释掉舵机控制器，专注于 RS485 PWM 模块通信
-    // // 初始化舵机控制器（使用 IP 连接的 ZMC 句柄）
-    // ZMC_HANDLE ethHandle = m_robotController->getMotionController()->getZmotionAPI()->getHandle();
-    // if (!m_servo) {
-    //     m_servo = new ServoController(ethHandle, 6, this);
-    //     m_servo->initAll();
-    // } else {
-    //     m_servo->setHandle(ethHandle);
-    //     m_servo->initAll();
-    // }
-
-    // 自动配置 RS485 串口（通道1）为 Modbus主端模式，用于 PWM 模块通信
-    // SETCOM(波特率,数据位,停止位,校验,端口,模式,变量映射,超时ms)
-    //   mode=14: Modbus主端(16位整数)
-    //   variable=2: 系统MODBUS寄存器
-    //   timeout=800ms: ZMC手册建议值（默认仅8ms）
     ZmotionAPI* api = m_robotController->getMotionController()->getZmotionAPI();
     if (api) {
         ZmotionResult result = api->executeCommand(
@@ -374,79 +358,16 @@ void MainWindow::onHardwareConnectionFailed(const QString& errorMsg)
     setConnectionStatus(QStringLiteral("连接失败: %1").arg(errorMsg), QStringLiteral("red"));
     updateConnectionUI(false);
 }
-
-// ==================== 建模验证（调试用） ====================
-
 /**
- * @brief 验证机器人运动学建模功能
+ * @brief 机器人建模按钮点击处理
  *
- * 测试 RobotKinematics 类的各项功能：
- * - 创建运动学对象
- * - 设置脉冲当量
- * - 生成控制器DH参数表
- * - 解析控制器参数表
- */
-void MainWindow::validateKinematicsModel()
-{
-    qDebug() << QStringLiteral("=== 开始验证机器人建模功能 ===");
-
-    // 1. 创建运动学对象（使用默认构造函数）
-    RobotKinematics kinematics;
-    qDebug() << QStringLiteral("1. 创建运动学对象成功");
-
-    // 2. 获取默认脉冲当量（从构造函数初始化的值）
-    QList<double> initialUnits = kinematics.getAxisUnits();
-    qDebug() << QStringLiteral("2. 构造函数默认脉冲当量:") << initialUnits;
-
-    // 3. 重新设置相同的默认脉冲当量（验证 setAxisUnits 功能）
-    QList<double> testUnits = {555.56, 333.33, 250.00, 138.89, 83.33, 27.78};
-    kinematics.setAxisUnits(testUnits);
-    qDebug() << QStringLiteral("3. 设置测试脉冲当量:") << testUnits;
-
-    // 4. 生成控制器DH参数表
-    QVector<float> dhTable = kinematics.toControllerTable();
-    qDebug() << QStringLiteral("4. 生成DH参数表成功，表长度:") << dhTable.size();
-
-    // 5. 输出关键DH参数
-    qDebug() << QStringLiteral("   LargeZ =") << dhTable[0] << QStringLiteral("mm");
-    qDebug() << QStringLiteral("   L1 =") << dhTable[1] << QStringLiteral("mm");
-    qDebug() << QStringLiteral("   L2 =") << dhTable[2] << QStringLiteral("mm");
-    qDebug() << QStringLiteral("   L3 =") << dhTable[3] << QStringLiteral("mm");
-    qDebug() << QStringLiteral("   L4 =") << dhTable[4] << QStringLiteral("mm");
-    qDebug() << QStringLiteral("   SmallLZ =") << dhTable[15] << QStringLiteral("mm");
-
-    // 6. 测试从控制器表解析脉冲当量
-    kinematics.loadFromControllerTable(dhTable);
-    QList<double> parsedUnits = kinematics.getAxisUnits();
-    qDebug() << QStringLiteral("5. 从DH表解析脉冲当量:") << parsedUnits;
-
-    // 7. 测试无效输入（边界条件）
-    qDebug() << QStringLiteral("6. 测试无效输入...");
-    QList<double> invalidUnits = {1.0, 2.0, 3.0};  // 不足6个
-    kinematics.setAxisUnits(invalidUnits);  // 应该输出警告
-
-    QVector<float> shortTable(10, 0.0f);  // 不足25项
-    kinematics.loadFromControllerTable(shortTable);  // 应该输出警告
-
-    qDebug() << QStringLiteral("=== 机器人建模功能验证完成 ===");
-}
-
-/**
- * @brief 建模验证按钮点击处理
- *
- * 机器人建模流程：
- * 1. 执行运动学模型功能验证（输出到调试控制台）
- * 2. 将机器人模型写入控制器（DH参数、脉冲当量等）
- * 注意：建模后需要手动点击正解/逆解按钮切换控制模式
+ * 将机器人模型写入控制器（DH参数、脉冲当量等）。
+ * 注意：建模后需要手动点击正解/逆解按钮切换控制模式。
  */
 void MainWindow::on_pushButton_clicked()
 {
     if (!checkLoginGate()) return;
 
-    // 1. 执行运动学模型功能验证（仅输出到调试控制台）
-    validateKinematicsModel();
-    
-    // 2. 初始化机器人模型（写入控制器）
     if (m_robotController && m_robotController->isConnected()) {
         bool modelSuccess = m_robotController->initRobotModel();
         
@@ -610,7 +531,7 @@ void MainWindow::on_pushButton_3_clicked()
  *
  * 异步操作通过Qt信号链串联，状态更新显示在状态栏。
  */
-void MainWindow::on_pushButton_4_clicked()
+void MainWindow::onHomingClicked()
 {
     if (!m_robotController) {
         ui->statusbar->showMessage(QStringLiteral("机器人控制器未初始化"));
@@ -713,9 +634,6 @@ void MainWindow::on_pushButton_4_clicked()
             ZmotionAPI::setVerbose(true);  // 失败也恢复日志
         });
 }
-
-
-// 老化测试已彻底删除(2026-06-30)
 
 
 /**
@@ -965,8 +883,6 @@ void MainWindow::initRs485UI()
 
     // 串口控制器信号（通过ZMC发送，不支持接收回调）
     // connect(m_rs485, &Rs485Controller::dataReceived,   this, &MainWindow::onRs485DataReceived);
-    // connect(m_rs485, &Rs485Controller::dataSent,       this, &MainWindow::onRs485DataSent);
-
     ui->rs485LblSent->setText(QStringLiteral("已发送: 0 字节"));
     ui->rs485LblReceived->setText(QStringLiteral("已接收: N/A"));
 }
@@ -1080,14 +996,6 @@ void MainWindow::onRs485ClearSend()
 void MainWindow::onRs485DataReceived(const QByteArray& /*data*/)
 {
     // ZMC Modbus转RS485模式不支持接收回调
-}
-
-/**
- * @brief 发送数据回调（更新发送字节计数显示）
- */
-void MainWindow::onRs485DataSent(qint64 /*bytes*/)
-{
-    // 暂时不做显示更新
 }
 
 /**

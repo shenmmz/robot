@@ -19,13 +19,13 @@
 #include <QSet>
 #include <QPlainTextEdit>
 
-class RobotController;
-class UiController;
-class Rs485Controller;
-class ServoController;
-class VisionController;
-class QCheckBox;
-class QDoubleSpinBox;
+class RobotController;   // 机器人运动控制器（正逆解、关节/笛卡尔运动）
+class UiController;      // UI 逻辑控制器（界面状态与交互逻辑）
+class Rs485Controller;   // RS485 通信控制器（直连 ZMC306X PWM 模块）
+class ServoController;   // 舵机控制器（舵机驱动与角度控制）
+class VisionController;  // 视觉系统控制器（识别与电机指令下发）
+class QCheckBox;         // 复选框控件（如六轴使能勾选）
+class QDoubleSpinBox;    // 双精度数值输入框（角度/速度等参数）
 class ServoTestWidget;  // 舵机设置界面
 
 QT_BEGIN_NAMESPACE
@@ -43,72 +43,66 @@ public:
     ~MainWindow();
 
 private slots:
-    void onScanClicked();
-    void onConnectClicked();
-    void onDisconnectClicked();
-    void onHardwareConnected();
-    void onHardwareDisconnected();
-    void onHardwareConnectionFailed(const QString& errorMsg);
-    void onModelInitSuccess();
-    void onModelInitFailed(int errorCode);
-
-    void on_pushButton_clicked();
+    void onScanClicked();                           // 扫描控制器
+    void onConnectClicked();                        // 连接控制器
+    void onDisconnectClicked();                     // 断开控制器
+    void onHardwareConnected();                     // 硬件连接成功回调
+    void onHardwareDisconnected();                  // 硬件断开回调
+    void onHardwareConnectionFailed(const QString& errorMsg);  // 连接失败回调
+    void onModelInitSuccess();                      // 建模成功回调
+    void onModelInitFailed(int errorCode);          // 建模失败回调
+    void on_pushButton_clicked();    // 机器人建模（运动学验证→写入控制器）
 
     // 正逆解模式切换槽函数
     void onCartesianModeClicked();  // 切换到笛卡尔模式
     void onJointModeClicked();      // 切换到关节模式
 
-    void on_pushButton_2_clicked();
-
-    void on_pushButton_3_clicked();
-
-    void on_pushButton_4_clicked();
-
-    void on_pushButton_6_clicked();
+    void on_pushButton_2_clicked();  // 正解模式（关节空间控制）
+    void on_pushButton_3_clicked();  // 逆解模式（笛卡尔空间控制）
+    void onHomingClicked();          // 机械回原点（回零→建模→逆解模式）
+    void on_pushButton_6_clicked();  // 视觉启停
 
     // 开发者账号管理
-    void onBtnLogin();
+    void onBtnLogin();                           // 登录按钮（开发者账号验证）
 
     // 位置显示更新
-    void updatePositionDisplay();
-    void onSendJointMove();
-    void onSendCartMove();
+    void updatePositionDisplay();                // 刷新位置显示（定时更新关节/笛卡尔坐标）
+    void onSendJointMove();                      // 发送关节运动指令（关节点动）
+    void onSendCartMove();                       // 发送笛卡尔运动指令（笛卡尔点动）
 
     // 运行页面
-    void onBtnStop();
-    void onRadioModeChanged();
+    void onBtnStop();                            // 急停按钮（立即停止所有运动）
+    void onRadioModeChanged();                   // 运行模式切换（关节/笛卡尔/视觉等）
 
     // 编程页面
-    void onGetJoints();
-    void onGetCart();
+    void onGetJoints();                          // 获取当前关节角度（写入编程块）
+    void onGetCart();                            // 获取当前笛卡尔坐标（写入编程块）
 
     // 页面导航
-    void onNavButtonClicked(int index);
+    void onNavButtonClicked(int index);          // 导航栏按钮点击（切换功能页面）
 
     // RS485 测试（ZMC306X 直连 PWM 模块）
-    void initRs485UI();
-    void onRs485Send();
-    void onRs485ClearSend();
-    void onRs485ClearRecv();
-    void onRs485DataReceived(const QByteArray& data);
-    void onRs485DataSent(qint64 bytes);
-    
+    void initRs485UI();                          // 初始化 RS485 调试界面控件
+    void onRs485Send();                          // RS485 手动发送数据
+    void onRs485ClearSend();                     // 清空发送区记录
+    void onRs485ClearRecv();                     // 清空接收区记录
+    void onRs485DataReceived(const QByteArray& data);  // RS485 数据接收回调（追加到接收区）    
     // RS485 定时发送
-    void onRs485AutoSendToggled(bool checked);
-    void onRs485AutoSendTick();
+    void onRs485AutoSendToggled(bool checked);   // 定时发送开关切换
+    void onRs485AutoSendTick();                  // 定时发送计时器回调
 
     // PWM 测试按钮
-    void onTestPwmDuty();
+    void onTestPwmDuty();                        // 测试 PWM 占空比输出
 
     // 视觉系统控制
-    void onVisionStarted();
-    void onVisionStopped(int exitCode);
-    void onVisionError(const QString &error);
-    void onVisionMessage(const QString &channel, const QString &line);
-    void onVisionMotorCommands(const QList<QPair<int, double>>& commands);  // axis(0-5)+signed_angle_deg
-    void onAxisEnableToggled(int axis, bool enabled);
-    void initVisionControlUI();
-    void onApplyGlobalSpeedClicked();  // 把总速度广播到 6 个轴的转速输入框
+    void onVisionStarted();                      // 视觉进程启动回调
+    void onVisionStopped(int exitCode);          // 视觉进程停止回调（exitCode 为退出码）
+    void onVisionError(const QString &error);    // 视觉进程错误回调
+    void onVisionMessage(const QString &channel, const QString &line);  // 视觉进程标准输出/错误消息
+    void onVisionMotorCommands(const QList<QPair<int, double>>& commands);  // 视觉下发电机指令（axis(0-5)+signed_angle_deg）
+    void onAxisEnableToggled(int axis, bool enabled);  // 单轴视觉使能开关切换
+    void initVisionControlUI();                  // 初始化视觉控制页面控件
+    void onApplyGlobalSpeedClicked();            // 把总速度广播到 6 个轴的转速输入框
 
 private:
     Ui::MainWindow *ui;
@@ -125,8 +119,6 @@ private:
     int m_visionConsecutiveCount = 0;
     static constexpr int kVisionConfirmCount = 10;          // 连续相同角度确认次数（防抖阈值）
     ServoTestWidget* m_servoTestWidget = nullptr;  // 舵机设置界面
-    QList<QLineEdit*> m_servoSpins;   // 6通道舵机角度 QLineEdit（已废弃，由 ServoTestWidget 管理）
-    QList<QLineEdit*> m_servoSpeedSpins;  // 6通道舵机速度 QLineEdit（已废弃，由 ServoTestWidget 管理）
     QList<QLabel*> m_servoAngleLabels;  // 手动页舵机板块 6 通道只读角度显示（被动显示）
 
     // ----- 视觉运动页面（pageVision）-----
@@ -149,24 +141,23 @@ private:
     // RS485 定时发送
     QTimer* m_rs485AutoSendTimer = nullptr;
 
-    void initConnectionUI();
-    void initPositionDisplay();
-    void initManualProgUI();
-    void updateConnectionUI(bool connected);
-    void setConnectionStatus(const QString& text, const QString& color);
-    void validateKinematicsModel();
-    void appendRs485RecvText(const QString& text);
-    QByteArray parseHexString(const QString& hex, bool* ok) const;
-    QString bytesToHex(const QByteArray& data) const;
-    QString decimalToHex(const QString& decimalStr) const;
-    static quint16 calcModbusCRC16(const QByteArray& data);
-    void showPointAdjustDialog(bool isJoint);
+    void initConnectionUI();                     // 初始化连接页面控件与信号槽
+    void initPositionDisplay();                  // 初始化位置显示相关控件
+    void initManualProgUI();                     // 初始化手动/编程页面控件
+    void updateConnectionUI(bool connected);     // 根据连接状态更新 UI 控件外观
+    void setConnectionStatus(const QString& text, const QString& color);  // 设置连接状态文本与颜色
+    void appendRs485RecvText(const QString& text);  // 追加文本到 RS485 接收显示区
+    QByteArray parseHexString(const QString& hex, bool* ok) const;  // 十六进制字符串转字节数组
+    QString bytesToHex(const QByteArray& data) const;               // 字节数组转十六进制字符串
+    QString decimalToHex(const QString& decimalStr) const;          // 十进制字符串转十六进制字符串
+    static quint16 calcModbusCRC16(const QByteArray& data);         // 计算 Modbus CRC16 校验码
+    void showPointAdjustDialog(bool isJoint);    // 弹出点位调整对话框（关节/笛卡尔）
 
     // 开发者账号管理
-    void initLoginUI();
-    void updateLoginUI();
-    bool checkLoginGate();   // 返回 true 表示已登录或弹窗已处理
-    QString getAccountConfigPath() const;
-    bool m_loggedIn = false;
+    void initLoginUI();                          // 初始化登录界面控件
+    void updateLoginUI();                        // 根据登录状态更新界面
+    bool checkLoginGate();                       // 检查登录状态（返回 true 表示已登录或弹窗已处理）
+    QString getAccountConfigPath() const;        // 获取账号配置文件路径
+    bool m_loggedIn = false;                     // 是否已登录开发者账号
 };
 #endif // MAINWINDOW_H
