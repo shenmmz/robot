@@ -848,13 +848,13 @@ ZmotionResult ZmotionAPI::executeCommand(const QString& command, QString* respon
 
     // 先尝试 ZAux_DirectCommand（直接方式，立即执行）
     int ret = ZAux_DirectCommand(m_handle, command.toLocal8Bit().constData(), buf, sizeof(buf));
-    qWarning() << "[ZMotion] DirectCommand:" << command << "ret=" << ret << "response=" << buf;
+    // qWarning() << "[ZMotion] DirectCommand:" << command << "ret=" << ret << "response=" << buf;
 
     if (ret != 0) {
         // DirectCommand 失败，尝试 ZAux_Execute（缓冲方式）
         memset(buf, 0, sizeof(buf));
         ret = ZAux_Execute(m_handle, command.toLocal8Bit().constData(), buf, sizeof(buf));
-        qWarning() << "[ZMotion] Execute:" << command << "ret=" << ret << "response=" << buf;
+        // qWarning() << "[ZMotion] Execute:" << command << "ret=" << ret << "response=" << buf;
     }
 
     ZmotionResult zResult;
@@ -1023,6 +1023,7 @@ ZmotionResult ZmotionAPI::rapidStop(int mode) {
         if (result == 0) {
             // 成功停止所有轴
             ZINFO << QString("所有轴立即停止成功，模式 %1").arg(mode);
+            m_currentMotionMode = -1;  // rapidStop 清空管线，标记模式为未知，后续按指令类型重建
             return ZmotionResult(true, 0, QString("所有轴立即停止成功，模式 %1").arg(mode));
         } else {
             // 停止失败
@@ -4422,8 +4423,8 @@ ZmotionResult ZmotionAPI::startInverseKinematics(const QList<int>& jointAxes, co
     }
 
     m_currentMotionMode = 1;
-    qDebug() << "[ZmotionAPI] 逆解模式(Connframe)启动成功"
-             << "jointAxes:" << jointAxes << "virtualAxes:" << virtualAxes;
+//     qDebug() << "[ZmotionAPI] 逆解模式(Connframe)启动成功"
+//              << "jointAxes:" << jointAxes << "virtualAxes:" << virtualAxes;
     return {true, 0, "逆解模式启动成功"};
 }
 

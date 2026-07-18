@@ -1,12 +1,11 @@
+TARGET Target4 = { J0:89.999, J1:4.930, J2:32.065, J3:0.000, J4:52.994, J5:-359.971 }
 TARGET Target1 = { X:306.418, Y:0.000, Z:400.000, A:180.000, B:0.008, C:180.000 }
 TARGET Target2 = { X:306.418, Y:200.000, Z:400.000, A:180.000, B:0.008, C:180.000 }
 TARGET Target3 = { X:306.418, Y:200.000, Z:200.000, A:180.000, B:0.008, C:180.000 }
 ---
-FOR(i, 0, 10)
-MOVEL(Target1, speed=100, acc=100, dec=150)
-MOVEL(Target2, speed=100, acc=100, dec=150)
-MOVEL(Target3, speed=100, acc=100, dec=150)
-END_FOR
-
-
-
+MOVEJ(Target4, speed=100, acc=200, dec=300)
+MOVEL(Target1, speed=150, acc=200, dec=300)
+MOVEL(Target2, speed=150, acc=200, dec=300)
+MOVEL(Target3, speed=150, acc=200, dec=300)
+CALL("test1.rbt")
+CALL("test.rbt")

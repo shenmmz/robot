@@ -138,7 +138,7 @@ bool RobotController::initialize(RobotConfig* config)
     m_initialized = true;
     emit initialized();
     
-    qDebug() << "RobotController初始化成功";
+//     qDebug() << "RobotController初始化成功";
     return true;
 }
 
@@ -223,7 +223,7 @@ bool RobotController::initRobotModel()
     const QList<int> jointAxes = m_config->getJointAxisList();
     const QList<int> virtualAxes = m_config->getVirtualAxisList();
     const QList<double> axisUnits = m_config->getAxisUnitsList();
-    qDebug() << "[initRobotModel] 配置机器人模型...";
+//     qDebug() << "[initRobotModel] 配置机器人模型...";
 
     // ===== 1. 物理关节轴初始化 =====
     for (int i = 0; i < axisNum; ++i) {
@@ -290,7 +290,7 @@ bool RobotController::initRobotModel()
         ret = api->setAxisDpos(virtualAxes, zeroDpos);
         if (!ret.success) { emit modelInitFailed(ret.errorCode); return false; }
     }
-    qDebug() << "[initRobotModel] 六轴串联机器人模型配置完成";
+//     qDebug() << "[initRobotModel] 六轴串联机器人模型配置完成";
     emit modelInitSuccess();
     return true;
 }
@@ -384,7 +384,7 @@ bool RobotController::moveToPreset(const QString& presetName)
     // TODO: 实现预设位置的移动
     // 例如："初始位置"、"工作位置"等
 
-    qDebug() << "移动到预设位置:" << presetName;
+//     qDebug() << "移动到预设位置:" << presetName;
     return true;
 }
 
@@ -480,7 +480,7 @@ bool RobotController::moveJ(const QList<double>& jointPos, double speed, double 
     }
 
     m_state->setStatus(RobotState::StatusMoving);
-    qDebug() << "[moveJ] 运动已启动, targets=" << targets << "speed=" << speed << "timeout=" << timeoutMs;
+//     qDebug() << "[moveJ] 运动已启动, targets=" << targets << "speed=" << speed << "timeout=" << timeoutMs;
     // 等待关节轴物理停止（IDLE检测，CONNREFRAME 下 GetDpos 不可靠）
     result = api->waitForAxesIdle(axes, timeoutMs);
     m_state->setStatus(RobotState::StatusIdle);
@@ -542,12 +542,12 @@ bool RobotController::moveL(const QList<double>& cartPos, double speed, double a
         targets.append(static_cast<float>(v));
     }
 
-    qDebug().noquote() << QStringLiteral("[moveL] 当前DPOS: X=%1 Y=%2 Z=%3 RX=%4 RY=%5 RZ=%6")
-        .arg(curRaw[0],0,'f',3).arg(curRaw[1],0,'f',3).arg(curRaw[2],0,'f',3)
-        .arg(curRaw[3],0,'f',3).arg(curRaw[4],0,'f',3).arg(curRaw[5],0,'f',3);
-    qDebug().noquote() << QStringLiteral("[moveL] 目标DPOS: X=%1 Y=%2 Z=%3 RX=%4 RY=%5 RZ=%6")
-        .arg(targets[0],0,'f',3).arg(targets[1],0,'f',3).arg(targets[2],0,'f',3)
-        .arg(targets[3],0,'f',3).arg(targets[4],0,'f',3).arg(targets[5],0,'f',3);
+//     qDebug().noquote() << QStringLiteral("[moveL] 当前DPOS: X=%1 Y=%2 Z=%3 RX=%4 RY=%5 RZ=%6")
+//         .arg(curRaw[0],0,'f',3).arg(curRaw[1],0,'f',3).arg(curRaw[2],0,'f',3)
+//         .arg(curRaw[3],0,'f',3).arg(curRaw[4],0,'f',3).arg(curRaw[5],0,'f',3);
+//     qDebug().noquote() << QStringLiteral("[moveL] 目标DPOS: X=%1 Y=%2 Z=%3 RX=%4 RY=%5 RZ=%6")
+//         .arg(targets[0],0,'f',3).arg(targets[1],0,'f',3).arg(targets[2],0,'f',3)
+//         .arg(targets[3],0,'f',3).arg(targets[4],0,'f',3).arg(targets[5],0,'f',3);
 
     // 虚拟轴规划运动:MoveAbs 触发 CONNFRAME IK,关节轴按 SPEED/ACCEL/DECEL 跟随
     // (SetDpos 是瞬间赋值,会让机械臂"瞬移"到目标位置,看不到连续运动)
@@ -650,8 +650,8 @@ bool RobotController::jogCart(const QList<double>& cartTarget,
     if (!isConnected()) return false;
     if (cartTarget.size() != 6) return false;
 
-    qDebug() << "[RobotController::jogCart] cart=" << cartTarget
-             << "wasCartesian=" << isCartesianMode();
+//     qDebug() << "[RobotController::jogCart] cart=" << cartTarget
+//              << "wasCartesian=" << isCartesianMode();
 
     switchToCartesianMode();
 
@@ -836,7 +836,7 @@ void RobotController::onHardwareError(int errorCode, const QString& errorMsg)
  */
 void RobotController::onMotionStarted(int axisIndex)
 {
-    qDebug() << "轴" << axisIndex << "开始运动";
+//     qDebug() << "轴" << axisIndex << "开始运动";
 }
 
 /**
@@ -848,7 +848,7 @@ void RobotController::onMotionStarted(int axisIndex)
  */
 void RobotController::onMotionCompleted(int axisIndex)
 {
-    qDebug() << "轴" << axisIndex << "运动完成";
+//     qDebug() << "轴" << axisIndex << "运动完成";
 }
 
 /**
@@ -908,8 +908,8 @@ bool RobotController::switchToJointMode()
         return false;
     }
 
-    // 已在正解模式，跳过
-    if (!isCartesianMode()) return true;
+    // 已在正解模式，跳过（精确判断模式值，-1 未知态不跳过，需重建管线）
+    if (m_motionController->getZmotionAPI()->getCurrentMotionMode() == 0) return true;
 
     emit operationStarted(QStringLiteral("切换关节模式"));
 

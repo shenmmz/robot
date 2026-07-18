@@ -436,7 +436,7 @@ void ServoTestWidget::onInsertToEditor()
     if (!m_ui) {
         // 没有 UiController:用 toast 提示,避免静默失败
         showToast(QStringLiteral("插入失败:UiController 未初始化"));
-        qDebug() << "[ServoTestWidget] generated SERVO line (no UiController):" << text;
+//         qDebug() << "[ServoTestWidget] generated SERVO line (no UiController):" << text;
         return;
     }
 

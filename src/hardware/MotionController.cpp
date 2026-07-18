@@ -76,11 +76,11 @@ bool MotionController::connect(const QString& ipAddr)
         // 连接成功，更新状态
         m_isConnected = true;
         m_state->setStatus(RobotState::StatusIdle);
-        qDebug() << "成功连接到控制器:" << ipAddr;
+//         qDebug() << "成功连接到控制器:" << ipAddr;
         
         // 启动状态更新定时器
         m_updateTimer->start(m_updateIntervalMs);
-        qDebug() << "状态更新定时器已启动，间隔:" << m_updateIntervalMs << "ms";
+//         qDebug() << "状态更新定时器已启动，间隔:" << m_updateIntervalMs << "ms";
         
         emit connected();
         return true;
@@ -107,13 +107,13 @@ bool MotionController::disconnect()
 
     // 停止状态更新定时器
     m_updateTimer->stop();
-    qDebug() << "状态更新定时器已停止";
+//     qDebug() << "状态更新定时器已停止";
     
     m_zmotionAPI->close();
     m_isConnected = false;
     m_state->setStatus(RobotState::StatusIdle);
 
-    qDebug() << "已断开控制器连接";
+//     qDebug() << "已断开控制器连接";
     emit disconnected();
     return true;
 }
@@ -214,7 +214,7 @@ void MotionController::setStateUpdateInterval(int intervalMs)
     if (m_updateTimer->isActive()) {
         m_updateTimer->stop();
         m_updateTimer->start(m_updateIntervalMs);
-        qDebug() << "状态更新间隔已更新为:" << m_updateIntervalMs << "ms";
+//         qDebug() << "状态更新间隔已更新为:" << m_updateIntervalMs << "ms";
     }
 }
 
@@ -236,7 +236,7 @@ bool MotionController::setInverseKinematicsMode()
     ZmotionResult result = m_zmotionAPI->startInverseKinematics(
         m_config->getJointAxisList(), m_config->getVirtualAxisList());
     if (result.success) {
-        qDebug() << "[MotionController] 已切换到逆解模式（笛卡尔空间控制）";
+//         qDebug() << "[MotionController] 已切换到逆解模式（笛卡尔空间控制）";
         emit kinematicsModeChanged(true);
     } else {
         qWarning() << "[MotionController] 切换逆解模式失败:" << result.errorMessage;
@@ -263,7 +263,7 @@ bool MotionController::setForwardKinematicsMode()
     ZmotionResult result = m_zmotionAPI->startForwardKinematics(
         m_config->getJointAxisList(), m_config->getVirtualAxisList());
     if (result.success) {
-        qDebug() << "[MotionController] 已切换到正解模式（关节空间控制）";
+//         qDebug() << "[MotionController] 已切换到正解模式（关节空间控制）";
         emit kinematicsModeChanged(false);
     } else {
         qWarning() << "[MotionController] 切换正解模式失败:" << result.errorMessage;

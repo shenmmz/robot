@@ -1569,7 +1569,7 @@ void UiController::showTargetEditDialog()
                 m_taskExecutor->setTargets(m_targets);
                 m_taskExecutor->setTargetMotion(m_targetMotion);
             }
-            qDebug() << "[点位管理] 删除点位:" << delName;
+//             qDebug() << "[点位管理] 删除点位:" << delName;
         });
 
         // ---------- 点位行示教按钮：从 RobotState 读取当前位置并填入编辑框 ----------
@@ -1769,7 +1769,7 @@ void UiController::showTargetEditDialog()
             servoGroups.removeAt(idx);
             if (si >= 0) {
                 removeServoByIndex(idx);
-                qDebug() << "[舵机管理] 删除 SERVO 卡片: servo" << (si + 1);
+//                 qDebug() << "[舵机管理] 删除 SERVO 卡片: servo" << (si + 1);
             }
         });
 
@@ -1935,9 +1935,9 @@ void UiController::showTargetEditDialog()
     for (const QString& t : refOrder) oldTargetNames.insert(t);
 
     // 合并：原有行中的 TARGET 替换为 groupOutput，被删除的 TARGET 不追加
-    qDebug() << "[点位管理] targetLines 行数:" << targetLines.size()
-             << "groupOutput 条目:" << groupOutput.keys()
-             << "pointGroups 数量:" << pointGroups.size();
+//     qDebug() << "[点位管理] targetLines 行数:" << targetLines.size()
+//              << "groupOutput 条目:" << groupOutput.keys()
+//              << "pointGroups 数量:" << pointGroups.size();
     QStringList newTargetLines;
     for (const QString& oldLine : targetLines) {
         QString trimmed = oldLine.trimmed();
@@ -1945,26 +1945,26 @@ void UiController::showTargetEditDialog()
             int eq = trimmed.indexOf(QChar::fromLatin1('='));
             if (eq > 7) {
                 QString name = trimmed.mid(7, eq - 7).trimmed();
-                qDebug() << "[点位管理] 合并扫描到 TARGET:" << name
-                         << "groupOutput含?" << groupOutput.contains(name);
+//                 qDebug() << "[点位管理] 合并扫描到 TARGET:" << name
+//                          << "groupOutput含?" << groupOutput.contains(name);
                 if (groupOutput.contains(name)) {
                     newTargetLines.append(groupOutput.take(name));
                     continue;
                 }
-                qDebug() << "[点位管理] 跳过被删除点位:" << name;
+//                 qDebug() << "[点位管理] 跳过被删除点位:" << name;
                 continue;
             }
         }
         newTargetLines.append(oldLine);
     }
     // 追加新增点位（按 pointGroups 顺序）
-    qDebug() << "[点位管理] 剩余 groupOutput(新增):" << groupOutput.keys();
+//     qDebug() << "[点位管理] 剩余 groupOutput(新增):" << groupOutput.keys();
     for (const auto& g : pointGroups) {
         if (!g.pointRow) continue;
         if (groupOutput.contains(g.name))
             newTargetLines.append(groupOutput[g.name]);
     }
-    qDebug() << "[点位管理] newTargetLines 最终条数:" << newTargetLines.size();
+//     qDebug() << "[点位管理] newTargetLines 最终条数:" << newTargetLines.size();
 
     // blockSignals 避免在弹窗 OK 关闭瞬间触发 targetSyncTimer(100ms)→
     // onTargetEditorChanged → syncProgramComments → progEd.setPlainText 的
@@ -1972,7 +1972,7 @@ void UiController::showTargetEditDialog()
     targetEd->blockSignals(true);
     targetEd->setPlainText(newTargetLines.join(QChar::fromLatin1('\n')));
     targetEd->blockSignals(false);
-    qDebug() << "[点位管理] 写回后 targetEd 文本:" << targetEd->toPlainText();
+//     qDebug() << "[点位管理] 写回后 targetEd 文本:" << targetEd->toPlainText();
     if (m_taskExecutor) {
         m_taskExecutor->setTargets(m_targets);
     }
@@ -2852,9 +2852,13 @@ QList<ScriptCommand> UiController::parseScript(const QString& text)
         } else if (line.startsWith(QStringLiteral("WAIT_DI("), Qt::CaseInsensitive)) {
             result.append(parseIO(ScriptCmdType::WaitDI, 8, line, defSpd, defAcc, defDecel, defTimeout));
         } else if (line.startsWith(QStringLiteral("PRINT(\""), Qt::CaseInsensitive)) {
-            result.append(parseQuoted(ScriptCmdType::Print, line, defSpd, defAcc, defDecel, defTimeout));
+            ScriptCommand c = parseQuoted(ScriptCmdType::Print, line, defSpd, defAcc, defDecel, defTimeout);
+            c.sourceLine = line; c.sourceLineNo = srcLineNo;
+            result.append(c);
         } else if (line.startsWith(QStringLiteral("CALL(\""), Qt::CaseInsensitive)) {
-            result.append(parseQuoted(ScriptCmdType::Call, line, defSpd, defAcc, defDecel, defTimeout));
+            ScriptCommand c = parseQuoted(ScriptCmdType::Call, line, defSpd, defAcc, defDecel, defTimeout);
+            c.sourceLine = line; c.sourceLineNo = srcLineNo;
+            result.append(c);
         }
     }
     return result;

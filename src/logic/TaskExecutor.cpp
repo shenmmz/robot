@@ -94,14 +94,8 @@ void TaskExecutor::start()
     m_state = Running;
     m_stepOnce = false;
 
-    // 停止后再运行时，rapidStop(2) 的 Cancel Buffer 会清空 CONNFRAME 管线，
-    // 导致后续 MoveAbs 只更新虚拟轴 DPOS 而不驱动关节轴。这里强制重建逆解模式。
-    if (m_robotController->getMotionController()) {
-        m_robotController->getMotionController()->setInverseKinematicsMode();
-    }
-
     emit taskStarted(m_commands.size());
-    qDebug() << "[TaskExecutor] 开始执行" << m_commands.size() << "条指令";
+//     qDebug() << "[TaskExecutor] 开始执行" << m_commands.size() << "条指令";
 
     executeNext();
 }
@@ -142,7 +136,7 @@ void TaskExecutor::stepOnce()
 
     m_state = Running;
     m_stepOnce = true;
-    qDebug() << "[TaskExecutor] 单步执行" << (m_currentIdx + 1) << "/" << m_commands.size();
+//     qDebug() << "[TaskExecutor] 单步执行" << (m_currentIdx + 1) << "/" << m_commands.size();
 
     executeNext();
 }
@@ -192,7 +186,7 @@ void TaskExecutor::pause()
         servo->cancelAllMovements();
     }
 
-    qDebug() << "[TaskExecutor] 已暂停，当前进度:" << m_currentIdx << "/" << m_commands.size();
+//     qDebug() << "[TaskExecutor] 已暂停，当前进度:" << m_currentIdx << "/" << m_commands.size();
     emit taskPaused(m_currentIdx, m_commands.size());
 }
 
@@ -218,7 +212,7 @@ void TaskExecutor::resume()
     }
 
     m_state = Running;
-    qDebug() << "[TaskExecutor] 恢复执行，从第" << (m_currentIdx) << "条指令继续";
+//     qDebug() << "[TaskExecutor] 恢复执行，从第" << (m_currentIdx) << "条指令继续";
     emit taskResumed(m_currentIdx, m_commands.size());
     executeNext();
 }
@@ -290,47 +284,7 @@ void TaskExecutor::executeNext()
 
     // 控制台输出: 显示正在执行的指令
     if (cmd.type != ScriptCmdType::TargetDef) {
-        QString prefix;
-        switch (cmd.type) {
-        case ScriptCmdType::MoveJ:   prefix = QStringLiteral("MOVEJ"); break;
-        case ScriptCmdType::MoveL:   prefix = QStringLiteral("MOVEL"); break;
-        case ScriptCmdType::MoveOff: prefix = QStringLiteral("MOVEJOFF"); break;
-        case ScriptCmdType::MoveLOff:prefix = QStringLiteral("MOVELOFF"); break;
-        case ScriptCmdType::Delay:   prefix = QStringLiteral("DELAY"); break;
-        case ScriptCmdType::SetDO:   prefix = QStringLiteral("SET_DO"); break;
-        case ScriptCmdType::WaitDI:  prefix = QStringLiteral("WAIT_DI"); break;
-        case ScriptCmdType::WaitIdle:prefix = QStringLiteral("WAIT_IDLE"); break;
-        case ScriptCmdType::Print:   prefix = QStringLiteral("PRINT"); break;
-        case ScriptCmdType::ReadPos: prefix = QStringLiteral("READ_POS"); break;
-        case ScriptCmdType::SpeedSet:prefix = QStringLiteral("SPEED"); break;
-        case ScriptCmdType::AccelSet:prefix = QStringLiteral("ACCEL"); break;
-        case ScriptCmdType::DecelSet:prefix = QStringLiteral("DECEL"); break;
-        case ScriptCmdType::TimeoutSet:prefix=QStringLiteral("TIMEOUT"); break;
-        case ScriptCmdType::SetVar:  prefix = QStringLiteral("SET"); break;
-        case ScriptCmdType::ForLoop: prefix = QStringLiteral("FOR"); break;
-        case ScriptCmdType::EndFor:  prefix = QStringLiteral("END_FOR"); break;
-        case ScriptCmdType::WhileTrue:prefix=QStringLiteral("WHILE"); break;
-        case ScriptCmdType::EndWhile:prefix=QStringLiteral("END_WHILE"); break;
-        case ScriptCmdType::ServoMove: prefix=QStringLiteral("SERVO"); break;
-        default: prefix = QStringLiteral("●"); break;
-        }
-        // 输出 TARGET 定义 + 源码行
-        if ((cmd.type == ScriptCmdType::MoveJ || cmd.type == ScriptCmdType::MoveL)
-            && !cmd.targetName.isEmpty() && m_targets.contains(cmd.targetName)) {
-            const QList<double>& tgt = m_targets[cmd.targetName];
-            if (cmd.type == ScriptCmdType::MoveJ)
-                emit consoleOutput(QStringLiteral("TARGET %1 = {J0: %2, J1: %3, J2: %4, J3: %5, J4: %6, J5: %7}")
-                    .arg(cmd.targetName).arg(tgt.value(0),0,'f',3).arg(tgt.value(1),0,'f',3)
-                    .arg(tgt.value(2),0,'f',3).arg(tgt.value(3),0,'f',3)
-                    .arg(tgt.value(4),0,'f',3).arg(tgt.value(5),0,'f',3));
-            else
-                emit consoleOutput(QStringLiteral("TARGET %1 = {X: %2, Y: %3, Z: %4, A: %5, B: %6, C: %7}")
-                    .arg(cmd.targetName).arg(tgt.value(0),0,'f',3).arg(tgt.value(1),0,'f',3)
-                    .arg(tgt.value(2),0,'f',3).arg(tgt.value(3),0,'f',3)
-                    .arg(tgt.value(4),0,'f',3).arg(tgt.value(5),0,'f',3));
-            emit consoleOutput(cmd.sourceLine);
-        }
-        emit consoleOutput(QStringLiteral("▶ %1  [%2/%3]").arg(prefix).arg(m_currentIdx + 1).arg(m_commands.size()));
+        printMoveCommand(cmd, m_currentIdx + 1, m_commands.size(), m_scriptName);
     }
 
     // === 循环入口: FOR(n) ===
@@ -350,15 +304,6 @@ void TaskExecutor::executeNext()
                 m_variables[cmd.varName] = cmd.loopStart;
                 m_currentIdx++;  // 进入循环体
             }
-        } else if (cmd.loopCount > 0) {
-            // 旧语法: FOR(n)
-            LoopFrame frame;
-            frame.headIdx = m_currentIdx;
-            frame.remaining = cmd.loopCount;
-            m_loopStack.push(frame);
-            m_variables[QStringLiteral("$i")] = 0;
-            m_variables[QStringLiteral("$n")] = cmd.loopCount;
-            m_currentIdx++;
         } else {
             m_currentIdx = m_loopEndMap.value(m_currentIdx, m_currentIdx) + 1;
         }
@@ -442,32 +387,20 @@ void TaskExecutor::executeNext()
     if (cmd.type == ScriptCmdType::EndFor) {
         if (!m_loopStack.isEmpty()) {
             auto& frame = m_loopStack.top();
-            if (frame.remaining == -1) {
-                // 新语法: FOR(var, start, end, step) — 递增变量并判断
-                int headIdx = frame.headIdx;
-                if (headIdx >= 0 && headIdx < m_commands.size()) {
-                    const auto& forCmd = m_commands[headIdx];
-                    double& val = m_variables[forCmd.varName];
-                    val += forCmd.loopStep;
-                    bool forward = (forCmd.loopStep > 0);
-                    if ((forward && val <= forCmd.loopEnd) || (!forward && val >= forCmd.loopEnd)) {
-                        m_currentIdx = headIdx + 1;  // 继续循环
-                        scheduleNext();
-                        return;
-                    }
-                }
-                m_loopStack.pop();
-            } else {
-                // 旧语法: FOR(n)
-                frame.remaining--;
-                if (frame.remaining > 0) {
-                    m_variables[QStringLiteral("$i")] = static_cast<int>(m_variables[QStringLiteral("$n")]) - frame.remaining;
-                    m_currentIdx = m_loopStartMap.value(m_currentIdx, frame.headIdx) + 1;
+            // FOR(var, start, end, step) — 递增变量并判断
+            int headIdx = frame.headIdx;
+            if (headIdx >= 0 && headIdx < m_commands.size()) {
+                const auto& forCmd = m_commands[headIdx];
+                double& val = m_variables[forCmd.varName];
+                val += forCmd.loopStep;
+                bool forward = (forCmd.loopStep > 0);
+                if ((forward && val <= forCmd.loopEnd) || (!forward && val >= forCmd.loopEnd)) {
+                    m_currentIdx = headIdx + 1;
                     scheduleNext();
                     return;
                 }
-                m_loopStack.pop();
             }
+            m_loopStack.pop();
         }
         m_currentIdx++;
         scheduleNext();
@@ -551,14 +484,14 @@ bool TaskExecutor::executeCommand(const ScriptCommand& cmd)
         } else {
             targets = cmd.targets;
         }
-        // 优先级链:点位 motion.speed > 全局 m_globalSpeed > 行级 cmd.speed
+        // 优先级链:行级 cmd.* > 点位 motion > 全局 m_global*
         const MotionParams mp = m_targetMotion.value(cmd.targetName);
-        double spd = (mp.speed    > 0) ? mp.speed
-                    : (m_globalSpeed > 0) ? m_globalSpeed : cmd.speed;
-        double acc = (mp.accel    > 0) ? mp.accel
-                    : (m_globalAccel > 0) ? m_globalAccel : cmd.accel;
-        double dec = (mp.decel    > 0) ? mp.decel
-                    : (m_globalDecel > 0) ? m_globalDecel : cmd.decel;
+        double spd = (cmd.speed > 0) ? cmd.speed
+                    : (mp.speed    > 0) ? mp.speed    : m_globalSpeed;
+        double acc = (cmd.accel > 0) ? cmd.accel
+                    : (mp.accel    > 0) ? mp.accel    : m_globalAccel;
+        double dec = (cmd.decel > 0) ? cmd.decel
+                    : (mp.decel    > 0) ? mp.decel    : m_globalDecel;
         int tmo = cmd.timeoutMs;
         if (tmo <= 0 || (m_globalTimeout <= 0 && tmo == 5000)) {
             QList<double> cur = m_robotController->getState()->getAllAxisPositions();
@@ -569,10 +502,6 @@ bool TaskExecutor::executeCommand(const ScriptCommand& cmd)
         }
         if (m_globalTimeout > 0) tmo = m_globalTimeout;
         if (mp.timeoutMs > 0)    tmo = mp.timeoutMs;   // 点位 timeout 最高优先
-        // 执行后同步全局参数，后续 MOVEJOFF/MOVELOFF 可继承速度
-        m_globalSpeed = spd;
-        m_globalAccel = acc;
-        m_globalDecel = dec;
         return m_robotController->moveJ(targets, spd, acc, dec, tmo);
     }
     case ScriptCmdType::MoveL: {
@@ -586,14 +515,14 @@ bool TaskExecutor::executeCommand(const ScriptCommand& cmd)
         } else {
             targets = cmd.targets;
         }
-        // 优先级链:点位 motion > 全局 m_global* > 行级 cmd.*
+        // 优先级链:行级 cmd.* > 点位 motion > 全局 m_global*
         const MotionParams mp = m_targetMotion.value(cmd.targetName);
-        double spd = (mp.speed    > 0) ? mp.speed
-                    : (m_globalSpeed > 0) ? m_globalSpeed : cmd.speed;
-        double acc = (mp.accel    > 0) ? mp.accel
-                    : (m_globalAccel > 0) ? m_globalAccel : cmd.accel;
-        double dec = (mp.decel    > 0) ? mp.decel
-                    : (m_globalDecel > 0) ? m_globalDecel : cmd.decel;
+        double spd = (cmd.speed > 0) ? cmd.speed
+                    : (mp.speed    > 0) ? mp.speed    : m_globalSpeed;
+        double acc = (cmd.accel > 0) ? cmd.accel
+                    : (mp.accel    > 0) ? mp.accel    : m_globalAccel;
+        double dec = (cmd.decel > 0) ? cmd.decel
+                    : (mp.decel    > 0) ? mp.decel    : m_globalDecel;
         int tmo = cmd.timeoutMs;
         if (tmo <= 0 || (m_globalTimeout <= 0 && tmo == 5000)) {
             QList<double> cur = m_robotController->getState()->getAllCartesianPositions();
@@ -604,9 +533,6 @@ bool TaskExecutor::executeCommand(const ScriptCommand& cmd)
         }
         if (m_globalTimeout > 0) tmo = m_globalTimeout;
         if (mp.timeoutMs > 0)    tmo = mp.timeoutMs;   // 点位 timeout 最高优先
-        m_globalSpeed = spd;
-        m_globalAccel = acc;
-        m_globalDecel = dec;
         return m_robotController->moveL(targets, spd, acc, dec, tmo);
     }
     case ScriptCmdType::WaitIdle: {
@@ -799,7 +725,9 @@ bool TaskExecutor::executeCommand(const ScriptCommand& cmd)
 
         // 简易解析子脚本（只支持 MOVEJ/MOVEL/WAIT_IDLE/DELAY/SET_DO/WAIT_DI/PRINT）
         QStringList lines = content.split(QChar::fromLatin1('\n'), Qt::SkipEmptyParts);
-        for (const QString& line : lines) {
+        const int subTotal = lines.size();
+        for (int i = 0; i < lines.size(); ++i) {
+            const QString& line = lines.at(i);
             if (m_state != Running) return false;
             QString trimmed = line.trimmed();
             if (trimmed.isEmpty() || trimmed.startsWith(QChar::fromLatin1('#')))
@@ -808,12 +736,46 @@ bool TaskExecutor::executeCommand(const ScriptCommand& cmd)
             // 快速解析单行
             ScriptCommand sub;
             sub.sourceLine = trimmed;
-            if (trimmed.startsWith(QStringLiteral("MOVEJ("), Qt::CaseInsensitive)) {
+            if (trimmed.startsWith(QStringLiteral("TARGET "), Qt::CaseInsensitive)) {
+                // 解析 TARGET Name = { X:.., Y:.., ... } 并写入 m_targets / m_targetMotion，
+                // 与 UiController::parseScript 主表保持一致。否则子脚本内的 TARGET 定义行
+                // 会落入末尾的 SetVar 分支被误判为变量赋值，导致点位未定义、后续 MOVEL 失败。
+                int eq = trimmed.indexOf(QLatin1Char('='));
+                int br = trimmed.indexOf(QLatin1Char('{'));
+                if (eq >= 0 && br >= 0) {
+                    QString name = trimmed.mid(7, eq - 7).trimmed();
+                    int e = trimmed.indexOf(QLatin1Char('}'), br);
+                    if (e >= 0) {
+                        QList<double> vals;
+                        for (const auto& p : trimmed.mid(br + 1, e - br - 1).split(QLatin1Char(','), Qt::SkipEmptyParts)) {
+                            QString t = p.trimmed();
+                            int colon = t.indexOf(QLatin1Char(':'));
+                            vals.append(t.mid(colon + 1).trimmed().toDouble());
+                        }
+                        if (vals.size() >= 6) {
+                            m_targets[name] = vals;
+                            m_targetMotion[name] = parseMotionSuffix(trimmed.mid(e + 1));
+                        } else {
+                            m_targetMotion[name] = parseMotionSuffix(trimmed.mid(e + 1));
+                        }
+                    }
+                }
+                continue;   // TARGET 定义行不进入执行队列
+            } else if (trimmed.startsWith(QStringLiteral("MOVEJ("), Qt::CaseInsensitive)) {
                 sub.type = ScriptCmdType::MoveJ;
                 int s = trimmed.indexOf(QChar::fromLatin1('{')); int e = trimmed.indexOf(QChar::fromLatin1('}'));
                 if (s >= 0 && e >= 0) {
                     for (const auto& p : trimmed.mid(s+1, e-s-1).split(QChar::fromLatin1(','), Qt::SkipEmptyParts))
                         sub.targets.append(p.trimmed().toDouble());
+                } else {
+                    // 引用格式：MOVEJ(TargetName, speed=.., acc=.., dec=..) —— 取首个参数为点位名
+                    int pe = trimmed.indexOf(QChar::fromLatin1(')'));
+                    if (pe >= 0) {
+                        QString inner = trimmed.mid(6, pe - 6).trimmed();
+                        int comma = inner.indexOf(QChar::fromLatin1(','));
+                        sub.targetName = (comma >= 0) ? inner.left(comma).trimmed() : inner;
+                        parseMotionSuffixInto(inner, sub);
+                    }
                 }
             } else if (trimmed.startsWith(QStringLiteral("MOVEL("), Qt::CaseInsensitive)) {
                 sub.type = ScriptCmdType::MoveL;
@@ -821,6 +783,16 @@ bool TaskExecutor::executeCommand(const ScriptCommand& cmd)
                 if (s >= 0 && e >= 0) {
                     for (const auto& p : trimmed.mid(s+1, e-s-1).split(QChar::fromLatin1(','), Qt::SkipEmptyParts))
                         sub.targets.append(p.trimmed().toDouble());
+                } else {
+                    // 引用格式：MOVEL(TargetName, speed=.., acc=.., dec=..) —— 取首个参数为点位名
+                    // 注意 "MOVEL(" 为 6 个字符，须用 mid(6) 跳过，不能用 mid(7)（会吃掉首字母 T）
+                    int pe = trimmed.indexOf(QChar::fromLatin1(')'));
+                    if (pe >= 0) {
+                        QString inner = trimmed.mid(6, pe - 6).trimmed();
+                        int comma = inner.indexOf(QChar::fromLatin1(','));
+                        sub.targetName = (comma >= 0) ? inner.left(comma).trimmed() : inner;
+                        parseMotionSuffixInto(inner, sub);
+                    }
                 }
             } else if (trimmed.startsWith(QStringLiteral("WAIT_IDLE"), Qt::CaseInsensitive)) {
                 sub.type = ScriptCmdType::WaitIdle;
@@ -902,8 +874,9 @@ bool TaskExecutor::executeCommand(const ScriptCommand& cmd)
         } else if (trimmed.startsWith(QStringLiteral("END_WHILE"), Qt::CaseInsensitive)) {
             sub.type = ScriptCmdType::EndWhile;
             } else if (trimmed.contains(QChar::fromLatin1('=')) && !trimmed.startsWith(QChar::fromLatin1('#'))
-                       && !trimmed.startsWith(QStringLiteral("SERVO("), Qt::CaseInsensitive)) {
-                // 子块 SetVar 通用赋值（排除 SERVO(，原因同 parseScript 主表）
+                       && !trimmed.startsWith(QStringLiteral("SERVO("), Qt::CaseInsensitive)
+                       && !trimmed.startsWith(QStringLiteral("TARGET "), Qt::CaseInsensitive)) {
+                // 子块 SetVar 通用赋值（排除 SERVO( / TARGET ，原因同 parseScript 主表）
                 sub.type = ScriptCmdType::SetVar;
                 int eq = trimmed.indexOf(QChar::fromLatin1('='));
                 sub.varName = trimmed.left(eq).trimmed();
@@ -914,6 +887,9 @@ bool TaskExecutor::executeCommand(const ScriptCommand& cmd)
             } else {
                 continue;
             }
+            // 子脚本指令执行前打印 TARGET 点位 + SPD/ACC/DEC + 源码行 + ▶ 前缀行，
+            // 与主脚本 executeNext() 共用 printMoveCommand，保证日志格式一致。
+            printMoveCommand(sub, i + 1, subTotal, fileName);
             if (!executeCommand(sub)) return false;
         }
         return true;
@@ -1090,4 +1066,141 @@ double TaskExecutor::evaluateExpr(const QString& expr, const QMap<QString, doubl
 
     // 没有运算符 → 单个数字或变量
     return resolveValue(s, vars);
+}
+
+MotionParams TaskExecutor::parseMotionSuffix(const QString& tail)
+{
+    MotionParams mp;
+    // 只看 // 注释之前的内容(若没有 // 则整段都是 motion 段)
+    QString prefix = tail;
+    int cIdx = prefix.indexOf(QStringLiteral("//"));
+    if (cIdx >= 0) prefix = prefix.left(cIdx);
+    prefix = prefix.trimmed();
+    if (prefix.isEmpty() || !prefix.startsWith(QLatin1Char('#'))) return mp;
+    // 去掉起始的 # 后按空白拆
+    QString body = prefix.mid(1).trimmed();
+    if (body.isEmpty()) return mp;
+    const QStringList tokens = body.split(QRegularExpression(QStringLiteral("\\s+")),
+                                          Qt::SkipEmptyParts);
+    for (const QString& tok : tokens) {
+        int eq = tok.indexOf(QLatin1Char('='));
+        if (eq <= 0) continue;
+        const QString key = tok.left(eq).trimmed().toLower();
+        bool ok = false;
+        double val = tok.mid(eq + 1).trimmed().toDouble(&ok);
+        if (!ok) continue;
+        if (key == QStringLiteral("speed") ||
+            key == QStringLiteral("spd") ||
+            key == QStringLiteral("v")) {
+            mp.speed = val;
+        } else if (key == QStringLiteral("acc") ||
+                   key == QStringLiteral("accel") ||
+                   key == QStringLiteral("acceleration")) {
+            mp.accel = val;
+        } else if (key == QStringLiteral("dec") ||
+                   key == QStringLiteral("decel") ||
+                   key == QStringLiteral("deceleration")) {
+            mp.decel = val;
+        } else if (key == QStringLiteral("tmo") ||
+                   key == QStringLiteral("timeout")) {
+            mp.timeoutMs = static_cast<int>(val);
+        }
+        // 未知键忽略,保持向前兼容
+    }
+    return mp;
+}
+
+/**
+ * @brief 解析 MOVE 指令内联运动参数（逗号分隔的 key=value 格式）
+ *        如 "Target1, speed=50, acc=50, dec=60" 中的 speed/acc/dec 部分，
+ *        写入 ScriptCommand 的 speed/accel/decel 字段，供 executeCommand 使用。
+ *        与 parseMotionSuffix（# 前缀格式）互补，覆盖 CALL 子脚本的引用式写法。
+ */
+void TaskExecutor::parseMotionSuffixInto(const QString& inner, ScriptCommand& cmd)
+{
+    if (inner.isEmpty()) return;
+    const QStringList tokens = inner.split(QChar::fromLatin1(','), Qt::SkipEmptyParts);
+    for (const QString& tok : tokens) {
+        QString t = tok.trimmed();
+        int eq = t.indexOf(QLatin1Char('='));
+        if (eq <= 0) continue;
+        const QString key = t.left(eq).trimmed().toLower();
+        bool ok = false;
+        double val = t.mid(eq + 1).trimmed().toDouble(&ok);
+        if (!ok) continue;
+        if (key == QStringLiteral("speed") ||
+            key == QStringLiteral("spd") ||
+            key == QStringLiteral("v")) {
+            cmd.speed = val;
+        } else if (key == QStringLiteral("acc") ||
+                   key == QStringLiteral("accel") ||
+                   key == QStringLiteral("acceleration")) {
+            cmd.accel = val;
+        } else if (key == QStringLiteral("dec") ||
+                   key == QStringLiteral("decel") ||
+                   key == QStringLiteral("deceleration")) {
+            cmd.decel = val;
+        } else if (key == QStringLiteral("tmo") ||
+                   key == QStringLiteral("timeout")) {
+            cmd.timeoutMs = static_cast<int>(val);
+        }
+        // 未知键忽略
+    }
+}
+
+// === 统一打印: TARGET 点位 + SPD/ACC/DEC + 源码行 + ▶ 前缀行 ===
+// 主脚本 executeNext() 与 CALL 子脚本执行循环共用，保证两套路径日志格式一致。
+void TaskExecutor::printMoveCommand(const ScriptCommand& cmd, int idx, int total, const QString& scriptName)
+{
+    QString prefix;
+    switch (cmd.type) {
+    case ScriptCmdType::MoveJ:   prefix = QStringLiteral("MOVEJ"); break;
+    case ScriptCmdType::MoveL:   prefix = QStringLiteral("MOVEL"); break;
+    case ScriptCmdType::MoveOff: prefix = QStringLiteral("MOVEJOFF"); break;
+    case ScriptCmdType::MoveLOff:prefix = QStringLiteral("MOVELOFF"); break;
+    case ScriptCmdType::Delay:   prefix = QStringLiteral("DELAY"); break;
+    case ScriptCmdType::SetDO:   prefix = QStringLiteral("SET_DO"); break;
+    case ScriptCmdType::WaitDI:  prefix = QStringLiteral("WAIT_DI"); break;
+    case ScriptCmdType::WaitIdle:prefix = QStringLiteral("WAIT_IDLE"); break;
+    case ScriptCmdType::Print:   prefix = QStringLiteral("PRINT"); break;
+    case ScriptCmdType::ReadPos: prefix = QStringLiteral("READ_POS"); break;
+    case ScriptCmdType::SpeedSet:prefix = QStringLiteral("SPEED"); break;
+    case ScriptCmdType::AccelSet:prefix = QStringLiteral("ACCEL"); break;
+    case ScriptCmdType::DecelSet:prefix = QStringLiteral("DECEL"); break;
+    case ScriptCmdType::TimeoutSet:prefix=QStringLiteral("TIMEOUT"); break;
+    case ScriptCmdType::SetVar:  prefix = QStringLiteral("SET"); break;
+    case ScriptCmdType::ForLoop: prefix = QStringLiteral("FOR"); break;
+    case ScriptCmdType::EndFor:  prefix = QStringLiteral("END_FOR"); break;
+    case ScriptCmdType::WhileTrue:prefix=QStringLiteral("WHILE"); break;
+    case ScriptCmdType::EndWhile:prefix=QStringLiteral("END_WHILE"); break;
+    case ScriptCmdType::ServoMove: prefix=QStringLiteral("SERVO"); break;
+    default: prefix = QStringLiteral("●"); break;
+    }
+    // 第一行：▶ 指令类型 [序号/总数] 脚本名
+    emit consoleOutput(QStringLiteral("▶ %1 [%2/%3] %4").arg(prefix).arg(idx).arg(total).arg(scriptName));
+    // 第二行（仅 MOVEJ/MOVEL 且点位已定义时）：TARGET 点位 + SPD/ACC/DEC 合并为一行
+    if ((cmd.type == ScriptCmdType::MoveJ || cmd.type == ScriptCmdType::MoveL)
+        && !cmd.targetName.isEmpty() && m_targets.contains(cmd.targetName)) {
+        const QList<double>& tgt = m_targets[cmd.targetName];
+        QString targetStr;
+        if (cmd.type == ScriptCmdType::MoveJ)
+            targetStr = QStringLiteral("TARGET %1 = {J0: %2, J1: %3, J2: %4, J3: %5, J4: %6, J5: %7}")
+                .arg(cmd.targetName).arg(tgt.value(0),0,'f',3).arg(tgt.value(1),0,'f',3)
+                .arg(tgt.value(2),0,'f',3).arg(tgt.value(3),0,'f',3)
+                .arg(tgt.value(4),0,'f',3).arg(tgt.value(5),0,'f',3);
+        else
+            targetStr = QStringLiteral("TARGET %1 = {X: %2, Y: %3, Z: %4, A: %5, B: %6, C: %7}")
+                .arg(cmd.targetName).arg(tgt.value(0),0,'f',3).arg(tgt.value(1),0,'f',3)
+                .arg(tgt.value(2),0,'f',3).arg(tgt.value(3),0,'f',3)
+                .arg(tgt.value(4),0,'f',3).arg(tgt.value(5),0,'f',3);
+        // 解析本指令实际使用的速度/加速度/减速度
+        // 取值优先级与 executeCommand() 中 MOVEJ/MOVEL 的实际执行逻辑一致：
+        // 行级 cmd.* > 点位 motion > 全局 m_global*。
+        const MotionParams mp = m_targetMotion.value(cmd.targetName);
+        double spd = (cmd.speed > 0) ? cmd.speed : (mp.speed    > 0) ? mp.speed    : m_globalSpeed;
+        double acc = (cmd.accel > 0) ? cmd.accel : (mp.accel    > 0) ? mp.accel    : m_globalAccel;
+        double dec = (cmd.decel > 0) ? cmd.decel : (mp.decel    > 0) ? mp.decel    : m_globalDecel;
+        emit consoleOutput(targetStr + QStringLiteral(" SPD: %1 ACC: %2 DEC: %3")
+            .arg(spd, 0, 'f', 1).arg(acc, 0, 'f', 1).arg(dec, 0, 'f', 1));
+    }
 }

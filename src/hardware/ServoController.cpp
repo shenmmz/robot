@@ -197,9 +197,9 @@ bool ServoController::setAngleWithSpeed(int channel, float angle, float speed)
 
     // 阈值分流：短距离单帧直发（保留 2026-06-15 快速通道）
     if (absDelta <= SHORT_MOVE_THRESHOLD_DEG) {
-        qDebug() << "[ServoController] setAngleWithSpeed ch:" << channel
-                 << "from:" << startAngle << "to:" << angle
-                 << "speed:" << speed << "deg/s (short move, single-frame)";
+//         qDebug() << "[ServoController] setAngleWithSpeed ch:" << channel
+//                  << "from:" << startAngle << "to:" << angle
+//                  << "speed:" << speed << "deg/s (short move, single-frame)";
 
         sendSingleFrame(channel, angle);
 
@@ -217,10 +217,10 @@ bool ServoController::setAngleWithSpeed(int channel, float angle, float speed)
     const int   totalTicks  = qBound(1, static_cast<int>(durationSec * (1000.0f / SOFT_INTERP_TICK_MS)), MAX_INTERP_TICKS);
     const float stepPerTick = delta / totalTicks;
 
-    qDebug() << "[ServoController] setAngleWithSpeed ch:" << channel
-             << "from:" << startAngle << "to:" << angle
-             << "speed:" << speed << "deg/s (long move,"
-             << totalTicks << "ticks x" << SOFT_INTERP_TICK_MS << "ms)";
+//     qDebug() << "[ServoController] setAngleWithSpeed ch:" << channel
+//              << "from:" << startAngle << "to:" << angle
+//              << "speed:" << speed << "deg/s (long move,"
+//              << totalTicks << "ticks x" << SOFT_INTERP_TICK_MS << "ms)";
 
     ChannelMovePlan plan;
     plan.channel     = channel;
@@ -530,8 +530,8 @@ bool ServoController::setAnglesForScriptMixed(const QList<int>& channels,
 
     // Step 4: 调试日志（每路控制模式）
     for (int i = 0; i < channels.size(); ++i) {
-        qDebug() << "[ServoController] setAnglesForScriptMixed ch:" << channels[i]
-                 << "→" << angles[i] << "° 模式:" << modeLog.value(i);
+//         qDebug() << "[ServoController] setAnglesForScriptMixed ch:" << channels[i]
+//                  << "→" << angles[i] << "° 模式:" << modeLog.value(i);
     }
 
     // Step 5: 处理短距离通道——单帧批量下发 + emit 完成信号
@@ -597,7 +597,7 @@ bool ServoController::setAngleDrag(int channel, float angle)
     m_states[channel].targetAngle = angle;
     m_states[channel].isMoving = true;  // 标记为移动中，触发批量发送
 
-    qDebug() << "[ServoController] setAngleDrag ch:" << channel << "angle:" << angle << "°";
+//     qDebug() << "[ServoController] setAngleDrag ch:" << channel << "angle:" << angle << "°";
 
     emit angleChanged(channel, angle);
     return true;
@@ -614,7 +614,7 @@ void ServoController::setDefaultSpeed(int channel, float speed)
     if (speed > 180.0f) speed = 180.0f;
 
     m_states[channel].speed = speed;
-    qDebug() << "[ServoController] setDefaultSpeed ch:" << channel << "speed:" << speed << "°/s";
+//     qDebug() << "[ServoController] setDefaultSpeed ch:" << channel << "speed:" << speed << "°/s";
 }
 
 /**
@@ -664,8 +664,8 @@ bool ServoController::initAll()
     // 各舵机初始角度（度）
     const float initAngles[] = {122.0f, 113.0f, 49.0f, 109.0f, 75.0f, 80.0f};
 
-    qDebug() << "[ServoController] initAll: 设置舵机到指定角度"
-             << "PWM1=122° PWM2=113° PWM3=49° PWM4=109° PWM5=75° PWM6=80°";
+//     qDebug() << "[ServoController] initAll: 设置舵机到指定角度"
+//              << "PWM1=122° PWM2=113° PWM3=49° PWM4=109° PWM5=75° PWM6=80°";
 
     // 通过 angleToDutyPermil() 将角度转换为占空比千分比
     quint16 d1 = angleToDutyPermil(initAngles[0]);
@@ -675,7 +675,7 @@ bool ServoController::initAll()
     quint16 d5 = angleToDutyPermil(initAngles[4]);
     quint16 d6 = angleToDutyPermil(initAngles[5]);
 
-    qDebug() << "[ServoController] 占空比:" << d1 << d2 << d3 << d4 << d5 << d6;
+//     qDebug() << "[ServoController] 占空比:" << d1 << d2 << d3 << d4 << d5 << d6;
 
     // 批量设置各舵机到指定角度
     bool ok = m_rs485->setAllPwm(
@@ -750,7 +750,7 @@ void ServoController::onTimerTick()
             angles[i] = targetAngle;
             emit angleChanged(i, targetAngle);
             emit moveCompleted(i, targetAngle);
-            qDebug() << "[ServoController] ch" << i << "到达目标角度:" << targetAngle << "°";
+//             qDebug() << "[ServoController] ch" << i << "到达目标角度:" << targetAngle << "°";
             continue;
         }
 
@@ -906,5 +906,5 @@ void ServoController::cancelAllMovements()
             m_states[ch].targetAngle  = m_states[ch].currentAngle;
         }
     }
-    qDebug() << "[ServoController] cancelAllMovements: 全部软插值已取消";
+//     qDebug() << "[ServoController] cancelAllMovements: 全部软插值已取消";
 }

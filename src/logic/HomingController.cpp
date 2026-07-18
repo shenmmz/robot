@@ -179,7 +179,7 @@ bool HomingController::startHoming()
     m_pollTimer->start(m_pollIntervalMs);
 
     emit homingStarted();
-    qDebug() << "[回零] 回零流程已启动";
+//     qDebug() << "[回零] 回零流程已启动";
     return true;
 }
 
@@ -221,7 +221,7 @@ void HomingController::step()
 
     if (!m_serialPrehomeCompleted) {
         if (m_j3MovedAway && m_j2MovedAway && m_j5MovedAway) {
-            qDebug() << "[HomingController] 串行预处理完成";
+//             qDebug() << "[HomingController] 串行预处理完成";
             m_serialPrehomeCompleted = true;
         } else {
             return;
@@ -258,7 +258,7 @@ void HomingController::onPollTimeout()
     if (isAllHomed()) {
         m_pollTimer->stop();
         m_isHoming = false;
-        qDebug() << QStringLiteral("[回零] 所有轴回零完成");
+//         qDebug() << QStringLiteral("[回零] 所有轴回零完成");
         emit homingCompleted();
         return;
     }
@@ -626,7 +626,7 @@ void HomingController::processPrehomeAxis(int i)
             state = HOME_SUCCESS;
             emit homingAxisCompleted(i);
             emit homingProgress(i, state);
-            qDebug() << QStringLiteral("[回零] J%1 回零完成").arg(i + 1);
+//             qDebug() << QStringLiteral("[回零] J%1 回零完成").arg(i + 1);
         } else {
             // 超时检测
             qint64 elapsed = QDateTime::currentMSecsSinceEpoch() - m_homeStartTimeMs[i];
@@ -830,7 +830,7 @@ void HomingController::stepParallel()
                 startTime = 0;
                 emit homingAxisCompleted(i);
                 emit homingProgress(i, state);
-                qDebug() << QStringLiteral("[回零] J%1 回零完成").arg(i + 1);
+//                 qDebug() << QStringLiteral("[回零] J%1 回零完成").arg(i + 1);
             } else if (startTime != 0 && (now - startTime) > m_homingTimeoutMs) {
                 qWarning() << QStringLiteral("[回零] J%1 回零超时(%2s)")
                     .arg(i + 1).arg(m_homingTimeoutMs / 1000);
@@ -870,13 +870,13 @@ void HomingController::moveAllAxesToPositions(const QList<float>& positions, flo
         return;
     }
 
-    qDebug() << QStringLiteral("[Move] 移动到homePosition | 速度:%1度/秒 加速度:%2 减速度:%3")
-        .arg((double)speed).arg((double)accel).arg((double)decel);
+//     qDebug() << QStringLiteral("[Move] 移动到homePosition | 速度:%1度/秒 加速度:%2 减速度:%3")
+//         .arg((double)speed).arg((double)accel).arg((double)decel);
 
     for (int i = 0; i < kAxisCount; ++i) {
         const HomeAxisHWConfig& hw = g_axis_hw[i];
         m_zmotionAPI->startAxisSingleMoveAbs(hw.axis, speed, accel, decel, positions[i]);
-        qDebug() << "[Move] J" << (i + 1) << "->" << positions[i];
+//         qDebug() << "[Move] J" << (i + 1) << "->" << positions[i];
     }
 }
 

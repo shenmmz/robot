@@ -126,7 +126,7 @@ bool Rs485Controller::sendModbusRequest(quint8 slaveAddress, quint8 functionCode
             return false;
         }
         m_serialConfigured = true;
-        qDebug() << "[Rs485] SETCOM 配置成功 (9600,8,N,1, mode=14, timeout=800ms)";
+//         qDebug() << "[Rs485] SETCOM 配置成功 (9600,8,N,1, mode=14, timeout=800ms)";
     }
 
     // ============ 2.5. 指定从站地址（带缓存）============
@@ -136,18 +136,18 @@ bool Rs485Controller::sendModbusRequest(quint8 slaveAddress, quint8 functionCode
     // RPC（每次约 5~20ms）。仅当从站变更时才发送。
     if (m_cachedSlaveAddress != slaveAddress) {
         QString desCmd = QString("MODBUSM_DES(%1,1)").arg(slaveAddress);
-        qDebug().noquote() << "[Rs485] 设置从站:" << desCmd;
+//         qDebug().noquote() << "[Rs485] 设置从站:" << desCmd;
         r = m_zmotionAPI->executeCommand(desCmd);
         if (!r.success) {
             setError(QStringLiteral("MODBUSM_DES失败: %1").arg(r.errorMessage));
             return false;
         }
         m_cachedSlaveAddress = slaveAddress;
-        qDebug().noquote() << QString("[Rs485] MODBUSM_DES 成功 (从站=0x%1, 端口=1)")
-                                  .arg(slaveAddress, 2, 16, QChar('0'));
+//         qDebug().noquote() << QString("[Rs485] MODBUSM_DES 成功 (从站=0x%1, 端口=1)")
+//                                   .arg(slaveAddress, 2, 16, QChar('0'));
     } else {
-        qDebug().noquote() << QString("[Rs485] 从站未变 (0x%1)，跳过 MODBUSM_DES")
-                                  .arg(slaveAddress, 2, 16, QChar('0'));
+//         qDebug().noquote() << QString("[Rs485] 从站未变 (0x%1)，跳过 MODBUSM_DES")
+//                                   .arg(slaveAddress, 2, 16, QChar('0'));
     }
 
     // ============ 3. 将数据打包写入MODBUS_REG寄存器（diff 写入）============
@@ -155,8 +155,8 @@ bool Rs485Controller::sendModbusRequest(quint8 slaveAddress, quint8 functionCode
     int byteCount = data.size();
     int wordCount = (byteCount + 1) / 2;  // 向上取整（奇数字节时最后一个寄存器只用高字节）
 
-    qDebug().noquote() << QString("[Rs485]   数据打包: %1 字节 → %2 个16位寄存器")
-                              .arg(byteCount).arg(wordCount);
+//     qDebug().noquote() << QString("[Rs485]   数据打包: %1 字节 → %2 个16位寄存器")
+//                               .arg(byteCount).arg(wordCount);
 
     // 优化（2026-06-15）：diff 写入 — 与上次缓存相同的寄存器跳过，
     // 避免 12 次同步 RPC。典型场景（6 路 PWM 中只有 1 路改变）下，
@@ -190,8 +190,8 @@ bool Rs485Controller::sendModbusRequest(quint8 slaveAddress, quint8 functionCode
         m_cachedRegs[regIndex] = word;
         ++regWriteCount;
     }
-    qDebug().noquote() << QString("[Rs485]   实际写入寄存器: %1 / %2 (diff 缓存生效)")
-                              .arg(regWriteCount).arg(wordCount);
+//     qDebug().noquote() << QString("[Rs485]   实际写入寄存器: %1 / %2 (diff 缓存生效)")
+//                               .arg(regWriteCount).arg(wordCount);
 
     // ============ 4. 发送 Modbus 主端写命令 ============
     // MODBUSM_REGSET(从站寄存器地址, 寄存器数量, 本地MODBUS_REG起始索引)
@@ -200,7 +200,7 @@ bool Rs485Controller::sendModbusRequest(quint8 slaveAddress, quint8 functionCode
                           .arg(startAddress)
                           .arg(wordCount)
                           .arg(m_localRegBase);
-    qDebug() << "[Rs485] 执行:" << sendCmd;
+//     qDebug() << "[Rs485] 执行:" << sendCmd;
 
     r = m_zmotionAPI->executeCommand(sendCmd);
 
@@ -233,7 +233,7 @@ bool Rs485Controller::sendModbusRequest(quint8 slaveAddress, quint8 functionCode
     
     // 对于Modbus写命令,ZMC的MODBUSM_REGSET已经处理了响应确认
     // 如果命令执行成功,说明从站已正确响应,无需再次读取
-    qDebug() << "[Rs485] MODBUSM_REGSET 执行成功,从站已确认";
+//     qDebug() << "[Rs485] MODBUSM_REGSET 执行成功,从站已确认";
     emit communicationSuccess();// 发送成功信号
     emit dataSent(byteCount);// 发送完成信号，参数为实际发送的字节数
     return true;
@@ -287,10 +287,10 @@ bool Rs485Controller::sendRawModbusFrame(quint8 slaveAddress, quint8 functionCod
     frame.append(static_cast<char>(crc & 0xFF));         // CRC低字节在前
     frame.append(static_cast<char>((crc >> 8) & 0xFF));  // CRC高字节在后
 
-    qDebug().noquote() << QString("[Rs485] === RAW Modbus 帧 ===");
-    qDebug().noquote() << QString("[Rs485]   完整帧(%1字节): %2")
-                              .arg(frame.size())
-                              .arg(frame.toHex(' ').toUpper());
+//     qDebug().noquote() << QString("[Rs485] === RAW Modbus 帧 ===");
+//     qDebug().noquote() << QString("[Rs485]   完整帧(%1字节): %2")
+//                               .arg(frame.size())
+//                               .arg(frame.toHex(' ').toUpper());
 
     // ============ 2. 切换到RAW模式 ============
     ZmotionResult r = m_zmotionAPI->executeCommand(
@@ -299,7 +299,7 @@ bool Rs485Controller::sendRawModbusFrame(quint8 slaveAddress, quint8 functionCod
         setError(QStringLiteral("SETCOM RAW模式失败: %1").arg(r.errorMessage));
         return false;
     }
-    qDebug() << "[Rs485] SETCOM → RAW模式 (9600,8,N,1)";
+//     qDebug() << "[Rs485] SETCOM → RAW模式 (9600,8,N,1)";
 
     // ============ 3. 逐字节发送 PUTCHAR ============
     for (int i = 0; i < frame.size(); i++) {
@@ -311,13 +311,13 @@ bool Rs485Controller::sendRawModbusFrame(quint8 slaveAddress, quint8 functionCod
         }
     }
 
-    qDebug().noquote() << QString("[Rs485] RAW帧已发送 (%1 字节)").arg(frame.size());
+//     qDebug().noquote() << QString("[Rs485] RAW帧已发送 (%1 字节)").arg(frame.size());
 
     // ============ 4. 恢复Modbus主端模式 ============
     r = m_zmotionAPI->executeCommand(
         QStringLiteral("SETCOM(9600,8,1,0,1,14,2,800)"));
     if (r.success) {
-        qDebug() << "[Rs485] SETCOM → 恢复Modbus主端模式";
+//         qDebug() << "[Rs485] SETCOM → 恢复Modbus主端模式";
     }
 
     emit dataSent(frame.size());
@@ -379,9 +379,9 @@ bool Rs485Controller::setSinglePwmFrequencyAndDuty(quint8 slaveAddress, quint8 p
     dataToSend.append(static_cast<char>(dutyCycle & 0xFF));               // 占空比低字节
     dataToSend.append(static_cast<char>(0x00));                           // 填充
 
-    qDebug() << "[Rs485] setSinglePwm: ch=" << pwmIndex
-             << " freq=" << actualFreq << "Hz duty=" << dutyCycle
-             << " data=" << dataToSend.toHex(' ').toUpper();
+//     qDebug() << "[Rs485] setSinglePwm: ch=" << pwmIndex
+//              << " freq=" << actualFreq << "Hz duty=" << dutyCycle
+//              << " data=" << dataToSend.toHex(' ').toUpper();
 
     // 使用RAW模式发送完整Modbus RTU帧（更可靠）
     return sendRawModbusFrame(slaveAddress, 0x10, startAddress, dataToSend);

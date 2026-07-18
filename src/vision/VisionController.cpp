@@ -51,7 +51,7 @@ VisionController::~VisionController()
 bool VisionController::start()
 {
     if (isRunning()) {
-        qDebug() << "[Vision] 已在运行中，跳过 start";
+//         qDebug() << "[Vision] 已在运行中，跳过 start";
         return true;
     }
 
@@ -83,8 +83,8 @@ bool VisionController::start()
                            .arg(m_tcpServer->errorString()));
         return false;
     }
-    qDebug() << "[Vision] TCP Server 已监听 127.0.0.1:" << kServerPort
-             << " (等待 Python 连接)";
+//     qDebug() << "[Vision] TCP Server 已监听 127.0.0.1:" << kServerPort
+//              << " (等待 Python 连接)";
 
     // 3) 启动 Python 进程（使用项目自带的 .venv）
     const QString pythonExe = projectDir + "/.venv/Scripts/python.exe";
@@ -115,8 +115,8 @@ bool VisionController::start()
         return false;
     }
 
-    qDebug() << "[Vision] Python 已启动 PID=" << m_process->processId();
-    qDebug() << "[Vision] 等待 Python TCP 客户端连入 127.0.0.1:" << kServerPort << " ...";
+//     qDebug() << "[Vision] Python 已启动 PID=" << m_process->processId();
+//     qDebug() << "[Vision] 等待 Python TCP 客户端连入 127.0.0.1:" << kServerPort << " ...";
     return true;
 }
 
@@ -185,7 +185,7 @@ void VisionController::onFinished(int exitCode, int /*exitStatus*/)
         m_stderrBuffer.clear();
     }
 
-    qDebug() << "[Vision] Python 已退出，exitCode=" << exitCode;
+//     qDebug() << "[Vision] Python 已退出，exitCode=" << exitCode;
     emit stopped(exitCode);
 
     m_process->deleteLater();
@@ -226,7 +226,7 @@ void VisionController::onNewConnection()
 
     // 如果已有 socket，先释放旧的（保持单连接语义）
     if (m_tcpSocket) {
-        qDebug() << "[Vision] 已有 socket，断开旧连接换新连接";
+//         qDebug() << "[Vision] 已有 socket，断开旧连接换新连接";
         m_tcpSocket->disconnectFromHost();
         m_tcpSocket->deleteLater();
         m_tcpSocket = nullptr;
@@ -239,10 +239,10 @@ void VisionController::onNewConnection()
     connect(m_tcpSocket, &QTcpSocket::readyRead, this, &VisionController::onReadyRead);
     connect(m_tcpSocket, &QTcpSocket::disconnected, this, &VisionController::onClientDisconnected);
 
-    qDebug() << "[Vision] Python TCP 客户端已连接 from"
-             << m_tcpSocket->peerAddress().toString()
-             << ":" << m_tcpSocket->peerPort()
-             << " state=" << m_tcpSocket->state();
+//     qDebug() << "[Vision] Python TCP 客户端已连接 from"
+//              << m_tcpSocket->peerAddress().toString()
+//              << ":" << m_tcpSocket->peerPort()
+//              << " state=" << m_tcpSocket->state();
 }
 
 void VisionController::onReadyRead()
@@ -250,8 +250,8 @@ void VisionController::onReadyRead()
     if (!m_tcpSocket) return;
 
     const QByteArray chunk = m_tcpSocket->readAll();
-    qDebug() << "[Vision] tcp-receive bytes=" << chunk.size()
-             << " preview=" << QString::fromUtf8(chunk.left(80));
+//     qDebug() << "[Vision] tcp-receive bytes=" << chunk.size()
+//              << " preview=" << QString::fromUtf8(chunk.left(80));
     m_tcpBuffer.append(chunk);
 
     while (true) {
@@ -269,16 +269,16 @@ void VisionController::onReadyRead()
 
 void VisionController::onClientDisconnected()
 {
-    qDebug() << "[Vision] Python 已断开 TCP 连接 errorString=" << m_tcpSocket->errorString()
-             << " state=" << m_tcpSocket->state();
+//     qDebug() << "[Vision] Python 已断开 TCP 连接 errorString=" << m_tcpSocket->errorString()
+//              << " state=" << m_tcpSocket->state();
 }
 
 // ==================== JSON 解析 ====================
 
 void VisionController::parseAndDispatch(const QByteArray &line)
 {
-    qDebug() << "[Vision] recv-line len=" << line.size()
-             << " preview=" << QString::fromUtf8(line.left(120));
+//     qDebug() << "[Vision] recv-line len=" << line.size()
+//              << " preview=" << QString::fromUtf8(line.left(120));
 
     QJsonParseError err;
     const QJsonDocument doc = QJsonDocument::fromJson(line, &err);
@@ -293,11 +293,11 @@ void VisionController::parseAndDispatch(const QByteArray &line)
     // 只处理 type="pose" 消息 (其它 type 之前会被静默丢弃, 现在改成 qDebug 便于排查)
     const QString type = root.value(QStringLiteral("type")).toString();
     if (type.isEmpty()) {
-        qDebug() << "[Vision] 跳过: msg 无 type 字段";
+//         qDebug() << "[Vision] 跳过: msg 无 type 字段";
         return;
     }
     if (type != QStringLiteral("pose")) {
-        qDebug() << "[Vision] skip non-pose type=" << type;
+//         qDebug() << "[Vision] skip non-pose type=" << type;
         return;
     }
 
@@ -337,7 +337,7 @@ void VisionController::parseAndDispatch(const QByteArray &line)
             list.append({motorId - 1, angle});  // motor_id 1..6 → axis 0..5
         }
         if (!list.isEmpty()) {
-            qDebug() << "[Vision] 收到多轴指令" << list.size() << "条";
+//             qDebug() << "[Vision] 收到多轴指令" << list.size() << "条";
             emit motorCommands(list);
         }
         return;
@@ -348,6 +348,6 @@ void VisionController::parseAndDispatch(const QByteArray &line)
     if (motor6.isEmpty()) return;
 
     const double angle = motor6.value(QStringLiteral("angle_deg")).toDouble();
-    qDebug() << "[Vision] 收到 motor_6 兼容指令 angle_deg =" << angle;
+//     qDebug() << "[Vision] 收到 motor_6 兼容指令 angle_deg =" << angle;
     emit motorCommand(angle);
 }

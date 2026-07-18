@@ -62,7 +62,7 @@ static QString findConfigFile()
     while (!dir.isRoot()) {
         QString candidate = dir.absolutePath() + "/config/robot_config.json";
         if (QFileInfo::exists(candidate)) {
-            qDebug() << "[MainWindow] 找到配置文件:" << candidate;
+//             qDebug() << "[MainWindow] 找到配置文件:" << candidate;
             return candidate;
         }
         if (!dir.cdUp()) break;
@@ -423,10 +423,10 @@ void MainWindow::onCartesianModeClicked()
     bool success = m_robotController->switchToCartesianMode();
     if (success) {
         ui->statusbar->showMessage(QStringLiteral("已切换到笛卡尔空间控制模式"));
-        qDebug() << "[MainWindow] 已切换到笛卡尔模式";
+//         qDebug() << "[MainWindow] 已切换到笛卡尔模式";
     } else {
         ui->statusbar->showMessage(QStringLiteral("切换笛卡尔模式失败"));
-        qDebug() << "[MainWindow] 切换笛卡尔模式失败";
+//         qDebug() << "[MainWindow] 切换笛卡尔模式失败";
     }
     updatePositionDisplay();
 }
@@ -446,10 +446,10 @@ void MainWindow::onJointModeClicked()
     bool success = m_robotController->switchToJointMode();
     if (success) {
         ui->statusbar->showMessage(QStringLiteral("已切换到关节空间控制模式"));
-        qDebug() << "[MainWindow] 已切换到关节模式";
+//         qDebug() << "[MainWindow] 已切换到关节模式";
     } else {
         ui->statusbar->showMessage(QStringLiteral("切换关节模式失败"));
-        qDebug() << "[MainWindow] 切换关节模式失败";
+//         qDebug() << "[MainWindow] 切换关节模式失败";
     }
     updatePositionDisplay();
 }
@@ -598,7 +598,7 @@ void MainWindow::onHomingClicked()
 
             ZmotionAPI* api = m_robotController->getMotionController()->getZmotionAPI();
             api->setAxisDpos({0, 1, 2, 3, 4, 5}, {0.0, 0.0, 0.0, 0.0, 0.0, 0.0});
-            qDebug() << "[MainWindow] 关节轴0-5 DPOS 已清零";
+//             qDebug() << "[MainWindow] 关节轴0-5 DPOS 已清零";
 
             // 第四步：切换正解模式
             setConnectionStatus(QStringLiteral("切换正解..."), QStringLiteral("orange"));
@@ -946,8 +946,8 @@ const QString ts = QDateTime::currentDateTime().toString(QStringLiteral("HH:mm:s
     const QString prefix = ui->rs485ChkTimestamp->isChecked() ? ts : QString();
 
     // 显示发送数据
-    qDebug() << "[Rs485] [发送]" << bytesToHex(data);
-    qDebug() << "[Rs485] [完整帧]" << bytesToHex(dataWithCrc);
+//     qDebug() << "[Rs485] [发送]" << bytesToHex(data);
+//     qDebug() << "[Rs485] [完整帧]" << bytesToHex(dataWithCrc);
     appendRs485RecvText(QStringLiteral("%1[发送] %2\n").arg(prefix).arg(bytesToHex(data)));
     appendRs485RecvText(QStringLiteral("%1[帧+CRC] %2\n").arg(prefix).arg(bytesToHex(dataWithCrc)));
 
@@ -967,7 +967,7 @@ const QString ts = QDateTime::currentDateTime().toString(QStringLiteral("HH:mm:s
         modbusData = data.mid(4);
     }
 
-    qDebug() << "[Rs485] 调用 Rs485Controller::sendModbusRequest()";
+//     qDebug() << "[Rs485] 调用 Rs485Controller::sendModbusRequest()";
     bool success = m_robotController->getRs485Controller()->sendModbusRequest(
         slaveAddr, funcCode, startAddr, modbusData);
 
@@ -1021,7 +1021,7 @@ void MainWindow::onTestPwmDuty()
         return;
     }
 
-    qDebug() << "[PWM测试] 设置 PWM1 占空比为 75";
+//     qDebug() << "[PWM测试] 设置 PWM1 占空比为 75";
     
     bool success = m_robotController->getRs485Controller()->setPwmDuty(1, 75);
     
@@ -1057,13 +1057,13 @@ void MainWindow::onRs485AutoSendToggled(bool checked)
         int interval = ui->rs485SpinInterval->text().toDouble();
         m_rs485AutoSendTimer->start(interval);
         ui->rs485SpinInterval->setEnabled(false);
-        qDebug() << "[RS485] 定时发送已启动，间隔:" << interval << "ms";
+//         qDebug() << "[RS485] 定时发送已启动，间隔:" << interval << "ms";
     } else {
         if (m_rs485AutoSendTimer) {
             m_rs485AutoSendTimer->stop();
         }
         ui->rs485SpinInterval->setEnabled(true);
-        qDebug() << "[RS485] 定时发送已停止";
+//         qDebug() << "[RS485] 定时发送已停止";
     }
 }
 
@@ -2447,7 +2447,7 @@ void MainWindow::showPointAdjustDialog(bool isJoint)
 
 void MainWindow::onVisionStarted()
 {
-    qDebug() << "[MainWindow] 视觉程序已启动";
+//     qDebug() << "[MainWindow] 视觉程序已启动";
     ui->pushButton_6->setText(QStringLiteral("停止测试"));
     if (m_visionStatusLabel) {
         m_visionStatusLabel->setText(QStringLiteral("视觉程序：运行中 (页签已切到【视觉运动】即可驱动)"));
@@ -2459,7 +2459,7 @@ void MainWindow::onVisionStarted()
 
 void MainWindow::onVisionStopped(int exitCode)
 {
-    qDebug() << "[MainWindow] 视觉程序已退出，exitCode=" << exitCode;
+//     qDebug() << "[MainWindow] 视觉程序已退出，exitCode=" << exitCode;
     ui->pushButton_6->setText(QStringLiteral("功能测试"));
     if (m_visionStatusLabel) {
         m_visionStatusLabel->setText(QStringLiteral("视觉程序：已停止 (由左侧【功能测试】按钮启动)"));
@@ -2478,7 +2478,7 @@ void MainWindow::onVisionError(const QString &error)
 
 void MainWindow::onVisionMessage(const QString &channel, const QString &line)
 {
-    qDebug() << "[MainWindow] vision" << channel << ":" << line;
+//     qDebug() << "[MainWindow] vision" << channel << ":" << line;
     if (m_visionLogView) {
         m_visionLogView->appendPlainText(QStringLiteral("[%1] %2").arg(channel, line));
     }
@@ -2497,7 +2497,7 @@ void MainWindow::onVisionMessage(const QString &channel, const QString &line)
  */
 void MainWindow::onVisionMotorCommands(const QList<QPair<int, double>>& commands)
 {
-    qDebug() << "[MainWindow] onVisionMotorCommands n=" << commands.size();
+//     qDebug() << "[MainWindow] onVisionMotorCommands n=" << commands.size();
     if (commands.isEmpty()) return;
     if (!m_robotController || !m_robotController->isConnected()) {
         qWarning() << "[MainWindow] 视觉多轴指令未执行：控制器未连接";

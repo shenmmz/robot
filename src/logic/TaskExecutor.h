@@ -102,6 +102,22 @@ private:
     /// 阻塞等待一组舵机通道全部到位（支持暂停 / 超时）
     void waitForServoIdle(ServoController* servo, const QList<int>& channels, int timeoutMs = 30000);
 
+    /// 解析 TARGET 行 '}' 之后的 #speed=N acc=N dec=N tmo=N 运动参数后缀
+    /// （与 UiController::parseMotionSuffix 语义一致，供 CALL 子脚本解析复用）
+    MotionParams parseMotionSuffix(const QString& tail);
+
+    /// 解析 MOVE 指令内联运动参数（逗号分隔 key=value 格式，如 speed=50, acc=50, dec=60）
+    /// 写入 ScriptCommand 的 speed/accel/decel/timeoutMs，供 CALL 子脚本引用式写法复用
+    void parseMotionSuffixInto(const QString& inner, ScriptCommand& cmd);
+
+    /// 打印单条 MOVE 指令的 TARGET 点位 + SPD/ACC/DEC + 源码行 + ▶ 前缀行。
+    /// 主脚本 executeNext() 与 CALL 子脚本执行循环共用，保证两套路径日志格式一致。
+    /// @param cmd   待打印的指令（MoveJ/MoveL 才输出 TARGET/SPD/ACC/DEC）
+    /// @param idx        当前指令序号（从 1 开始）
+    /// @param total      指令总数
+    /// @param scriptName 当前脚本文件名（主脚本或 CALL 子脚本名），追加到 ▶ 行末尾
+    void printMoveCommand(const ScriptCommand& cmd, int idx, int total, const QString& scriptName);
+
     RobotController* m_robotController;
     State m_state = Idle;
 
