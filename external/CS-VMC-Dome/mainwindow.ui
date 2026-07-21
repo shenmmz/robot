@@ -1,0 +1,381 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>MainWindow</class>
+ <widget class="QMainWindow" name="MainWindow">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>1100</width>
+    <height>810</height>
+   </rect>
+  </property>
+  <property name="minimumSize">
+   <size>
+    <width>1100</width>
+    <height>760</height>
+   </size>
+  </property>
+  <property name="windowTitle">
+   <string>VMControl 模块示例程序</string>
+  </property>
+  <widget class="QWidget" name="centralwidget">
+   <layout class="QGridLayout" name="gridLayout">
+    <item row="0" column="0">
+     <layout class="QHBoxLayout" name="horizontalLayout">
+      <item>
+       <widget class="QGroupBox" name="groupBox_controls">
+        <property name="sizePolicy">
+         <sizepolicy hsizetype="Fixed" vsizetype="Preferred">
+          <horstretch>0</horstretch>
+          <verstretch>0</verstretch>
+         </sizepolicy>
+        </property>
+        <property name="minimumSize">
+         <size>
+          <width>500</width>
+          <height>0</height>
+         </size>
+        </property>
+        <property name="title">
+         <string>方案控制接口</string>
+        </property>
+        <layout class="QVBoxLayout" name="controlsLayout">
+         <property name="spacing">
+          <number>8</number>
+         </property>
+         <item>
+          <widget class="QGroupBox" name="groupBox_solution">
+           <property name="title">
+            <string>方案</string>
+           </property>
+           <layout class="QGridLayout" name="solutionGridLayout" columnstretch="0,1,0,1">
+            <item row="0" column="0">
+             <widget class="QPushButton" name="pushButton_chosse">
+              <property name="minimumSize">
+               <size>
+                <width>90</width>
+                <height>26</height>
+               </size>
+              </property>
+              <property name="text">
+               <string>选择方案</string>
+              </property>
+             </widget>
+            </item>
+            <item row="0" column="1" colspan="3">
+             <widget class="QLineEdit" name="lineEdit_path">
+              <property name="placeholderText">
+               <string>选择 .sol 方案路径</string>
+              </property>
+             </widget>
+            </item>
+            <item row="1" column="0">
+             <widget class="QLabel" name="label">
+              <property name="text">
+               <string>方案路径：</string>
+              </property>
+             </widget>
+            </item>
+            <item row="1" column="1">
+             <widget class="QLabel" name="label_pathDisplay">
+              <property name="text">
+               <string>由上方输入框传入 VMControl</string>
+              </property>
+             </widget>
+            </item>
+            <item row="1" column="2">
+             <widget class="QLabel" name="label_2">
+              <property name="text">
+               <string>方案密码：</string>
+              </property>
+             </widget>
+            </item>
+            <item row="1" column="3">
+             <widget class="QLineEdit" name="lineEdit_password">
+              <property name="placeholderText">
+               <string>可为空</string>
+              </property>
+             </widget>
+            </item>
+            <item row="2" column="0" colspan="4">
+             <layout class="QHBoxLayout" name="solutionButtonLayout">
+              <item>
+               <widget class="QPushButton" name="pushButton_load">
+                <property name="text">
+                 <string>加载方案</string>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <widget class="QPushButton" name="pushButton_close">
+                <property name="text">
+                 <string>关闭方案</string>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <widget class="QPushButton" name="pushButton_run">
+                <property name="text">
+                 <string>执行方案</string>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <widget class="QPushButton" name="pushButton_rining">
+                <property name="text">
+                 <string>连续执行</string>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <widget class="QPushButton" name="pushButton_stop">
+                <property name="text">
+                 <string>停止执行</string>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <widget class="QPushButton" name="pushButton_save">
+                <property name="text">
+                 <string>保存修改</string>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <widget class="QPushButton" name="pushButton_saveAS">
+                <property name="text">
+                 <string>方案另存为</string>
+                </property>
+               </widget>
+              </item>
+             </layout>
+            </item>
+           </layout>
+          </widget>
+         </item>
+         <item>
+          <widget class="QGroupBox" name="groupBox_procedure">
+           <property name="title">
+            <string>流程</string>
+           </property>
+           <layout class="QVBoxLayout" name="procedureLayout">
+            <item>
+             <layout class="QHBoxLayout" name="procedureSelectLayout">
+              <item>
+               <widget class="QLabel" name="label_3">
+                <property name="minimumSize">
+                 <size>
+                  <width>72</width>
+                  <height>0</height>
+                 </size>
+                </property>
+                <property name="text">
+                 <string>选择流程：</string>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <widget class="QComboBox" name="ProcessChoose_Box">
+                <property name="sizePolicy">
+                 <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+                  <horstretch>0</horstretch>
+                  <verstretch>0</verstretch>
+                 </sizepolicy>
+                </property>
+                <property name="minimumSize">
+                 <size>
+                  <width>100</width>
+                  <height>0</height>
+                 </size>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <widget class="QPushButton" name="runPro_Button">
+                <property name="text">
+                 <string>流程执行</string>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <widget class="QPushButton" name="runingPro_Button">
+                <property name="text">
+                 <string>流程连续执行</string>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <widget class="QPushButton" name="stopPro_Button">
+                <property name="text">
+                 <string>停止流程</string>
+                </property>
+               </widget>
+              </item>
+             </layout>
+            </item>
+            <item>
+             <layout class="QHBoxLayout" name="moduleButtonLayout">
+              <item>
+               <widget class="QPushButton" name="pushButton_cuSet">
+                <property name="text">
+                 <string>定位模板</string>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <widget class="QPushButton" name="pushButton_jingSet">
+                <property name="text">
+                 <string>精定位</string>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <widget class="QPushButton" name="pushButton_turnSet">
+                <property name="text">
+                 <string>标定转换</string>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <widget class="QPushButton" name="runPro_Button_6">
+                <property name="text">
+                 <string>图像源</string>
+                </property>
+               </widget>
+              </item>
+             </layout>
+            </item>
+           </layout>
+          </widget>
+         </item>
+        </layout>
+       </widget>
+      </item>
+      <item>
+       <widget class="QGroupBox" name="groupBox_renderLeft">
+        <property name="title">
+         <string>相机图像</string>
+        </property>
+        <layout class="QVBoxLayout" name="renderLeftLayout">
+         <item>
+          <widget class="QAxWidget" name="axWidgetRender">
+           <property name="control" stdset="0">
+            <string>{313241a6-62f9-464b-bede-f514827e2f4b}</string>
+           </property>
+           <property name="minimumSize" stdset="0">
+            <size>
+             <width>500</width>
+             <height>220</height>
+            </size>
+           </property>
+           <property name="sizePolicy" stdset="0">
+            <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+             <horstretch>0</horstretch>
+             <verstretch>0</verstretch>
+            </sizepolicy>
+           </property>
+          </widget>
+         </item>
+        </layout>
+       </widget>
+      </item>
+     </layout>
+    </item>
+    <item row="1" column="0">
+     <layout class="QHBoxLayout" name="horizontalLayout_2">
+      <item>
+       <widget class="QTabWidget" name="tabWidget_logs">
+        <property name="sizePolicy">
+         <sizepolicy hsizetype="Fixed" vsizetype="Expanding">
+          <horstretch>0</horstretch>
+          <verstretch>0</verstretch>
+         </sizepolicy>
+        </property>
+        <property name="minimumSize">
+         <size>
+          <width>320</width>
+          <height>0</height>
+         </size>
+        </property>
+        <property name="currentIndex">
+         <number>0</number>
+        </property>
+        <widget class="QWidget" name="tab_status">
+         <attribute name="title">
+          <string>状态</string>
+         </attribute>
+         <layout class="QVBoxLayout" name="statusTabLayout">
+          <item>
+           <widget class="QTextEdit" name="textEdit_status"/>
+          </item>
+         </layout>
+        </widget>
+        <widget class="QWidget" name="tab_data">
+         <attribute name="title">
+          <string>数据</string>
+         </attribute>
+         <layout class="QVBoxLayout" name="dataTabLayout">
+          <item>
+           <widget class="QTextEdit" name="textEdit_data"/>
+          </item>
+         </layout>
+        </widget>
+        <widget class="QWidget" name="tab_message">
+         <attribute name="title">
+          <string>消息</string>
+         </attribute>
+         <layout class="QVBoxLayout" name="messageTabLayout">
+          <item>
+           <widget class="QTextEdit" name="textEdit_message"/>
+          </item>
+         </layout>
+        </widget>
+       </widget>
+      </item>
+      <item>
+       <widget class="QAxWidget" name="axWidgetParam">
+        <property name="control" stdset="0">
+         <string>{c6961180-1f47-41a2-82a6-d9811887f4f6}</string>
+        </property>
+        <property name="minimumSize" stdset="0">
+         <size>
+          <width>320</width>
+          <height>400</height>
+         </size>
+        </property>
+        <property name="sizePolicy" stdset="0">
+         <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+          <horstretch>0</horstretch>
+          <verstretch>0</verstretch>
+         </sizepolicy>
+        </property>
+       </widget>
+      </item>
+     </layout>
+    </item>
+   </layout>
+  </widget>
+  <widget class="QMenuBar" name="menubar">
+   <property name="geometry">
+    <rect>
+     <x>0</x>
+     <y>0</y>
+     <width>1100</width>
+     <height>21</height>
+    </rect>
+   </property>
+  </widget>
+  <widget class="QStatusBar" name="statusbar"/>
+ </widget>
+ <customwidgets>
+  <customwidget>
+   <class>QAxWidget</class>
+   <extends>QWidget</extends>
+   <header>qaxwidget.h</header>
+   <container>1</container>
+  </customwidget>
+ </customwidgets>
+ <resources/>
+ <connections/>
+</ui>

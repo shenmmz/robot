@@ -18,15 +18,17 @@
 #include <QPair>
 #include <QSet>
 #include <QPlainTextEdit>
+#include <QVariantMap>
 
 class RobotController;   // 机器人运动控制器（正逆解、关节/笛卡尔运动）
 class UiController;      // UI 逻辑控制器（界面状态与交互逻辑）
 class Rs485Controller;   // RS485 通信控制器（直连 ZMC306X PWM 模块）
 class ServoController;   // 舵机控制器（舵机驱动与角度控制）
 class VisionController;  // 视觉系统控制器（识别与电机指令下发）
+class VisionMasterBridge;  // VisionMaster 桥接适配层（CS-VMC-Dome）
 class QCheckBox;         // 复选框控件（如六轴使能勾选）
 class QDoubleSpinBox;    // 双精度数值输入框（角度/速度等参数）
-class ServoTestWidget;  // 舵机设置界面
+class ServoTestWidget;   // 舵机设置界面
 
 QT_BEGIN_NAMESPACE
 namespace Ui {
@@ -61,6 +63,9 @@ private slots:
     void on_pushButton_3_clicked();  // 逆解模式（笛卡尔空间控制）
     void onHomingClicked();          // 机械回原点（回零→建模→逆解模式）
     void on_pushButton_6_clicked();  // 视觉启停
+
+    // VisionMaster 验证（CS-VMC-Dome 桥接）
+    void onBtnVerifyVision();                     // 执行验证按钮：启动/关闭 CS-VMC-Dome.exe
 
     // 开发者账号管理
     void onBtnLogin();                           // 登录按钮（开发者账号验证）
@@ -111,6 +116,8 @@ private:
     Rs485Controller* m_rs485 = nullptr;
     ServoController* m_servo = nullptr;
     VisionController* m_vision = nullptr;
+    VisionMasterBridge* m_vmBridge = nullptr;   // VisionMaster 桥接（QProcess 启动 CS-VMC-Dome.exe）
+    bool m_vmRunning = false;                      // CS-VMC-Dome.exe 进程是否正在运行
     QElapsedTimer m_visionThrottleTimer;
     QHash<int, double> m_lastVisionAnglePerAxis;            // axis → 最近一次下发的角度
     QHash<int, int>    m_visionConsecutiveCountPerAxis;     // axis → 连续相同角度次数

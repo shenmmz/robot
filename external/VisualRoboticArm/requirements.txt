@@ -1,5 +1,5 @@
 PySide6>=6.7
-mediapipe==0.10.14
+mediapipe>=0.10.30
 opencv-python>=4.9.0.80
 numpy>=1.26.4
 protobuf<5

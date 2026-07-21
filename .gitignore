@@ -53,6 +53,8 @@ Desktop.ini
 
 # 其他
 .codebuddy/
+.workbuddy/
+.trae/
 
 # Git 备份目录
 .git_backup_*/

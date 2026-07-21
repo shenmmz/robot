@@ -60,6 +60,7 @@ target_link_libraries(Robot_R06 PRIVATE
     robot_utils
     robot_ui
     robot_vision         # 外部 VisualRoboticArmQtController.exe 子进程管理
+    vm_control           # 视觉桥接模块（QProcess 启动 CS-VMC-Dome.exe）
     zmotion_sdk
 )
 
@@ -111,6 +112,57 @@ foreach(SDK_FILE ${SDK_FILES})
         message(WARNING "SDK file not found: ${SRC_FILE}")
     endif()
 endforeach()
+
+# ============================================================
+# CS-VMC-Dome.exe 复制到构建输出目录（视觉模块独立进程）
+# ============================================================
+set(CS_VMC_BUILD_DIR ${CMAKE_SOURCE_DIR}/external/CS-VMC-Dome/build/Desktop_Qt_6_9_0_MSVC2022_64bit-Release)
+set(CS_VMC_EXE ${CS_VMC_BUILD_DIR}/CS-VMC-Dome.exe)
+
+if(EXISTS "${CS_VMC_EXE}")
+    add_custom_command(TARGET Robot_R06 POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "${CS_VMC_EXE}"
+            "$<TARGET_FILE_DIR:Robot_R06>/CS-VMC-Dome.exe"
+        COMMENT "Copying CS-VMC-Dome.exe to build output"
+    )
+else()
+    message(WARNING "CS-VMC-Dome.exe not found: ${CS_VMC_EXE}. Please build CS-VMC-Dome first.")
+endif()
+
+# 复制 CS-VMC-Dome 运行时依赖 DLL
+foreach(DLL_FILE MultiCard.dll my_cross_platform.dll)
+    if(EXISTS "${CS_VMC_BUILD_DIR}/${DLL_FILE}")
+        add_custom_command(TARGET Robot_R06 POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                "${CS_VMC_BUILD_DIR}/${DLL_FILE}"
+                "$<TARGET_FILE_DIR:Robot_R06>/${DLL_FILE}"
+            COMMENT "Copying ${DLL_FILE} to build output"
+        )
+    endif()
+endforeach()
+
+# 复制 VisionMaster myLibs 目录（SDK ActiveX 控件运行时依赖）
+set(VM_APPS_DIR "C:/Program Files/VisionMaster4.4.0/Applications")
+if(EXISTS "${VM_APPS_DIR}/myLibs")
+    add_custom_command(TARGET Robot_R06 POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_directory
+            "${VM_APPS_DIR}/myLibs"
+            "$<TARGET_FILE_DIR:Robot_R06>/myLibs"
+        COMMENT "Copying VisionMaster myLibs directory to build output"
+    )
+endif()
+
+# 复制视觉方案文件（CS-VMC-Dome.exe 运行时需要加载 .sol 方案文件）
+set(CS_VMC_SOL_DIR ${CMAKE_SOURCE_DIR}/external/CS-VMC-Dome/视觉方案)
+if(EXISTS "${CS_VMC_SOL_DIR}")
+    add_custom_command(TARGET Robot_R06 POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_directory
+            "${CS_VMC_SOL_DIR}"
+            "$<TARGET_FILE_DIR:Robot_R06>/视觉方案"
+        COMMENT "Copying vision solution files to build output"
+    )
+endif()
 
 if(QT_VERSION_MAJOR EQUAL 6)
     qt_finalize_executable(Robot_R06)

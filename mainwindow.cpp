@@ -1,4 +1,4 @@
-﻿/*
+/*
  * @file mainwindow.cpp
  * @brief 实现原始主窗口类 MainWindow 的构造和析构。
  *
@@ -14,7 +14,8 @@
 #include "src/logic/UiController.h"
 #include "src/hardware/Rs485Controller.h"
 #include "src/hardware/ServoController.h"
-#include "src/vision/VisionController.h"
+#include "src/vision/VisualRoboticArm/VisionController.h"
+#include "src/vision/cs_vmcontrol/VisionMasterBridge.h"
 #include "src/models/RobotConfig.h"
 #include "src/models/RobotKinematics.h"
 #include "library/zmotion.h"
@@ -142,6 +143,62 @@ MainWindow::MainWindow(QWidget *parent)
     connect(m_vision, &VisionController::outputMessage,      this, &MainWindow::onVisionMessage);
     // 视觉下发多轴指令：commands[i] = (axis 0-5, signed_angle_deg)
     connect(m_vision, &VisionController::motorCommands,      this, &MainWindow::onVisionMotorCommands);
+
+    // --- 视觉模块（QProcess 启动 CS-VMC-Dome.exe）---
+    m_vmBridge = new VisionMasterBridge(this);
+    qDebug() << "[MainWindow] VisionMasterBridge created (QProcess mode)";
+    connect(m_vmBridge, &VisionMasterBridge::processStarted, this,
+        [this]() {
+            m_vmRunning = true;
+            ui->btnVerifyVision->setText(QStringLiteral("关闭视觉"));
+            ui->btnVerifyVision->setEnabled(true);
+        });
+    connect(m_vmBridge, &VisionMasterBridge::processFinished, this,
+        [this](int exitCode) {
+            Q_UNUSED(exitCode)
+            m_vmRunning = false;
+            ui->btnVerifyVision->setText(QStringLiteral("执行验证"));
+            ui->btnVerifyVision->setEnabled(true);
+        });
+    connect(m_vmBridge, &VisionMasterBridge::logMessage, this,
+        [this](const QString &message) {
+            if (m_visionLogView) {
+                m_visionLogView->appendPlainText(QStringLiteral("[VM] %1").arg(message));
+            }
+        });
+    connect(m_vmBridge, &VisionMasterBridge::visionDataReceived, this,
+        [this](const QString &line) {
+            if (!m_visionLogView) return;
+            // 解析 VISION_* 格式的数据行
+            const QStringList parts = line.split(QLatin1Char('|'));
+            if (parts.isEmpty()) return;
+            const QString &type = parts[0];
+
+            if (type == QStringLiteral("VISION_POINT") && parts.size() >= 5) {
+                m_visionLogView->appendPlainText(
+                    QStringLiteral("[视觉点位] 流程:%1  x:%2  y:%3  r:%4")
+                        .arg(parts[1], parts[2], parts[3], parts[4]));
+            } else if (type == QStringLiteral("VISION_TARGET") && parts.size() >= 3) {
+                m_visionLogView->appendPlainText(
+                    QStringLiteral("[视觉目标] 流程:%1  数量:%2")
+                        .arg(parts[1], parts[2]));
+                for (int i = 3; i < parts.size(); ++i) {
+                    m_visionLogView->appendPlainText(
+                        QStringLiteral("  → 目标%1: %2").arg(i - 2).arg(parts[i]));
+                }
+            } else if (type == QStringLiteral("VISION_STATUS") && parts.size() >= 2) {
+                m_visionLogView->appendPlainText(
+                    QStringLiteral("[视觉状态] %1").arg(parts[1]));
+            } else if (type == QStringLiteral("VISION_PROCS") && parts.size() >= 2) {
+                m_visionLogView->appendPlainText(
+                    QStringLiteral("[流程列表] %1").arg(parts[1]));
+            } else {
+                m_visionLogView->appendPlainText(QStringLiteral("[视觉数据] %1").arg(line));
+            }
+        });
+
+    // 连接"执行验证"按钮
+    connect(ui->btnVerifyVision, &QPushButton::clicked, this, &MainWindow::onBtnVerifyVision);
 
     // 切换到手动编程页时强制刷新布局
     connect(ui->contentStack, &QStackedWidget::currentChanged, this, [this](int idx) {
@@ -641,14 +698,62 @@ void MainWindow::onHomingClicked()
  */
 void MainWindow::on_pushButton_6_clicked()
 {
-    if (!checkLoginGate()) return;
+    qDebug() << "[功能测试按钮] 被点击";
+    if (!checkLoginGate()) {
+        qDebug() << "[功能测试按钮] 登录门禁未通过";
+        return;
+    }
+    qDebug() << "[功能测试按钮] 登录门禁通过，m_vision =" << m_vision;
 
-    if (!m_vision) return;
+    if (!m_vision) {
+        qDebug() << "[功能测试按钮] m_vision 为空";
+        return;
+    }
 
+    qDebug() << "[功能测试按钮] m_vision->isRunning() =" << m_vision->isRunning();
     if (m_vision->isRunning()) {
+        qDebug() << "[功能测试按钮] 停止视觉进程";
         m_vision->stop();
     } else {
+        qDebug() << "[功能测试按钮] 启动视觉进程";
         m_vision->start();
+    }
+}
+
+/**
+ * @brief 执行验证按钮：启动/关闭 CS-VMC-Dome.exe（QProcess 模式）
+ *
+ * 两态切换：
+ * 1. 进程未运行 → 启动 CS-VMC-Dome.exe
+ * 2. 进程正在运行 → 终止进程
+ */
+void MainWindow::onBtnVerifyVision()
+{
+    qDebug() << "=== onBtnVerifyVision clicked ===";
+
+    if (!m_vmBridge) {
+        qDebug() << "  m_vmBridge is null!";
+        return;
+    }
+
+    if (m_vmBridge->isRunning()) {
+        qDebug() << "  terminating CS-VMC-Dome.exe";
+        ui->btnVerifyVision->setText(QStringLiteral("关闭中..."));
+        ui->btnVerifyVision->setEnabled(false);
+        m_vmBridge->terminate();
+    } else {
+        qDebug() << "  launching CS-VMC-Dome.exe";
+        ui->btnVerifyVision->setText(QStringLiteral("启动中..."));
+        ui->btnVerifyVision->setEnabled(false);
+        if (!m_vmBridge->launch()) {
+            // 启动失败，恢复按钮状态
+            ui->btnVerifyVision->setText(QStringLiteral("执行验证"));
+            ui->btnVerifyVision->setEnabled(true);
+            QMessageBox::warning(this, QStringLiteral("视觉验证"),
+                QStringLiteral("无法启动 CS-VMC-Dome.exe\n"
+                               "请确认可执行文件已复制到程序目录。"));
+        }
+        // 启动成功后按钮状态由 processStarted 信号回调更新
     }
 }
 
@@ -2699,7 +2804,9 @@ QString MainWindow::getAccountConfigPath() const
     QString configDir = QFileInfo(findConfigFile()).absolutePath();
     return configDir + "/developer_account.ini";
 }
-
+/**
+ * @brief 初始化登录界面
+ */
 void MainWindow::initLoginUI()
 {
     connect(ui->btnLogin, &QPushButton::clicked, this, &MainWindow::onBtnLogin);
@@ -2725,7 +2832,9 @@ void MainWindow::initLoginUI()
     m_loggedIn = false;
     updateLoginUI();
 }
-
+/**
+ * @brief 更新登录按钮状态
+ */
 void MainWindow::updateLoginUI()
 {
     if (m_loggedIn) {
@@ -2752,7 +2861,9 @@ void MainWindow::updateLoginUI()
             "border-bottom:2px solid #fff;border-right:2px solid #fff;}");
     }
 }
-
+/**
+ * @brief 处理登录按钮点击事件
+ */
 void MainWindow::onBtnLogin()
 {
     if (m_loggedIn) {
@@ -2842,6 +2953,10 @@ void MainWindow::onBtnLogin()
     ui->btnLogin->setFocus();
 }
 
+/**
+ * @brief 检查登录状态
+ * @return true 如果已登录，否则返回 false
+ */
 bool MainWindow::checkLoginGate()
 {
     if (m_loggedIn) return true;
