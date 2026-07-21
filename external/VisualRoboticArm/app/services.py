@@ -10,7 +10,8 @@
 6. 将角度、电机 6 命令和识别状态封装为 payload，交回 UI/通信模块。
 
 注意：
-- 这里的 pitch/yaw 表示骨骼向量在全局 XZ 平面上的方向角；
+- 这里的 pitch/yaw 是以“朝摄像机前伸且平行地面”为零位的有符号方向角；
+- pitch 上抬为正、下压为负，yaw 向画面右侧为正、左侧为负；
 - 这些角度不是严格的生理解剖关节角，但适合当前“姿态方向 -> 电机控制”链路；
 - OpenCV 默认图像为 BGR，MediaPipe 输入为 RGB，因此入口处必须做色彩空间转换。
 """
@@ -26,9 +27,12 @@ from app.models import ArmAngles, Direction, JointRotation, Motor6Command, Side
 from solver.motor_mapping import iter_motor_mappings
 
 
-_X_GLOBAL = np.array([1.0, 0.0, 0.0], dtype=np.float32)
-_Y_GLOBAL = np.array([0.0, 1.0, 0.0], dtype=np.float32)
-_Z_GLOBAL = np.array([0.0, 0.0, 1.0], dtype=np.float32)
+# MediaPipe world 坐标沿用图像观察方向：X 向画面右侧、Y 向下、负 Z 朝向摄像机。
+# 因此“面向摄像机、手臂水平前伸”的零位方向为 -Z。
+_RIGHT_GLOBAL = np.array([1.0, 0.0, 0.0], dtype=np.float32)
+_UP_GLOBAL = np.array([0.0, -1.0, 0.0], dtype=np.float32)
+_FORWARD_GLOBAL = np.array([0.0, 0.0, -1.0], dtype=np.float32)
+_ANGLE_LIMIT_DEG = 90.0
 
 
 def _build_angle_motor_labels() -> dict[str, str]:
@@ -197,7 +201,7 @@ class MediaPipePoseHandService:
         功能实现：
         - 肩部角度来自“肩 -> 肘”向量；
         - 肘部角度来自“肘 -> 腕”向量；
-        - 腕部角度来自“手部三点中心 -> 腕”向量。
+        - 腕部角度来自“腕 -> 手部三点中心”向量。
         """
         # 读取肩、肘、腕和三个手部参考点的 world 坐标。
         shoulder = self._world_lm(world_lms, f"{side}_SHOULDER")
@@ -207,19 +211,26 @@ class MediaPipePoseHandService:
         pinky = self._world_lm(world_lms, f"{side}_PINKY")
         index = self._world_lm(world_lms, f"{side}_INDEX")
 
-        # 上臂向量、前臂向量、手腕参考向量均继承 video_inf.py 的算法。
+        # 三根向量都沿肢体向外，保证水平前伸时方向一致并对应 0° 零位。
         shoulder_to_elbow = elbow - shoulder
         elbow_to_wrist = wrist - elbow
         hand_mid = (thumb + pinky + index) / 3.0
-        hand_mid_to_wrist = wrist - hand_mid
+        wrist_to_hand_mid = hand_mid - wrist
 
-        # 每根向量投影到 XZ 平面，再分别计算相对 Z/X 轴的 pitch/yaw。
+        # 以 -Z 前伸、-Y 向上、+X 向右为基准计算连续的有符号角度。
         shoulder_pitch, shoulder_yaw = self._calc_vector_2d_angle(shoulder_to_elbow)
         elbow_pitch, elbow_yaw = self._calc_vector_2d_angle(elbow_to_wrist)
-        wrist_pitch, wrist_yaw = self._calc_vector_2d_angle(hand_mid_to_wrist)
+        wrist_pitch, wrist_yaw = self._calc_vector_2d_angle(wrist_to_hand_mid)
 
         return np.round(
-            [shoulder_pitch, shoulder_yaw, elbow_pitch, elbow_yaw, wrist_pitch, wrist_yaw],
+            [
+                shoulder_pitch,
+                shoulder_yaw,
+                elbow_pitch,
+                elbow_yaw,
+                wrist_pitch,
+                wrist_yaw,
+            ],
             2,
         )
 
@@ -238,31 +249,40 @@ class MediaPipePoseHandService:
 
     @staticmethod
     def _calc_vector_2d_angle(vec: np.ndarray) -> np.ndarray:
-        """计算向量在 XZ 平面上的 pitch/yaw。
+        """计算以前伸水平为零位的有符号 pitch/yaw。
 
         输入：
         - vec：任意三维方向向量。
 
         输出：
-        - `np.ndarray([pitch, yaw])`，单位为度。
+        - `np.ndarray([pitch, yaw])`，单位为度，范围均为 `[-90, 90]`。
 
         功能实现：
         - 先归一化向量；
-        - 去掉 Y 分量得到 XZ 平面投影；
-        - pitch 为投影向量与 Z 轴夹角；
-        - yaw 为投影向量与 X 轴夹角。
+        - pitch 是向量相对水平面的仰角，上抬为正、下压为负；
+        - yaw 是水平投影相对前伸方向（-Z）的方位角，右偏为正、左偏为负；
+        - 对异常或人体不可达的背向角连续钳制到 `[-90, 90]`，不再做角度折返。
         """
         vec_unit = _vec3_norm(vec)
-        # 删除 Y 轴分量，相当于把向量投影到全局 XZ 平面。
-        vec_xz = vec_unit - float(np.dot(vec_unit, _Y_GLOBAL)) * _Y_GLOBAL
-        if np.linalg.norm(vec_xz) < 1e-6:
-            # 向量几乎垂直于 XZ 平面时，投影不稳定，返回 0 避免抖动和 NaN。
+        if np.linalg.norm(vec_unit) < 1e-6:
             return np.array([0.0, 0.0], dtype=np.float32)
 
-        vec_xz_unit = _vec3_norm(vec_xz)
-        pitch = _angle_abs(vec_xz_unit, _Z_GLOBAL)
-        yaw = _angle_abs(vec_xz_unit, _X_GLOBAL)
-        return np.array([pitch, yaw], dtype=np.float32)
+        right = float(np.dot(vec_unit, _RIGHT_GLOBAL))
+        up = float(np.dot(vec_unit, _UP_GLOBAL))
+        forward = float(np.dot(vec_unit, _FORWARD_GLOBAL))
+        horizontal_length = float(np.hypot(right, forward))
+
+        pitch = float(np.degrees(np.arctan2(up, horizontal_length)))
+        # 垂直向量没有可靠的水平方向，约定 yaw 为 0，避免噪声放大。
+        raw_yaw = 0.0 if horizontal_length < 1e-6 else float(np.degrees(np.arctan2(right, forward)))
+
+        return np.array(
+            [
+                np.clip(pitch, -_ANGLE_LIMIT_DEG, _ANGLE_LIMIT_DEG),
+                np.clip(raw_yaw, -_ANGLE_LIMIT_DEG, _ANGLE_LIMIT_DEG),
+            ],
+            dtype=np.float32,
+        )
 
     def _build_arm_angles(self, side: Side, values: np.ndarray) -> ArmAngles:
         """把 6 维角度数组转换为项目统一的 ArmAngles 数据模型。
@@ -277,30 +297,36 @@ class MediaPipePoseHandService:
         shoulder_pitch, shoulder_yaw, elbow_pitch, elbow_yaw, wrist_pitch, wrist_yaw = [
             _round_deg(v) for v in values
         ]
+        shoulder_vertical = _direction_from_signed_angle(shoulder_pitch, Direction.UP, Direction.DOWN)
+        shoulder_horizontal = _direction_from_signed_angle(shoulder_yaw, Direction.RIGHT, Direction.LEFT)
+        elbow_vertical = _direction_from_signed_angle(elbow_pitch, Direction.UP, Direction.DOWN)
+        elbow_horizontal = _direction_from_signed_angle(elbow_yaw, Direction.RIGHT, Direction.LEFT)
+        wrist_vertical = _direction_from_signed_angle(wrist_pitch, Direction.UP, Direction.DOWN)
+        wrist_horizontal = _direction_from_signed_angle(wrist_yaw, Direction.RIGHT, Direction.LEFT)
 
         return ArmAngles(
             side=side,
             shoulder_deg=shoulder_pitch,
             elbow_deg=elbow_pitch,
             wrist_deg=wrist_pitch,
-            vertical=Direction.UP,
-            horizontal=Direction.RIGHT,
+            vertical=shoulder_vertical,
+            horizontal=shoulder_horizontal,
             shoulder_rotation=JointRotation(
-                vertical=Direction.UP,
+                vertical=shoulder_vertical,
                 vertical_deg=shoulder_pitch,
-                horizontal=Direction.RIGHT,
+                horizontal=shoulder_horizontal,
                 horizontal_deg=shoulder_yaw,
             ),
             arm_rotation=JointRotation(
-                vertical=Direction.UP,
+                vertical=elbow_vertical,
                 vertical_deg=elbow_pitch,
-                horizontal=Direction.RIGHT,
+                horizontal=elbow_horizontal,
                 horizontal_deg=elbow_yaw,
             ),
             wrist_rotation=JointRotation(
-                vertical=Direction.UP,
+                vertical=wrist_vertical,
                 vertical_deg=wrist_pitch,
-                horizontal=Direction.RIGHT,
+                horizontal=wrist_horizontal,
                 horizontal_deg=wrist_yaw,
             ),
             shoulder_flex_deg=shoulder_pitch,
@@ -322,8 +348,8 @@ class MediaPipePoseHandService:
         - `Motor6Command`，字段保持和原控制链路兼容。
 
         功能实现：
-        - 以 `wrist_yaw = 90°` 作为居中参考；
-        - 大于 90° 视为右旋，小于 90° 视为左旋；
+        - 以 `wrist_yaw = 0°` 作为前伸居中参考；
+        - 正值视为右旋，负值视为左旋；
         - `signed_roll_deg` 保留符号，`roll_deg` 存绝对角度。
         """
         if not has_right_hand:
@@ -331,8 +357,7 @@ class MediaPipePoseHandService:
 
         wrist_pitch = _round_deg(right_angles[4])
         wrist_yaw = _round_deg(right_angles[5])
-        # 原 video_inf.py 输出 yaw 为 0~180 的无符号夹角，这里平移到 -90~90 控制区间。
-        signed_roll = _round_deg(wrist_yaw - 90.0)
+        signed_roll = wrist_yaw
         direction = Direction.RIGHT if signed_roll > 0.0 else Direction.LEFT
         if abs(signed_roll) < 1e-6:
             direction = Direction.UNKNOWN
@@ -340,7 +365,7 @@ class MediaPipePoseHandService:
         return Motor6Command(
             valid=True,
             mode="video_inf_pose_wrist_yaw",
-            reference="pose_wrist_yaw_90deg_center",
+            reference="arm_forward_level_0deg",
             roll_deg=abs(signed_roll),
             signed_roll_deg=signed_roll,
             raw_signed_roll_deg=signed_roll,
@@ -517,17 +542,17 @@ def _vec3_norm(vec: np.ndarray) -> np.ndarray:
     return vec / norm if norm > 1e-6 else np.zeros_like(vec)
 
 
-def _angle_abs(v1: np.ndarray, v2: np.ndarray) -> float:
-    """计算两个向量的无符号夹角。
-
-    输入：两个三维向量。
-    输出：夹角，单位为度，范围约为 0~180。
-    """
-    v1_unit = _vec3_norm(v1)
-    v2_unit = _vec3_norm(v2)
-    # clip 防止浮点误差让 arccos 输入略微超过 [-1, 1]。
-    dot = float(np.clip(np.dot(v1_unit, v2_unit), -1.0, 1.0))
-    return float(np.round(np.rad2deg(np.arccos(dot)), 2))
+def _direction_from_signed_angle(
+    angle: float,
+    positive: Direction,
+    negative: Direction,
+) -> Direction:
+    """根据有符号角度生成方向；零位没有运动方向。"""
+    if angle > 1e-6:
+        return positive
+    if angle < -1e-6:
+        return negative
+    return Direction.UNKNOWN
 
 
 def _round_deg(value) -> float:

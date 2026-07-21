@@ -35,9 +35,9 @@ VisualRoboticArm 是一个基于 PySide6 + MediaPipe 的实时视觉机械臂姿
 2. 对单侧手臂构造三根方向向量：
    - 肩到肘：上臂方向
    - 肘到腕：前臂方向
-   - 手部三点中心到腕：手腕参考方向
-3. 将每根方向向量投影到全局 XZ 平面。
-4. 计算投影向量与 Z 轴、X 轴的夹角。
+   - 腕到手部三点中心：手腕参考方向
+3. 以朝向摄像机的水平前伸方向（MediaPipe world 坐标的 `-Z`）作为零位。
+4. 使用 `atan2` 计算有符号俯仰角和方位角：上/右为正，下/左为负，范围限制为 `-90°~+90°`。
 5. 每侧手臂输出 6 个角度：
 
 ```text
@@ -46,7 +46,7 @@ elbow pitch    / elbow yaw
 wrist pitch    / wrist yaw
 ```
 
-这些角度表示“骨骼方向相对全局坐标轴的方向角”，更适合当前姿态跟随和电机映射验证；它们不是严格的人体解剖关节角。
+这些角度表示“骨骼方向相对前伸水平零位的有符号方向角”，更适合当前姿态跟随和电机映射验证；它们不是严格的人体解剖关节角。
 
 ## 电机输出
 
@@ -59,7 +59,7 @@ wrist pitch    / wrist yaw
 - 3 号电机：肘部上下，来源 `elbow_flex_deg`
 - 4 号电机：肘部左右，来源 `elbow_abduction_deg`
 - 5 号电机：手腕上下，来源 `wrist_flex_deg`
-- 6 号电机：手腕左右翻转，来源 `wrist_rotation.horizontal_deg - 90`
+- 6 号电机：手腕左右翻转，来源有符号的 `wrist_rotation.horizontal_deg`
 
 修改电机对应关系时，只调整 `solver/motor_mapping.py` 中的 `_MOTOR_MAPPINGS`。若映射字段缺失，通信层会输出保持状态，不会影响推理模块运行。
 

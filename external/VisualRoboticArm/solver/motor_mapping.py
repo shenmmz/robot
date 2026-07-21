@@ -156,8 +156,6 @@ _MOTOR_MAPPINGS: Tuple[MotorMapping, ...] = (
         positive_text="右旋转",
         negative_text="左旋转",
         neutral_text="保持",
-        angle_offset_deg=-90.0,
-        use_absolute_angle=True,
     ),
 )
 
