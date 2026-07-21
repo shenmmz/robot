@@ -23,8 +23,9 @@ from typing import Iterable
 
 import numpy as np
 
-from app.models import ArmAngles, Direction, JointRotation, Motor6Command, Side
+from app.models import ArmAngles, Direction, JointRotation, Motor6Command, Point3D, Side
 from solver.motor_mapping import iter_motor_mappings
+from solver.wrist import PalmRollTracker
 
 
 # MediaPipe world 坐标沿用图像观察方向：X 向画面右侧、Y 向下、负 Z 朝向摄像机。
@@ -33,6 +34,7 @@ _RIGHT_GLOBAL = np.array([1.0, 0.0, 0.0], dtype=np.float32)
 _UP_GLOBAL = np.array([0.0, -1.0, 0.0], dtype=np.float32)
 _FORWARD_GLOBAL = np.array([0.0, 0.0, -1.0], dtype=np.float32)
 _ANGLE_LIMIT_DEG = 90.0
+_HAND_MATCH_MAX_DISTANCE = 0.25
 
 
 def _build_angle_motor_labels() -> dict[str, str]:
@@ -45,6 +47,9 @@ def _build_angle_motor_labels() -> dict[str, str]:
     """
     grouped: dict[str, list[int]] = {}
     for mapping in iter_motor_mappings():
+        if mapping.source == "motor_6" and mapping.angle_field == "signed_roll_deg":
+            grouped.setdefault("wrist_rotation.horizontal_deg", []).append(mapping.motor_id)
+            continue
         if mapping.source != "angles":
             continue
         grouped.setdefault(mapping.angle_field, []).append(mapping.motor_id)
@@ -65,7 +70,7 @@ class MediaPipePoseHandService:
     - 与 UI/通信模块兼容的 payload 字典。
 
     实现：
-    - 初始化时创建一个长生命周期的 `mp.solutions.pose.Pose`；
+    - 初始化时创建长生命周期的 `mp.solutions.pose.Pose` 和 `mp.solutions.hands.Hands`；
     - 每帧只调用 `process_bgr()`，避免重复加载模型影响实时性。
     """
 
@@ -74,6 +79,17 @@ class MediaPipePoseHandService:
         min_detection_confidence: float = 0.5,
         min_tracking_confidence: float = 0.5,
     ):
+        """初始化 Pose、Hands、绘图工具和左右掌面跟踪器。
+
+        输入：
+        - min_detection_confidence：Pose/Hands 首次检测最低置信度，范围 0~1；
+        - min_tracking_confidence：视频模式下跨帧跟踪最低置信度，范围 0~1。
+
+        输出：无。
+
+        功能：模型对象在整个采集周期内复用，避免每帧重新加载；左右手各自维护
+        `PalmRollTracker`，防止一只手的法向量历史污染另一只手。
+        """
         import cv2
         import mediapipe as mp
 
@@ -81,6 +97,7 @@ class MediaPipePoseHandService:
         self._cv2 = cv2
         self._mp = mp
         self._mp_pose = mp.solutions.pose
+        self._mp_hands = mp.solutions.hands
         self._drawing = mp.solutions.drawing_utils
 
         # 关键点枚举表：保留 video_inf.py 中的命名方式，便于和原脚本对照。
@@ -110,9 +127,20 @@ class MediaPipePoseHandService:
             # 当前只需要人体骨架，不需要分割 mask，关闭可减少计算量。
             enable_segmentation=False,
         )
+        self._hands = self._mp_hands.Hands(
+            static_image_mode=False,
+            max_num_hands=2,
+            model_complexity=1,
+            min_detection_confidence=min_detection_confidence,
+            min_tracking_confidence=min_tracking_confidence,
+        )
+        self._palm_roll_trackers = {
+            Side.LEFT: PalmRollTracker(Side.LEFT),
+            Side.RIGHT: PalmRollTracker(Side.RIGHT),
+        }
 
     def close(self) -> None:
-        """释放 MediaPipe Pose 资源。
+        """释放 MediaPipe Pose/Hands 资源。
 
         输入：无。
         输出：无。
@@ -121,6 +149,11 @@ class MediaPipePoseHandService:
         if self._pose is not None:
             self._pose.close()
             self._pose = None
+        if self._hands is not None:
+            self._hands.close()
+            self._hands = None
+        for tracker in self._palm_roll_trackers.values():
+            tracker.reset()
 
     def process_bgr(self, frame_bgr: np.ndarray) -> tuple[np.ndarray, dict]:
         """处理一帧 BGR 图像并返回标注图与推理结果。
@@ -133,15 +166,19 @@ class MediaPipePoseHandService:
         - payload：包含 angles、motor_6、motor_commands、has_pose 等字段的字典。
 
         功能实现：
-        - BGR -> RGB 后调用 MediaPipe Pose；
-        - 使用 world landmarks 计算 6 维角度；
-        - 使用 image landmarks 做可视化和可见性判断；
+        - BGR -> RGB 后调用 MediaPipe Pose 和 Hands；
+        - 使用 Pose world landmarks 计算肩/肘/腕俯仰角；
+        - 使用 Hands world landmarks 拟合掌面并计算手腕 Roll；
+        - 使用 image landmarks 做可视化和左右手匹配；
         - 按项目既有 payload 协议封装结果。
         """
         # MediaPipe 只接受 RGB；Qt/worker 传入的是 OpenCV BGR。
         frame_rgb = self._cv2.cvtColor(frame_bgr, self._cv2.COLOR_BGR2RGB)
-        # 核心推理调用：得到归一化图像点和三维 world 点。
+        # Pose 提供身体与前臂，Hands 提供完整的 21 点手掌几何。
+        frame_rgb.flags.writeable = False
         results = self._pose.process(frame_rgb)
+        hands_results = self._hands.process(frame_rgb)
+        frame_rgb.flags.writeable = True
         # 不直接修改输入帧，避免上游缓存或调试时被副作用影响。
         annotated = frame_bgr.copy()
 
@@ -152,39 +189,67 @@ class MediaPipePoseHandService:
         # world_lms 用于角度计算；img_lms 用于绘图和可见性判断。
         world_lms = results.pose_world_landmarks.landmark
         img_lms = results.pose_landmarks.landmark
+        hand_matches = self._match_hands_to_pose(img_lms, hands_results)
 
-        # 分别计算左右臂：[肩pitch, 肩yaw, 肘pitch, 肘yaw, 腕pitch, 腕yaw]。
+        # 分别计算左右臂：[肩pitch, 肩yaw, 肘pitch, 肘yaw, 腕pitch, 腕roll]。
         left_angles = self._calc_arm_full(world_lms, "LEFT")
         right_angles = self._calc_arm_full(world_lms, "RIGHT")
 
-        # 把骨架和角度文字画回预览画面。
-        self._draw(annotated, results.pose_landmarks, img_lms, left_angles, right_angles)
+        left_roll = self._track_palm_roll(
+            Side.LEFT,
+            hand_matches.get("LEFT"),
+            hands_results,
+            world_lms,
+            wrist_pitch_deg=float(left_angles[4]),
+        )
+        right_roll = self._track_palm_roll(
+            Side.RIGHT,
+            hand_matches.get("RIGHT"),
+            hands_results,
+            world_lms,
+            wrist_pitch_deg=float(right_angles[4]),
+        )
 
-        # Pose 模型没有独立手部检测，这里用腕/拇指/小指/食指关键点可见性近似判断手部有效。
+        # 保留原 Pose 手部可见性语义，避免 Hands 短暂丢失时阻塞 M1-M5。
         has_left_hand = self._landmarks_visible(
             img_lms, ("LEFT_WRIST", "LEFT_THUMB", "LEFT_PINKY", "LEFT_INDEX")
         )
         has_right_hand = self._landmarks_visible(
             img_lms, ("RIGHT_WRIST", "RIGHT_THUMB", "RIGHT_PINKY", "RIGHT_INDEX")
         )
+        left_angles[5] = _command_roll_or_zero(left_roll)
+        right_angles[5] = _command_roll_or_zero(right_roll)
+
+        # 把骨架和角度文字画回预览画面。
+        self._draw(
+            annotated,
+            results.pose_landmarks,
+            img_lms,
+            left_angles,
+            right_angles,
+            hands_results,
+            hand_matches,
+            {"LEFT": left_roll, "RIGHT": right_roll},
+        )
 
         angles_payload = [
             asdict(self._build_arm_angles(Side.LEFT, left_angles)),
             asdict(self._build_arm_angles(Side.RIGHT, right_angles)),
         ]
-        # 6 号电机沿用项目原有字段：右手腕左右翻转角。
-        motor_6_payload = asdict(self._build_motor_6(right_angles, has_right_hand, img_lms))
+        motor_6_payload = asdict(right_roll)
 
         return annotated, {
-            "source": "video_inf_pose",
+            "source": "video_inf_pose_hands",
             "angles": angles_payload,
             "motor_6": motor_6_payload,
             "motor_commands": [motor_6_payload] if motor_6_payload.get("valid") else [],
-            "control_stage": "video_inf_pose_6d",
+            "control_stage": "video_inf_pose_hands_6d",
             "has_pose": True,
             "has_face": False,
             "has_left_hand": has_left_hand,
             "has_right_hand": has_right_hand,
+            "has_left_palm": bool(left_roll.valid),
+            "has_right_palm": bool(right_roll.valid),
             "pose_valid": has_left_hand or has_right_hand,
         }
 
@@ -336,56 +401,145 @@ class MediaPipePoseHandService:
             wrist_flex_deg=wrist_pitch,
         )
 
-    def _build_motor_6(self, right_angles: np.ndarray, has_right_hand: bool, img_lms) -> Motor6Command:
-        """根据右手腕 yaw 角生成 6 号电机命令。
+    def _match_hands_to_pose(self, img_lms, hands_results) -> dict[str, tuple[int, float]]:
+        """按腕点距离把 Hands 检测结果匹配到 Pose 左右手。
 
         输入：
-        - right_angles：右臂 6 维角度数组；
-        - has_right_hand：右手关键点是否可见；
-        - img_lms：MediaPipe 图像关键点，用于计算置信度。
+        - img_lms：Pose 的归一化图像关键点列表，用于读取左右腕位置；
+        - hands_results：Hands 当前帧结果，包含图像关键点、三维关键点和 handedness。
 
         输出：
-        - `Motor6Command`，字段保持和原控制链路兼容。
+        - `{\"LEFT\": (hand_index, confidence), \"RIGHT\": (...)}`；
+        - `hand_index` 是 Hands 多手结果下标，`confidence` 是 0~1 的融合置信度；
+        - 未找到距离足够近的手时，对应侧不出现在字典中。
 
-        功能实现：
-        - 以 `wrist_yaw = 0°` 作为前伸居中参考；
-        - 正值视为右旋，负值视为左旋；
-        - `signed_roll_deg` 保留符号，`roll_deg` 存绝对角度。
+        逻辑：
+        1. 计算每个 Hands 腕点到 Pose 左右腕的二维归一化距离；
+        2. 丢弃距离超过 `_HAND_MATCH_MAX_DISTANCE` 的候选；
+        3. 按距离从小到大做一对一贪心匹配，保证同一 Hands 结果不会分给两侧；
+        4. 将 handedness 检测分数和腕点距离分数按 0.6/0.4 融合。
+
+        说明：左右侧以 Pose 腕点为准，不直接相信 handedness 标签，避免非镜像输入导致
+        MediaPipe 左右手标签与实际画面方向相反。
         """
-        if not has_right_hand:
-            return Motor6Command(reason="right_hand_missing")
+        image_hands = list(getattr(hands_results, "multi_hand_landmarks", None) or [])
+        world_hands = list(getattr(hands_results, "multi_hand_world_landmarks", None) or [])
+        hand_count = min(len(image_hands), len(world_hands))
+        if hand_count == 0:
+            return {}
 
-        wrist_pitch = _round_deg(right_angles[4])
-        wrist_yaw = _round_deg(right_angles[5])
-        signed_roll = wrist_yaw
-        direction = Direction.RIGHT if signed_roll > 0.0 else Direction.LEFT
-        if abs(signed_roll) < 1e-6:
-            direction = Direction.UNKNOWN
+        pose_wrists = {
+            "LEFT": img_lms[self._kp["LEFT_WRIST"].value],
+            "RIGHT": img_lms[self._kp["RIGHT_WRIST"].value],
+        }
+        pairs: list[tuple[float, str, int]] = []
+        wrist_index = self._mp_hands.HandLandmark.WRIST.value
+        for side, pose_wrist in pose_wrists.items():
+            for hand_index in range(hand_count):
+                hand_wrist = image_hands[hand_index].landmark[wrist_index]
+                distance = float(np.hypot(hand_wrist.x - pose_wrist.x, hand_wrist.y - pose_wrist.y))
+                if distance <= _HAND_MATCH_MAX_DISTANCE:
+                    pairs.append((distance, side, hand_index))
 
-        return Motor6Command(
-            valid=True,
-            mode="video_inf_pose_wrist_yaw",
-            reference="arm_forward_level_0deg",
-            roll_deg=abs(signed_roll),
-            signed_roll_deg=signed_roll,
-            raw_signed_roll_deg=signed_roll,
-            direction=direction,
-            thumb_direction=direction,
-            rotation_side="neutral" if direction == Direction.UNKNOWN else "outward",
-            wrist_pitch_deg=wrist_pitch,
-            confidence=self._right_hand_confidence(img_lms),
-            motion_allowed=True,
-            reason="ok",
+        matches: dict[str, tuple[int, float]] = {}
+        used_hands: set[int] = set()
+        handedness = list(getattr(hands_results, "multi_handedness", None) or [])
+        for distance, side, hand_index in sorted(pairs):
+            if side in matches or hand_index in used_hands:
+                continue
+            handedness_score = 1.0
+            if hand_index < len(handedness) and handedness[hand_index].classification:
+                handedness_score = float(handedness[hand_index].classification[0].score)
+            match_score = max(0.0, 1.0 - distance / _HAND_MATCH_MAX_DISTANCE)
+            confidence = float(np.clip(0.6 * handedness_score + 0.4 * match_score, 0.0, 1.0))
+            matches[side] = (hand_index, confidence)
+            used_hands.add(hand_index)
+        return matches
+
+    def _track_palm_roll(
+        self,
+        side: Side,
+        match: tuple[int, float] | None,
+        hands_results,
+        world_lms,
+        *,
+        wrist_pitch_deg: float,
+    ) -> Motor6Command:
+        """把匹配后的单手 Hands 关键点转换为掌面 Roll 命令。
+
+        输入：
+        - side：待处理的左手或右手；
+        - match：`_match_hands_to_pose()` 输出的手下标和融合置信度，可为空；
+        - hands_results：Hands 当前帧完整结果；
+        - world_lms：Pose 三维关键点，用于计算身体向上方向；
+        - wrist_pitch_deg：当前侧腕部俯仰角，随 Roll 命令一起输出。
+
+        输出：
+        - `Motor6Command`；匹配和掌面拟合有效时允许运动，否则返回保持命令。
+
+        逻辑：读取 Hands world landmarks 的腕点及 5/9/13/17 四个 MCP 点，统一转换为
+        `Point3D`，再调用当前侧 `PalmRollTracker.update()`。这样掌面计算只使用同一个
+        Hands 三维坐标系，避免混合 Pose 与 Hands 点坐标原点造成几何偏差。
+        """
+        tracker = self._palm_roll_trackers[side]
+        if match is None:
+            return tracker.missing(f"{side.value}_hands_missing", wrist_pitch_deg)
+
+        hand_index, detection_confidence = match
+        world_hands = list(getattr(hands_results, "multi_hand_world_landmarks", None) or [])
+        if hand_index >= len(world_hands):
+            return tracker.missing(f"{side.value}_hands_world_missing", wrist_pitch_deg)
+
+        hand_lms = world_hands[hand_index].landmark
+        kp = self._mp_hands.HandLandmark
+        return tracker.update(
+            hand_wrist=_point3d(hand_lms[kp.WRIST.value]),
+            index_mcp=_point3d(hand_lms[kp.INDEX_FINGER_MCP.value]),
+            middle_mcp=_point3d(hand_lms[kp.MIDDLE_FINGER_MCP.value]),
+            ring_mcp=_point3d(hand_lms[kp.RING_FINGER_MCP.value]),
+            pinky_mcp=_point3d(hand_lms[kp.PINKY_MCP.value]),
+            world_up=self._body_up(world_lms),
+            detection_confidence=detection_confidence,
+            wrist_pitch_deg=wrist_pitch_deg,
         )
 
-    def _draw(self, image_bgr, pose_landmarks, img_lms, left_angles: np.ndarray, right_angles: np.ndarray) -> None:
+    def _body_up(self, world_lms) -> np.ndarray:
+        """根据 Pose 肩髋四点计算身体向上单位向量。
+
+        输入：Pose world landmarks 列表。
+        输出：长度为 3 的 NumPy 单位向量，方向为髋中心指向肩中心。
+        异常处理：肩髋重合导致向量退化时，回退到 MediaPipe 全局向上方向 `-Y`。
+        """
+        left_shoulder = self._world_lm(world_lms, "LEFT_SHOULDER")
+        right_shoulder = self._world_lm(world_lms, "RIGHT_SHOULDER")
+        left_hip = self._world_lm(world_lms, "LEFT_HIP")
+        right_hip = self._world_lm(world_lms, "RIGHT_HIP")
+        shoulder_mid = (left_shoulder + right_shoulder) * 0.5
+        hip_mid = (left_hip + right_hip) * 0.5
+        body_up = _vec3_norm(shoulder_mid - hip_mid)
+        return body_up if np.linalg.norm(body_up) > 1e-6 else _UP_GLOBAL.copy()
+
+    def _draw(
+        self,
+        image_bgr,
+        pose_landmarks,
+        img_lms,
+        left_angles: np.ndarray,
+        right_angles: np.ndarray,
+        hands_results,
+        hand_matches: dict[str, tuple[int, float]],
+        palm_commands: dict[str, Motor6Command],
+    ) -> None:
         """把骨架和左右臂 6 维角度绘制到 BGR 图像上。
 
         输入：
         - image_bgr：待绘制的 OpenCV BGR 图像；
         - pose_landmarks：MediaPipe 图像坐标关键点；
         - img_lms：关键点列表，用于文字定位；
-        - left_angles/right_angles：左右臂 6 维角度数组。
+        - left_angles/right_angles：左右臂 6 维角度数组；
+        - hands_results：MediaPipe Hands 21 点结果；
+        - hand_matches：Hands 检测与 Pose 左右腕的匹配结果；
+        - palm_commands：左右手掌面 Roll 与法向量结果。
 
         输出：无，直接修改 `image_bgr`。
         """
@@ -397,11 +551,99 @@ class MediaPipePoseHandService:
             self._drawing.DrawingSpec((0, 0, 255), 2),
             self._drawing.DrawingSpec((0, 255, 0), 2),
         )
+        self._draw_hands(image_bgr, hands_results, hand_matches, palm_commands)
 
         height, width = image_bgr.shape[:2]
         # 左侧文字靠关键点右侧显示，右侧文字靠关键点左侧显示，减少遮挡身体。
         self._draw_arm_text(image_bgr, img_lms, width, height, "LEFT", left_angles, (0, 255, 255), align_left=True)
         self._draw_arm_text(image_bgr, img_lms, width, height, "RIGHT", right_angles, (255, 0, 0), align_left=False)
+
+    def _draw_hands(
+        self,
+        image_bgr,
+        hands_results,
+        hand_matches: dict[str, tuple[int, float]],
+        palm_commands: dict[str, Motor6Command],
+    ) -> None:
+        """绘制完整 Hands 骨架，并为匹配成功的手绘制掌面法向量。
+
+        输入：
+        - image_bgr：待修改的 OpenCV BGR 图像；
+        - hands_results：Hands 当前帧图像关键点；
+        - hand_matches：左右侧与 Hands 下标的匹配结果；
+        - palm_commands：左右侧掌面法向量和 Roll 计算结果。
+
+        输出：无，直接修改 `image_bgr`。
+
+        逻辑：左手使用黄色、右手使用蓝色、未匹配手使用灰色绘制 21 点骨架；命令中
+        包含有效法向量时继续调用 `_draw_palm_normal()`。
+        """
+        image_hands = list(getattr(hands_results, "multi_hand_landmarks", None) or [])
+        side_by_index = {match[0]: side for side, match in hand_matches.items()}
+        colors = {"LEFT": (0, 220, 220), "RIGHT": (255, 120, 0)}
+        for hand_index, landmarks in enumerate(image_hands):
+            side = side_by_index.get(hand_index, "")
+            color = colors.get(side, (180, 180, 180))
+            self._drawing.draw_landmarks(
+                image_bgr,
+                landmarks,
+                self._mp_hands.HAND_CONNECTIONS,
+                self._drawing.DrawingSpec(color, 2, 2),
+                self._drawing.DrawingSpec(color, 2, 1),
+            )
+            command = palm_commands.get(side)
+            if command is not None and command.palm_normal is not None:
+                self._draw_palm_normal(image_bgr, landmarks, command, color)
+
+    def _draw_palm_normal(self, image_bgr, landmarks, command: Motor6Command, color) -> None:
+        """在掌心绘制法向量的二维投影和深度分量。
+
+        输入：
+        - image_bgr：待修改的 BGR 图像；
+        - landmarks：当前手 21 个归一化图像关键点；
+        - command：包含 `palm_normal` 的掌面 Roll 命令；
+        - color：该侧手骨架使用的 BGR 颜色。
+
+        输出：无，直接绘制箭头和 `Nz` 文本。
+
+        逻辑：掌心位置取腕点与 4 个 MCP 点的图像质心；法向量 X/Y 分量决定箭头在
+        屏幕上的方向，Z 分量以 `Nz:+/-x.xx` 显示。掌心与手背翻转时 Nz 符号应相反，
+        可用于直观检查法向量是否与真实掌面一致。
+        """
+        height, width = image_bgr.shape[:2]
+        kp = self._mp_hands.HandLandmark
+        center_indices = (
+            kp.WRIST.value,
+            kp.INDEX_FINGER_MCP.value,
+            kp.MIDDLE_FINGER_MCP.value,
+            kp.RING_FINGER_MCP.value,
+            kp.PINKY_MCP.value,
+        )
+        center_x = int(np.mean([landmarks.landmark[index].x for index in center_indices]) * width)
+        center_y = int(np.mean([landmarks.landmark[index].y for index in center_indices]) * height)
+        normal = command.palm_normal
+        scale = max(45, int(min(width, height) * 0.07))
+        end_x = int(np.clip(center_x + normal.x * scale, 0, width - 1))
+        end_y = int(np.clip(center_y + normal.y * scale, 0, height - 1))
+        self._cv2.arrowedLine(
+            image_bgr,
+            (center_x, center_y),
+            (end_x, end_y),
+            color,
+            3,
+            self._cv2.LINE_AA,
+            tipLength=0.25,
+        )
+        self._cv2.putText(
+            image_bgr,
+            f"Nz:{normal.z:+.2f}",
+            (max(0, center_x - 35), min(height - 6, center_y + 34)),
+            self._cv2.FONT_HERSHEY_SIMPLEX,
+            0.55,
+            color,
+            1,
+            self._cv2.LINE_AA,
+        )
 
     def _draw_arm_text(
         self,
@@ -447,7 +689,7 @@ class MediaPipePoseHandService:
             (
                 f"{side}_WRIST",
                 ("wrist_flex_deg", "W Pitch", values[4]),
-                ("wrist_rotation.horizontal_deg", "W Yaw", values[5]),
+                ("wrist_rotation.horizontal_deg", "W Roll", values[5]),
             ),
         )
         for landmark_name, line1, line2 in label_sets:
@@ -465,11 +707,11 @@ class MediaPipePoseHandService:
                 else:
                     # 右侧身体的文字向左展开，避免跑出画面右边缘。
                     x = x_base - text_width - 8
-                y = y_base + row * 20
+                y = int(np.clip(y_base + row * 20, 18, max(18, height - 4)))
                 self._cv2.putText(
                     image_bgr,
                     text,
-                    (max(0, x), max(18, y)),
+                    (max(0, x), y),
                     self._cv2.FONT_HERSHEY_SIMPLEX,
                     0.6,
                     color,
@@ -494,19 +736,6 @@ class MediaPipePoseHandService:
                 return False
         return True
 
-    def _right_hand_confidence(self, img_lms) -> float:
-        """计算右手腕/手指关键点的保守置信度。
-
-        输入：
-        - img_lms：MediaPipe 图像关键点列表。
-
-        输出：
-        - 四个右手相关关键点 visibility 的最小值，四舍五入到 2 位小数。
-        """
-        names = ("RIGHT_WRIST", "RIGHT_THUMB", "RIGHT_PINKY", "RIGHT_INDEX")
-        values = [float(getattr(img_lms[self._kp[name].value], "visibility", 1.0)) for name in names]
-        return _round_deg(min(values))
-
     @staticmethod
     def _empty_payload(reason: str) -> dict:
         """构造无检测结果时的空 payload。
@@ -519,15 +748,17 @@ class MediaPipePoseHandService:
         """
         motor_6_payload = asdict(Motor6Command(reason=reason))
         return {
-            "source": "video_inf_pose",
+            "source": "video_inf_pose_hands",
             "angles": [],
             "motor_6": motor_6_payload,
             "motor_commands": [],
-            "control_stage": "video_inf_pose_6d",
+            "control_stage": "video_inf_pose_hands_6d",
             "has_pose": False,
             "has_face": False,
             "has_left_hand": False,
             "has_right_hand": False,
+            "has_left_palm": False,
+            "has_right_palm": False,
             "pose_valid": False,
         }
 
@@ -553,6 +784,26 @@ def _direction_from_signed_angle(
     if angle < -1e-6:
         return negative
     return Direction.UNKNOWN
+
+
+def _point3d(landmark) -> Point3D:
+    """把 MediaPipe 三维关键点转换为项目 `Point3D`。
+
+    输入：具有 x/y/z 属性的 MediaPipe landmark。
+    输出：三个坐标均转成 Python float 的不可变 `Point3D`。
+    """
+    return Point3D(x=float(landmark.x), y=float(landmark.y), z=float(landmark.z))
+
+
+def _command_roll_or_zero(command: Motor6Command) -> float:
+    """提取命令中的有符号 Roll 供角度面板显示。
+
+    输入：`Motor6Command`。
+    输出：存在 `signed_roll_deg` 时返回其浮点值，否则返回 0；真正的发送有效性仍由
+    `motor_6.valid` 和 `motion_allowed` 控制，不会因为显示回退值而误发动作。
+    """
+    value = command.signed_roll_deg
+    return 0.0 if value is None else float(value)
 
 
 def _round_deg(value) -> float:

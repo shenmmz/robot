@@ -14,7 +14,7 @@ VisualRoboticArm 是一个基于 PySide6 + MediaPipe 的实时视觉机械臂姿
 
 ## 推理核心逻辑
 
-当前推理方案不依赖外部模型文件，也不再使用独立手部模型。推理过程由 `app/services.py` 封装为实时服务：
+当前推理方案不依赖外部模型文件。推理过程由 `app/services.py` 封装为 Pose + Hands 实时服务：
 
 ```text
 摄像头画面
@@ -22,28 +22,29 @@ VisualRoboticArm 是一个基于 PySide6 + MediaPipe 的实时视觉机械臂姿
     -> QImage
     -> 后台推理线程
     -> OpenCV BGR 图像
-    -> MediaPipe Pose
-    -> pose_world_landmarks
-    -> 左右臂 6 维方向角
+    -> MediaPipe Pose + Hands
+    -> Pose world landmarks + Hands 21 点
+    -> 左右臂方向角 + 掌面法向量 Roll
     -> payload
     -> UI 显示 / TCP 输出
 ```
 
 角度计算思路：
 
-1. 从 MediaPipe Pose 中读取肩、肘、腕、拇指、食指、小指等关键点。
+1. 从 MediaPipe Pose 中读取肩、肘、腕等身体关键点，并使用 MediaPipe Hands 获取每只手完整的 21 个关键点。
 2. 对单侧手臂构造三根方向向量：
    - 肩到肘：上臂方向
    - 肘到腕：前臂方向
-   - 腕到手部三点中心：手腕参考方向
+   - 腕到手部三点中心：手腕俯仰参考方向
 3. 以朝向摄像机的水平前伸方向（MediaPipe world 坐标的 `-Z`）作为零位。
 4. 使用 `atan2` 计算有符号俯仰角和方位角：上/右为正，下/左为负，范围限制为 `-90°~+90°`。
-5. 每侧手臂输出 6 个角度：
+5. 使用腕点与 4 个 MCP 点拟合手掌平面，计算掌面法向量绕手轴的有符号 Roll；法向量通过上一帧连续定向，Roll 限制为 `-90°~+90°`。
+6. 每侧手臂输出 6 个角度：
 
 ```text
 shoulder pitch / shoulder yaw
 elbow pitch    / elbow yaw
-wrist pitch    / wrist yaw
+wrist pitch    / wrist roll
 ```
 
 这些角度表示“骨骼方向相对前伸水平零位的有符号方向角”，更适合当前姿态跟随和电机映射验证；它们不是严格的人体解剖关节角。
@@ -59,7 +60,7 @@ wrist pitch    / wrist yaw
 - 3 号电机：肘部上下，来源 `elbow_flex_deg`
 - 4 号电机：肘部左右，来源 `elbow_abduction_deg`
 - 5 号电机：手腕上下，来源 `wrist_flex_deg`
-- 6 号电机：手腕左右翻转，来源有符号的 `wrist_rotation.horizontal_deg`
+- 6 号电机：手腕左右翻转，来源 Hands 掌面法向量的 `motor_6.signed_roll_deg`
 
 修改电机对应关系时，只调整 `solver/motor_mapping.py` 中的 `_MOTOR_MAPPINGS`。若映射字段缺失，通信层会输出保持状态，不会影响推理模块运行。
 

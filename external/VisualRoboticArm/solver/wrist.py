@@ -14,7 +14,7 @@ from typing import Optional
 
 import numpy as np
 
-from app.models import Direction, Motor6Command, Point3D
+from app.models import Direction, Motor6Command, Point3D, Side
 from solver.utils import (
     _EPS,
     BodyFrame,
@@ -45,6 +45,270 @@ _MAX_PREDICTION_FRAMES = 5
 
 # 手腕翻转角度限制（度）
 WRIST_ROLL_MAX_DEG = 120.0
+
+
+class PalmRollTracker:
+    """基于 MediaPipe Hands 掌面法向量跟踪手腕有符号滚转角。
+
+    输入来源：
+    - 同一只手、同一帧 Hands world landmarks 中的腕点和 4 个掌指关节点；
+    - Pose 计算出的身体向上方向，用于建立手腕滚转零度参考；
+    - Hands 检测和左右腕匹配得到的置信度。
+
+    输出：
+    - `Motor6Command`，包含限幅和平滑后的有符号 Roll、原始展开角、方向、
+      掌面法向量、置信度以及是否允许运动。
+
+    核心逻辑：
+    1. 使用腕点与食指/中指/无名指/小指 MCP 点拟合掌面；
+    2. 将掌面法向量和身体向上方向投影到手轴的垂直平面；
+    3. 根据上一帧法向量解决 SVD 法向量正负二义性；
+    4. 计算绕手轴的有符号角并做跨越正负 180 度的连续展开；
+    5. 经过置信度门控、角度限幅、指数平滑和单帧最大步长限制后输出。
+    """
+
+    def __init__(
+        self,
+        side: Side,
+        *,
+        max_roll_deg: float = 90.0,
+        smoothing_alpha: float = 0.35,
+        max_step_deg: float = 25.0,
+        min_confidence: float = 0.30,
+    ) -> None:
+        """初始化单手掌面 Roll 跟踪器。
+
+        输入：
+        - side：当前跟踪器所属侧，`Side.LEFT` 或 `Side.RIGHT`；
+        - max_roll_deg：最终输出绝对值上限，单位为度；
+        - smoothing_alpha：指数平滑系数，范围 0~1，越大越跟手；
+        - max_step_deg：相邻输出帧允许变化的最大角度；
+        - min_confidence：掌面结果进入控制链路的最低置信度。
+
+        输出：无。构造完成后内部历史状态为空，第一帧有效结果直接作为初值。
+        """
+        self._side = side
+        self._max_roll_deg = float(max_roll_deg)
+        self._smoothing_alpha = float(np.clip(smoothing_alpha, 0.0, 1.0))
+        self._max_step_deg = float(max_step_deg)
+        self._min_confidence = float(min_confidence)
+        self.reset()
+
+    def reset(self) -> None:
+        """清空法向量、原始展开角和滤波角历史。
+
+        输入：无。
+        输出：无。
+        功能：在服务关闭、重新开始采集或切换视频时防止沿用上一段动作。
+        """
+        self._previous_normal: np.ndarray | None = None
+        self._previous_raw_roll: float | None = None
+        self._filtered_roll: float | None = None
+
+    def missing(self, reason: str, wrist_pitch_deg: float | None = None) -> Motor6Command:
+        """生成 Hands 缺失或掌面无效时的保持命令。
+
+        输入：
+        - reason：无效原因，写入命令供日志和界面诊断；
+        - wrist_pitch_deg：当前腕部俯仰角，可为空。
+
+        输出：
+        - `valid=False`、`motion_allowed=False` 的 `Motor6Command`；
+        - 若存在历史 Roll，仍写入角度字段用于显示和问题定位，但通信层不会发送动作。
+        """
+        angle = self._filtered_roll
+        return Motor6Command(
+            side=self._side,
+            valid=False,
+            mode="mediapipe_hands_palm_normal",
+            reference="body_up_projected_to_hand_axis",
+            roll_deg=abs(angle) if angle is not None else None,
+            signed_roll_deg=angle,
+            raw_signed_roll_deg=self._previous_raw_roll,
+            direction=_direction_from_roll(angle),
+            thumb_direction=_direction_from_roll(angle),
+            rotation_side=_rotation_side_from_roll(angle),
+            wrist_pitch_deg=wrist_pitch_deg,
+            motion_allowed=False,
+            reason=reason,
+        )
+
+    def update(
+        self,
+        *,
+        hand_wrist: Point3D,
+        index_mcp: Point3D,
+        middle_mcp: Point3D,
+        ring_mcp: Point3D,
+        pinky_mcp: Point3D,
+        world_up: np.ndarray,
+        detection_confidence: float,
+        wrist_pitch_deg: float | None = None,
+    ) -> Motor6Command:
+        """根据一帧 Hands 三维关键点更新掌面 Roll。
+
+        输入：
+        - hand_wrist：Hands 腕点 0；
+        - index_mcp/middle_mcp/ring_mcp/pinky_mcp：掌面 4 个 MCP 点 5/9/13/17；
+        - world_up：由 Pose 肩髋中点计算的身体向上单位向量；
+        - detection_confidence：Hands 检测分数与 Pose 腕点匹配分数的融合值；
+        - wrist_pitch_deg：Pose 方向算法得到的腕部俯仰角，仅随命令透传。
+
+        输出：
+        - 有效时返回 `valid=True` 的 `Motor6Command`，`signed_roll_deg` 为控制角；
+        - 关键向量退化或置信度不足时调用 `missing()`，返回禁止运动的保持命令。
+
+        处理步骤：
+        1. 以腕点到 4 个 MCP 质心的方向作为手轴；
+        2. 对 5 点执行 SVD 平面拟合并确定掌面法向量朝向；
+        3. 把掌面法向量与身体向上向量投影到手轴垂直平面；
+        4. 使用上一帧法向量消除随机翻面，再计算有符号 Roll；
+        5. 评估掌面质量，执行角度展开、限幅、平滑和死区处理。
+        """
+        points = [hand_wrist, index_mcp, middle_mcp, ring_mcp, pinky_mcp]
+        palm_center = _compute_hand_palm_center(index_mcp, middle_mcp, ring_mcp, pinky_mcp)
+        hand_axis = normalize(palm_center - to_vec(hand_wrist))
+        if hand_axis is None:
+            return self.missing("hands_axis_invalid", wrist_pitch_deg)
+
+        palm_normal = fit_plane_normal(points)
+        if palm_normal is None:
+            return self.missing("hands_palm_plane_invalid", wrist_pitch_deg)
+        palm_normal = orient_palm_normal(
+            palm_normal,
+            hand_wrist=hand_wrist,
+            index_mcp=index_mcp,
+            middle_mcp=middle_mcp,
+            ring_mcp=ring_mcp,
+            pinky_mcp=pinky_mcp,
+        )
+
+        normal_axis = project_to_plane(palm_normal, hand_axis)
+        reference_axis = project_to_plane(world_up, hand_axis)
+        if normal_axis is None or reference_axis is None:
+            return self.missing("hands_roll_projection_invalid", wrist_pitch_deg)
+
+        # SVD 法向量存在正负二义性。相邻物理帧不应突变超过 90 度，
+        # 因此选择与上一帧夹角更小的方向，消除算法层面的随机翻面。
+        if self._previous_normal is not None and float(np.dot(normal_axis, self._previous_normal)) < 0.0:
+            normal_axis = -normal_axis
+            palm_normal = -palm_normal
+
+        raw_roll = signed_angle_deg(reference_axis, normal_axis, hand_axis)
+        if raw_roll is None:
+            return self.missing("hands_roll_angle_invalid", wrist_pitch_deg)
+        raw_roll = _unwrap_angle(raw_roll, self._previous_raw_roll)
+
+        plane_quality = _palm_plane_quality(points)
+        confidence = float(np.clip(detection_confidence, 0.0, 1.0)) * plane_quality
+        if confidence < self._min_confidence:
+            return self.missing("hands_palm_confidence_low", wrist_pitch_deg)
+
+        limited_roll = float(np.clip(raw_roll, -self._max_roll_deg, self._max_roll_deg))
+        if self._filtered_roll is None:
+            filtered_roll = limited_roll
+        else:
+            smoothed = self._filtered_roll + self._smoothing_alpha * (limited_roll - self._filtered_roll)
+            step = float(np.clip(smoothed - self._filtered_roll, -self._max_step_deg, self._max_step_deg))
+            filtered_roll = self._filtered_roll + step
+
+        filtered_roll = float(np.clip(filtered_roll, -self._max_roll_deg, self._max_roll_deg))
+        if abs(filtered_roll) < 1.0:
+            filtered_roll = 0.0
+
+        self._previous_normal = normal_axis
+        self._previous_raw_roll = raw_roll
+        self._filtered_roll = filtered_roll
+
+        direction = _direction_from_roll(filtered_roll)
+        return Motor6Command(
+            side=self._side,
+            valid=True,
+            mode="mediapipe_hands_palm_normal",
+            reference="body_up_projected_to_hand_axis",
+            roll_deg=abs(filtered_roll),
+            signed_roll_deg=filtered_roll,
+            raw_signed_roll_deg=raw_roll,
+            direction=direction,
+            thumb_direction=direction,
+            rotation_side=_rotation_side_from_roll(filtered_roll),
+            palm_normal=Point3D(
+                x=float(palm_normal[0]),
+                y=float(palm_normal[1]),
+                z=float(palm_normal[2]),
+            ),
+            roll_vector=Point3D(
+                x=float(normal_axis[0]),
+                y=float(normal_axis[1]),
+                z=float(normal_axis[2]),
+            ),
+            wrist_pitch_deg=wrist_pitch_deg,
+            confidence=confidence,
+            motion_allowed=True,
+            reason="hands_palm_normal_ok",
+        )
+
+
+def _unwrap_angle(angle: float, previous: float | None) -> float:
+    """把 `[-180, 180]` 原始角展开为跨帧连续角。
+
+    输入：当前原始角 angle、上一帧已展开角 previous，单位均为度。
+    输出：与 previous 差值限制在 `[-180, 180]` 内的等价角；无历史时原样返回。
+    """
+    if previous is None:
+        return float(angle)
+    unwrapped = float(angle)
+    while unwrapped - previous > 180.0:
+        unwrapped -= 360.0
+    while unwrapped - previous < -180.0:
+        unwrapped += 360.0
+    return unwrapped
+
+
+def _palm_plane_quality(points: list[Point3D]) -> float:
+    """根据掌面点集的空间形状计算质量分数。
+
+    输入：腕点和 4 个 MCP 点，共 5 个 `Point3D`。
+    输出：0~1 的质量分数；近共线、厚度过大或 SVD 失败时返回 0。
+
+    逻辑：第二奇异值衡量掌面是否有足够宽度，第三奇异值衡量点集偏离平面的厚度。
+    Hands world landmarks 是模型估计值，不会构成绝对刚性平面，因此非退化点集保留
+    0.40 的基础质量，避免轻微深度噪声造成频繁丢帧。
+    """
+    matrix = np.array([to_vec(point) for point in points], dtype=np.float64)
+    centered = matrix - matrix.mean(axis=0)
+    try:
+        _, singular_values, _ = np.linalg.svd(centered, full_matrices=False)
+    except np.linalg.LinAlgError:
+        return 0.0
+    if len(singular_values) < 3 or singular_values[0] <= _EPS:
+        return 0.0
+
+    width_ratio = float(singular_values[1] / singular_values[0])
+    thickness_ratio = float(singular_values[2] / max(singular_values[1], _EPS))
+    if width_ratio < 0.04 or thickness_ratio > 0.80:
+        return 0.0
+    spread_quality = float(np.clip(width_ratio / 0.20, 0.0, 1.0))
+    plane_quality = float(np.clip(1.0 - thickness_ratio * 2.5, 0.0, 1.0))
+    # Hands 三维关键点是模型估计值而非绝对刚性平面；点集不退化时保留置信度下限。
+    return 0.40 + 0.60 * spread_quality * plane_quality
+
+
+def _direction_from_roll(angle: float | None) -> Direction:
+    """把有符号 Roll 转成方向枚举：正为右、负为左、绝对值小于 1 度为未知。"""
+    if angle is None or abs(angle) < 1.0:
+        return Direction.UNKNOWN
+    return Direction.RIGHT if angle > 0.0 else Direction.LEFT
+
+
+def _rotation_side_from_roll(angle: float | None) -> str:
+    """把 Roll 方向转换为 payload 使用的 `right/left/neutral` 字符串。"""
+    direction = _direction_from_roll(angle)
+    if direction == Direction.RIGHT:
+        return "right"
+    if direction == Direction.LEFT:
+        return "left"
+    return "neutral"
 
 
 # ================================================================
