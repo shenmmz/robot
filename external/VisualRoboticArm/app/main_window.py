@@ -1,10 +1,11 @@
+# -*- coding: utf-8 -*-
 from __future__ import annotations
 
 import os
 from datetime import datetime
 
 from PySide6.QtCore import QTimer, Qt
-from PySide6.QtGui import QAction, QColor, QFont, QImage, QPainter, QPen, QPixmap
+from PySide6.QtGui import QAction, QColor, QFont, QImage, QPainter, QPen, QPixmap, QTextCursor
 from PySide6.QtMultimedia import QCamera, QMediaCaptureSession, QMediaDevices, QVideoSink
 from PySide6.QtWidgets import (
     QComboBox,
@@ -29,8 +30,9 @@ from PySide6.QtWidgets import (
 )
 
 from app.rs485 import RS485Config, RS485Manager
-from app.pose_comm import PoseCommClient
+from app.pose_comm import PoseCommClient, format_mapped_motor_summary
 from app.pose_filter import PoseMotionFilter
+from app.inference_logger import InferenceLogSession
 from app.worker import FrameProcessorThread
 
 
@@ -54,6 +56,7 @@ class MainWindow(QMainWindow):
         self.rs485_manager = None
         self.rs485_ports = []
         self.pose_comm = None
+        self.inference_log = InferenceLogSession()
         self.pose_filter = PoseMotionFilter(
             movement_threshold_deg=float(os.environ.get("VISUAL_ARM_POSE_MOVE_THRESHOLD_DEG", "5.0"))
         )
@@ -142,6 +145,8 @@ class MainWindow(QMainWindow):
         self.btn_connect = QPushButton("连接")
         self.btn_disconnect = QPushButton("断开")
         self.camera_list = QListWidget()
+        self.camera_list.setMaximumHeight(160)
+        self.camera_list.setMinimumHeight(80)
         self.btn_start = QPushButton("开始采集")
         self.btn_stop = QPushButton("停止")
         self.btn_params = QPushButton("参数")
@@ -150,7 +155,15 @@ class MainWindow(QMainWindow):
         self.interval_spin.setValue(33)
         self.interval_spin.setSuffix(" ms")
         self.state_value = QLabel("等待枚举相机")
-        self.action_value = QLabel("暂无操作")
+        self.action_value = QTextEdit()
+        self.action_value.setReadOnly(True)
+        self.action_value.setPlainText("暂无操作")
+        self.action_value.setMinimumHeight(100)
+        self.action_value.setMaximumHeight(400)
+        self.action_value.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self.action_value.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+        self.action_value.setLineWrapMode(QTextEdit.WidgetWidth)
+        self.action_value.setObjectName("actionText")
 
         self.runtime_group = QGroupBox("关节旋转角度")
         self.runtime_group.setMinimumHeight(180)
@@ -220,7 +233,7 @@ class MainWindow(QMainWindow):
         top_control_layout.addWidget(self.btn_connect)
         top_control_layout.addWidget(self.btn_disconnect)
         camera_layout.addLayout(top_control_layout)
-        camera_layout.addWidget(self.camera_list, 1)
+        camera_layout.addWidget(self.camera_list, 0)
 
         camera_bottom = QHBoxLayout()
         camera_bottom.addWidget(self.btn_start)
@@ -235,7 +248,10 @@ class MainWindow(QMainWindow):
         camera_info.addWidget(self.state_value, 1, 1)
         camera_info.addWidget(QLabel("最近操作"), 2, 0)
         camera_info.addWidget(self.action_value, 2, 1)
-        camera_layout.addLayout(camera_info)
+        camera_info.setRowStretch(0, 0)
+        camera_info.setRowStretch(1, 0)
+        camera_info.setRowStretch(2, 1)
+        camera_layout.addLayout(camera_info, 1)
 
         serial_page = QWidget()
         serial_layout = QVBoxLayout(serial_page)
@@ -399,6 +415,7 @@ class MainWindow(QMainWindow):
         self.connected_camera = None
         self.connected_camera_name = ""
         self.is_capturing = False
+        self._save_inference_log()
         self.frame_count = 0
         self.frame_info_label.setText("Frame: -")
         self.camera_map = self._enumerate_cameras()
@@ -411,7 +428,7 @@ class MainWindow(QMainWindow):
         else:
             message = "未发现可用相机"
         self.state_value.setText(message)
-        self.action_value.setText(message)
+        self._set_action_text(message)
         self.statusBar().showMessage(message, 3000)
         self._update_preview("等待连接相机")
         self._refresh_control_state()
@@ -429,7 +446,7 @@ class MainWindow(QMainWindow):
         self.connected_camera_name = selected_name
         self._setup_camera_pipeline()
         self.state_value.setText(f"已连接: {selected_name}")
-        self.action_value.setText(f"成功: 已连接 {selected_name}")
+        self.action_value.setPlainText(f"成功: 已连接 {selected_name}")
         self.statusBar().showMessage("相机已连接", 3000)
         self._update_preview("相机已连接\n等待开始采集")
         self._refresh_control_state()
@@ -441,13 +458,14 @@ class MainWindow(QMainWindow):
         self.connected_camera = None
         self.connected_camera_name = ""
         self.is_capturing = False
+        self._save_inference_log()
         self.frame_count = 0
         self.last_processed_image = None
         self.frame_info_label.setText("Frame: -")
         self.image_info_label.setText("W:0,H:0 | X:-,Y:- | R:-,G:-,B:- | Gray:-")
         self.runtime_text.setHtml(_angle_placeholder_html())
         self.state_value.setText("相机未连接")
-        self.action_value.setText(f"已断开: {disconnected_name}")
+        self.action_value.setPlainText(f"已断开: {disconnected_name}")
         self.statusBar().showMessage("相机已断开", 3000)
         self._update_preview("等待连接相机")
         self._refresh_control_state()
@@ -464,12 +482,13 @@ class MainWindow(QMainWindow):
         self._ensure_frame_worker()
         self.frame_count = 0
         self.pose_filter.reset()
+        self.inference_log.start()
         self.is_capturing = True
         self.preview_timer.setInterval(self.interval_spin.value())
         self.preview_timer.start()
         self.camera.start()
         self.state_value.setText("采集中")
-        self.action_value.setText(f"成功: 开始采集 {self.connected_camera_name}")
+        self.action_value.setPlainText(f"成功: 开始采集 {self.connected_camera_name}")
         self.statusBar().showMessage("采集已启动", 3000)
         self._refresh_control_state()
 
@@ -479,9 +498,10 @@ class MainWindow(QMainWindow):
             self.camera.stop()
         self.is_capturing = False
         self.state_value.setText("采集已停止")
-        self.action_value.setText("成功: 已停止采集")
+        self.action_value.setPlainText("成功: 已停止采集")
         self.statusBar().showMessage("采集已停止", 3000)
         self._update_preview("采集已停止")
+        self._save_inference_log()
         self._refresh_control_state()
 
     def on_params_clicked(self):
@@ -500,37 +520,68 @@ class MainWindow(QMainWindow):
         self.statusBar().showMessage(f"采集间隔已设置为 {value} ms", 2000)
 
     def on_video_frame_changed(self, frame):
+        """接收 Qt 摄像头帧并提交到后台推理线程。
+
+        输入：
+        - frame：Qt Multimedia 推送的 QVideoFrame。
+
+        输出：无。
+        功能实现：
+        - 将 QVideoFrame 转为 QImage；
+        - 刷新帧计数与图像尺寸显示；
+        - 如果后台推理线程可用，则提交给 `FrameProcessorThread.submit()`。
+        """
         image = frame.toImage()
         if image.isNull():
             return
+        # 这里计数的是摄像头输入帧，不是实际完成推理的帧。
         self.frame_count += 1
         self.frame_info_label.setText(f"Frame: {self.frame_count}")
         self.image_info_label.setText(
             f"W:{image.width()},H:{image.height()} | X:-,Y:- | R:-,G:-,B:- | Gray:-"
         )
         if self.frame_worker is None or not self.frame_worker.isRunning():
+            # 推理线程不可用时仍显示原始画面，避免预览黑屏。
             self._display_image(image)
             return
+        # 将帧交给后台线程；线程内部只保留最新帧以降低延迟。
         self.frame_worker.submit(image)
 
     def on_processed_frame(self, image: QImage, payload: dict):
+        """接收后台推理结果并更新 UI/通信。
+
+        输入：
+        - image：推理线程返回的标注后 QImage；
+        - payload：推理服务输出的角度、电机命令和识别状态字典。
+
+        输出：无。
+        功能实现：
+        - 显示标注画面；
+        - 通过 `PoseMotionFilter` 稳定角度和电机命令；
+        - 更新右侧动作摘要和下方角度面板；
+        - 将过滤后的 payload 交给 TCP 通信模块发送。
+        """
         self.last_processed_image = image
         self._display_image(image)
+        # 过滤层负责低幅抖动保持、无检测时沿用上一次有效值。
         payload = self.pose_filter.filter_payload(payload)
         angles = payload.get("angles", [])
-        motor_6_summary = _format_motor_6_summary(payload.get("motor_6"))
+        motor_summary = format_mapped_motor_summary(payload)
+        self.inference_log.append_result(motor_summary)
         if angles:
             summary = _format_arm_rotation_summary(angles)
             if not payload.get("motion_allowed", True):
                 summary = f"[保持] {summary}"
-            self.action_value.setText(motor_6_summary or summary.splitlines()[0])
+            # action_value 显示电机动作摘要，runtime_text 显示完整左右臂角度。
+            self.action_value.setPlainText(motor_summary or summary.splitlines()[0])
             self.runtime_text.setHtml(_format_arm_rotation_html(angles))
         else:
-            if motor_6_summary:
-                self.action_value.setText(motor_6_summary)
+            if motor_summary:
+                self.action_value.setPlainText(motor_summary)
             self.runtime_text.setHtml(_angle_placeholder_html())
 
         if self.pose_comm is not None:
+            # 通信 payload 附加当前输入帧编号，便于外部系统追踪。
             pose_payload = dict(payload)
             pose_payload["frame_id"] = self.frame_count
             self.pose_comm.send_pose(self.frame_count, pose_payload)
@@ -538,7 +589,13 @@ class MainWindow(QMainWindow):
     def on_worker_error(self, message: str):
         self.statusBar().showMessage(message, 5000)
         QMessageBox.warning(self, "推理模块错误", message)
-        self.action_value.setText("推理模块不可用，已回退到原始画面")
+        self.action_value.setPlainText("推理模块不可用，已回退到原始画面")
+
+    def _set_action_text(self, text: str):
+        """设置最近操作文本并自动滚动到底部。"""
+        self.action_value.setPlainText(text)
+        self.action_value.moveCursor(QTextCursor.End)
+        self.action_value.ensureCursorVisible()
 
     def _refresh_control_state(self):
         has_selection = self.camera_list.currentItem() is not None
@@ -561,9 +618,9 @@ class MainWindow(QMainWindow):
     def _init_pose_comm(self):
         host = os.environ.get("VISUAL_ARM_COMM_HOST", "127.0.0.1").strip()
         try:
-            port = int(os.environ.get("VISUAL_ARM_COMM_PORT", "5001"))
+            port = int(os.environ.get("VISUAL_ARM_COMM_PORT", "5000"))
         except ValueError:
-            port = 5001
+            port = 5000
         client_name = os.environ.get("VISUAL_ARM_COMM_CLIENT", "visual-arm").strip() or "visual-arm"
 
         self.pose_comm = PoseCommClient(self, host=host, port=port, client_name=client_name)
@@ -668,20 +725,53 @@ class MainWindow(QMainWindow):
         self._append_rs485_log(f"ERR: {message}")
 
     def _ensure_frame_worker(self):
+        """确保后台推理线程已创建并启动。
+
+        输入：无。
+        输出：无。
+        功能：连接推理结果/错误信号，然后启动 `FrameProcessorThread`。
+        """
         if self.frame_worker is not None and self.frame_worker.isRunning():
             return
         self.frame_worker = FrameProcessorThread(self)
+        # 推理完成后回到主线程更新画面、角度文本和通信。
         self.frame_worker.frame_ready.connect(self.on_processed_frame)
+        # 推理初始化或运行错误统一交给 UI 弹窗与状态栏显示。
         self.frame_worker.error.connect(self.on_worker_error)
         self.frame_worker.start()
 
     def _setup_camera_pipeline(self):
+        """建立 Qt 摄像头采集管线。
+
+        输入：无，使用当前选中的 `self.connected_camera`。
+        输出：无。
+        功能实现：
+        - 清理旧摄像头管线；
+        - 创建 QCamera/QMediaCaptureSession/QVideoSink；
+        - 优先选择 1280x720 格式；
+        - 将 `videoFrameChanged` 信号连接到实时推理入口。
+        """
         if self.connected_camera is None:
             return
         self._teardown_camera(clear_preview=False)
         self.camera = QCamera(self.connected_camera)
+
+        # 设置摄像头采集分辨率为 1280×720 以提升手部识别精度
+        camera_device = self.connected_camera
+        formats = camera_device.videoFormats()
+        target_w, target_h = 1280, 720
+        best_format = None
+        for fmt in formats:
+            res = fmt.resolution()
+            if res.width() == target_w and res.height() == target_h:
+                best_format = fmt
+                break
+        if best_format is not None:
+            self.camera.setCameraFormat(best_format)
+
         self.capture_session = QMediaCaptureSession()
         self.video_sink = QVideoSink()
+        # 每收到一帧就进入 on_video_frame_changed，再由后台线程处理。
         self.video_sink.videoFrameChanged.connect(self.on_video_frame_changed)
         self.capture_session.setCamera(self.camera)
         self.capture_session.setVideoSink(self.video_sink)
@@ -760,8 +850,18 @@ class MainWindow(QMainWindow):
         painter.end()
         self.preview_frame.setPixmap(pixmap)
 
+    def _save_inference_log(self):
+        try:
+            log_path = self.inference_log.save()
+        except OSError as exc:
+            self.statusBar().showMessage(f"推理日志保存失败: {exc}", 5000)
+            return
+        if log_path is not None:
+            self.statusBar().showMessage(f"推理日志已保存: {log_path}", 5000)
+
     def closeEvent(self, event):
         self.preview_timer.stop()
+        self._save_inference_log()
         self._teardown_camera(clear_preview=False)
         if self.pose_comm is not None:
             self.pose_comm.stop()
@@ -795,6 +895,7 @@ def _format_arm_rotation_summary(angles):
         parts.append(
             "左臂 "
             f"腕{_format_rotation(left.get('wrist_rotation'))} "
+            f"肘{_fmt_whole(left.get('elbow_flex_deg'))}° "
             f"臂{_format_rotation(left.get('arm_rotation'))} "
             f"肩{_format_rotation(left.get('shoulder_rotation'))}"
         )
@@ -802,29 +903,12 @@ def _format_arm_rotation_summary(angles):
         parts.append(
             "右臂 "
             f"腕{_format_rotation(right.get('wrist_rotation'))} "
+            f"肘{_fmt_whole(right.get('elbow_flex_deg'))}° "
             f"臂{_format_rotation(right.get('arm_rotation'))} "
             f"肩{_format_rotation(right.get('shoulder_rotation'))}"
         )
 
     return " | ".join(parts) if parts else "等待推理结果"
-
-
-def _format_motor_6_summary(command):
-    if not isinstance(command, dict):
-        return ""
-
-    reason = str(command.get("reason") or "-")
-    direction = _direction_label(command.get("direction"), "horizontal")
-    rotation_side = _rotation_side_label(command.get("rotation_side"))
-    roll = _fmt_whole(command.get("roll_deg"))
-
-    if not command.get("valid"):
-        return f"6号电机 保持 | 右手未有效识别 | reason={reason}"
-
-    if not command.get("motion_allowed"):
-        return f"6号电机 保持 | {rotation_side}/{direction} {roll}° | reason={reason}"
-
-    return f"6号电机 发送 | {rotation_side}/{direction} {roll}° | 掌面+拇指平面"
 
 
 def _format_arm_rotation_html(angles):
@@ -849,7 +933,8 @@ def _arm_column_html(title, arm):
         style="padding:8px 10px; border:1px solid #D6D6D6; background:#FFFFFF;">
         <div style="font-weight:700; color:#202124; margin-bottom:8px;">{title}</div>
         {_joint_row_html("腕", arm.get("wrist_rotation"))}
-        {_joint_row_html("臂", arm.get("arm_rotation"))}
+        {_elbow_row_html(arm)}
+        {_shoulder_row_html(arm)}
         {_joint_row_html("肩", arm.get("shoulder_rotation"))}
     </td>
     """
@@ -860,6 +945,61 @@ def _joint_row_html(label, rotation):
     <div style="white-space:nowrap; line-height:1.55;">
         <span style="display:inline-block; width:24px; color:#3F6FB8;">{label}：</span>
         <span>{_format_rotation(rotation)}</span>
+    </div>
+    """
+
+
+def _elbow_row_html(arm):
+    """渲染肘部角度行（elbow_flex_deg 上下 + elbow_abduction_deg 左右翻转）。"""
+    flex = arm.get("elbow_flex_deg")
+    abduction = arm.get("elbow_abduction_deg")
+    flext = _fmt_whole(flex)
+    abdt = _fmt_whole(abduction)
+    abd_dir = ""
+    if abduction is not None:
+        if abduction > 3:
+            abd_dir = "右偏"
+        elif abduction < -3:
+            abd_dir = "左偏"
+        else:
+            abd_dir = "中位"
+    abd_text = f"{abd_dir} {abdt}°" if abd_dir else "-"
+    return f"""
+    <div style="white-space:nowrap; line-height:1.55;">
+        <span style="display:inline-block; width:24px; color:#C26B2E;">肘：</span>
+        <span>俯 {flext}°  偏 {abd_text}</span>
+    </div>
+    """
+
+
+def _shoulder_row_html(arm):
+    """渲染肩部角度行（shoulder_flex_deg 上下 + shoulder_abduction_deg 左右翻转）。"""
+    flex = arm.get("shoulder_flex_deg")
+    abduction = arm.get("shoulder_abduction_deg")
+    flext = _fmt_whole(flex)
+    abdt = _fmt_whole(abduction)
+    flex_dir = ""
+    if flex is not None:
+        if flex > 3:
+            flex_dir = "上抬"
+        elif flex < -3:
+            flex_dir = "下垂"
+        else:
+            flex_dir = "水平"
+    flex_text = f"{flex_dir} {flext}°" if flex_dir else "-"
+    abd_dir = ""
+    if abduction is not None:
+        if abduction > 3:
+            abd_dir = "右偏"
+        elif abduction < -3:
+            abd_dir = "左偏"
+        else:
+            abd_dir = "居中"
+    abd_text = f"{abd_dir} {abdt}°" if abd_dir else "-"
+    return f"""
+    <div style="white-space:nowrap; line-height:1.55;">
+        <span style="display:inline-block; width:24px; color:#3F6FB8;">臂：</span>
+        <span>俯 {flex_text}  偏 {abd_text}</span>
     </div>
     """
 

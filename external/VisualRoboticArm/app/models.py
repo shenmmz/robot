@@ -66,7 +66,7 @@ class ArmAngles:
     """单侧手臂的关键角度与旋转信息集合。
 
     字段说明：
-    - shoulder_deg / elbow_deg / wrist_deg：以三点夹角近似的关节角度（度）
+    - shoulder_deg / elbow_deg / wrist_deg：相对前伸水平零位的方向角（度）
     - vertical / horizontal：手臂整体方向（根据肩/肘/腕坐标粗略判断）
     - shoulder_rotation / arm_rotation / wrist_rotation：更偏“趋势/旋转”的方向+角度组合
     """
@@ -83,6 +83,8 @@ class ArmAngles:
     shoulder_abduction_deg: Optional[float] = None
     shoulder_rotation_deg: Optional[float] = None
     elbow_flex_deg: Optional[float] = None
+    elbow_abduction_deg: Optional[float] = None
+    elbow_pronation_deg: Optional[float] = None
     wrist_flex_deg: Optional[float] = None
 
 
@@ -114,6 +116,7 @@ class Motor6Command:
     palm_normal: Optional[Point3D] = None
     thumb_vector: Optional[Point3D] = None
     roll_vector: Optional[Point3D] = None
+    wrist_pitch_deg: Optional[float] = None
     confidence: Optional[float] = None
     motion_allowed: bool = False
     reason: str = "not_ready"
