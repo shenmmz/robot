@@ -77,6 +77,7 @@ private slots:
 
     // 运行页面
     void onBtnStop();                            // 急停按钮（立即停止所有运动）
+    void onBtnShutdown();                        // 关机按钮（安全停止 + 禁用轴）
     void onRadioModeChanged();                   // 运行模式切换（关节/笛卡尔/视觉等）
 
     // 编程页面
@@ -118,6 +119,8 @@ private:
     VisionController* m_vision = nullptr;
     VisionMasterBridge* m_vmBridge = nullptr;   // VisionMaster 桥接（QProcess 启动 CS-VMC-Dome.exe）
     bool m_vmRunning = false;                      // CS-VMC-Dome.exe 进程是否正在运行
+    bool m_homingDone = false;                     // 回零是否已完成（避免重复回零）
+    bool m_isShutdown = false;                     // 是否处于关机状态（回到关机位置）
     QElapsedTimer m_visionThrottleTimer;
     QHash<int, double> m_lastVisionAnglePerAxis;            // axis → 最近一次下发的角度
     QHash<int, int>    m_visionConsecutiveCountPerAxis;     // axis → 连续相同角度次数

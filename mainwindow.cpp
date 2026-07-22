@@ -22,7 +22,9 @@
 #include "src/utils/MathUtils.h"
 #include "src/utils/CodeEditor.h"
 #include "library/zauxdll2.h"
+#include <QApplication>
 #include <QElapsedTimer>
+#include <QMessageBox>
 #include <QThread>
 #include <QTimer>
 #include <QLineEdit>
@@ -601,6 +603,25 @@ void MainWindow::onHomingClicked()
         return;
     }
 
+    // 关机状态下点击回零 → 解除关机，回到原点
+    if (m_isShutdown) {
+        setConnectionStatus(QStringLiteral("解除关机..."), QStringLiteral("orange"));
+        ui->statusbar->showMessage(QStringLiteral("正在解除关机，回到原点..."));
+
+        m_robotController->moveJ({0, 0, 0, 0, 0, 0}, 10.0, 20.0, 30.0, 10000);
+        m_isShutdown = false;
+
+        setConnectionStatus(QStringLiteral("已就绪"), QStringLiteral("green"));
+        ui->statusbar->showMessage(QStringLiteral("关机已解除，已回到原点"));
+        return;
+    }
+
+    // 已回零过，跳过
+    if (m_homingDone) {
+        ui->statusbar->showMessage(QStringLiteral("已回零过，无需重复操作"));
+        return;
+    }
+
     // 确认对话框
     QMessageBox::StandardButton reply = QMessageBox::question(
         this,
@@ -667,6 +688,7 @@ void MainWindow::onHomingClicked()
                 // 切一次逆解，让 CONNFRAME LOAD 同步虚拟轴 DPOS，再回正解
                 m_robotController->switchToCartesianMode();
                 m_robotController->switchToJointMode();
+                m_homingDone = true;
                 setConnectionStatus(QStringLiteral("已就绪(正解)"), QStringLiteral("green"));
                 ui->statusbar->showMessage(QStringLiteral("回零+建模+清零+正解完成，机械臂已就绪"));
             } else {
@@ -779,6 +801,55 @@ void MainWindow::onBtnStop()
 }
 
 /**
+ * @brief 关机按钮：安全停止 + 禁用轴
+ *
+ * 先暂停任务，再执行安全停止（rapidStop + 设置空闲状态）。
+ */
+void MainWindow::onBtnShutdown()
+{
+    // 防重复触发
+    ui->btnShutdown->setEnabled(false);
+
+    // 先停止任务
+    m_uiController->pauseOrResumeTask();
+
+    if (!m_robotController || !m_robotController->isConnected()) {
+        ui->statusbar->showMessage(QStringLiteral("控制器未连接，无法执行关机"));
+        ui->btnShutdown->setEnabled(true);
+        return;
+    }
+
+    // 弹窗：正在关机
+    QMessageBox* dlg = new QMessageBox(this);
+    dlg->setWindowTitle(QStringLiteral("关机"));
+    dlg->setText(QStringLiteral("正在关机..."));
+    dlg->setStandardButtons(QMessageBox::NoButton);
+    dlg->setWindowFlags(dlg->windowFlags() | Qt::WindowStaysOnTopHint);
+    dlg->show();
+    QApplication::processEvents();
+
+    // 回到安全位置：关节 {0, -50, 50, 0, 0, 0}
+    m_robotController->moveJ({0, -50, 50, 0, 0, 0}, 10.0, 20.0, 30.0, 10000);
+
+    // 安全停止
+    m_robotController->executeSafeStop();
+
+    // 标记为关机状态
+    m_isShutdown = true;
+
+    // 关机完成
+    dlg->setText(QStringLiteral("关机完成"));
+    QApplication::processEvents();
+
+    // 1.5 秒后自动关闭弹窗并恢复按钮
+    QTimer::singleShot(1500, this, [this, dlg]() {
+        dlg->accept();
+        dlg->deleteLater();
+        ui->btnShutdown->setEnabled(true);
+    });
+}
+
+/**
  * @brief 正解/逆解模式切换回调
  *
  * 根据 radioCart/radioJoint 状态切换控制模式并刷新位置显示。
@@ -808,6 +879,8 @@ void MainWindow::initPositionDisplay()
 
     // 运行页面：停止按钮
     connect(ui->btnStop, &QPushButton::clicked, this, &MainWindow::onBtnStop);
+    // 运行页面：关机按钮
+    connect(ui->btnShutdown, &QPushButton::clicked, this, &MainWindow::onBtnShutdown);
 
     // 运行页面：模式切换单选按钮
     connect(ui->radioJoint, &QRadioButton::toggled, this, [this](bool checked) {
