@@ -608,11 +608,30 @@ void MainWindow::onHomingClicked()
         setConnectionStatus(QStringLiteral("解除关机..."), QStringLiteral("orange"));
         ui->statusbar->showMessage(QStringLiteral("正在解除关机，回到原点..."));
 
+        // 弹窗：正在解除关机
+        QMessageBox* unShutdownDlg = new QMessageBox(this);
+        unShutdownDlg->setWindowTitle(QStringLiteral("解除关机"));
+        unShutdownDlg->setText(QStringLiteral("正在解除关机..."));
+        unShutdownDlg->setStandardButtons(QMessageBox::NoButton);
+        unShutdownDlg->setWindowFlags(unShutdownDlg->windowFlags() | Qt::WindowStaysOnTopHint);
+        unShutdownDlg->show();
+        QApplication::processEvents();
+
         m_robotController->moveJ({0, 0, 0, 0, 0, 0}, 10.0, 20.0, 30.0, 10000);
         m_isShutdown = false;
 
+        // 归位完成
+        unShutdownDlg->setText(QStringLiteral("已回到原点"));
+        QApplication::processEvents();
+
         setConnectionStatus(QStringLiteral("已就绪"), QStringLiteral("green"));
         ui->statusbar->showMessage(QStringLiteral("关机已解除，已回到原点"));
+
+        // 1.5 秒后自动关闭弹窗
+        QTimer::singleShot(1500, this, [unShutdownDlg]() {
+            unShutdownDlg->accept();
+            unShutdownDlg->deleteLater();
+        });
         return;
     }
 
@@ -626,7 +645,7 @@ void MainWindow::onHomingClicked()
     QMessageBox::StandardButton reply = QMessageBox::question(
         this,
         QStringLiteral("确认执行"),
-        QStringLiteral("将执行以下操作：\n1. 回零（找原点 → 移动到初始位置）\n2. 初始化机器人模型\n3. 清零关节坐标\n4. 切换逆解模式\n\n是否继续？"),
+        QStringLiteral("确定执行回零操作？"),
         QMessageBox::Yes | QMessageBox::No,
         QMessageBox::No
     );
