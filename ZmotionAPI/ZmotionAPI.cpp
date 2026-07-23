@@ -1723,7 +1723,6 @@ ZmotionResult ZmotionAPI::setAxisAccel(const QList<int>& axes, const QList<doubl
         QString firstErrorMessage;
         
         static QSet<QPair<int, double>> loggedPairs;
-        bool hasNewPair = false;
         
         // 遍历每个轴进行设置
         for (int i = 0; i < axes.size(); ++i) {
@@ -1749,8 +1748,6 @@ ZmotionResult ZmotionAPI::setAxisAccel(const QList<int>& axes, const QList<doubl
                 successAxes << QString("轴%1(值:%2)").arg(axis).arg(accelValue);
                 if (!loggedPairs.contains({axis, accelValue})) {
                     loggedPairs.insert({axis, accelValue});
-                    ZINFO << QString("成功设置轴%1的加速度为%2 units/s/s").arg(axis).arg(accelValue);
-                    hasNewPair = true;
                 }
             } else {
                 // 设置失败
@@ -1766,10 +1763,6 @@ ZmotionResult ZmotionAPI::setAxisAccel(const QList<int>& axes, const QList<doubl
         
         // 根据执行结果返回相应的状态
         if (failedAxes.isEmpty()) {
-            // 所有轴都成功设置
-            if (hasNewPair) {
-                ZINFO << QString("成功设置所有轴的加速度：%1").arg(successAxes.join(", "));
-            }
             return ZmotionResult(true, 0, QString("成功设置所有轴的加速度：%1").arg(successAxes.join(", ")));
         } else {
             // 部分轴设置失败
@@ -1829,7 +1822,6 @@ ZmotionResult ZmotionAPI::setAxisDecel(const QList<int>& axes, const QList<doubl
         QString firstErrorMessage;
         
         static QSet<QPair<int, double>> loggedPairs;
-        bool hasNewPair = false;
         
         // 遍历每个轴进行设置
         for (int i = 0; i < axes.size(); ++i) {
@@ -1855,8 +1847,6 @@ ZmotionResult ZmotionAPI::setAxisDecel(const QList<int>& axes, const QList<doubl
                 successAxes << QString("轴%1(值:%2)").arg(axis).arg(decelValue);
                 if (!loggedPairs.contains({axis, decelValue})) {
                     loggedPairs.insert({axis, decelValue});
-                    ZINFO << QString("成功设置轴%1的减速度为%2 units/s/s").arg(axis).arg(decelValue);
-                    hasNewPair = true;
                 }
             } else {
                 // 设置失败
@@ -1872,10 +1862,7 @@ ZmotionResult ZmotionAPI::setAxisDecel(const QList<int>& axes, const QList<doubl
         
         // 根据执行结果返回相应的状态
         if (failedAxes.isEmpty()) {
-            // 所有轴都成功设置
-            if (hasNewPair) {
-                ZINFO << QString("成功设置所有轴的减速度：%1").arg(successAxes.join(", "));
-            }
+            // 所有轴设置成功
             return ZmotionResult(true, 0, QString("成功设置所有轴的减速度：%1").arg(successAxes.join(", ")));
         } else {
             // 部分轴设置失败
@@ -1935,7 +1922,6 @@ ZmotionResult ZmotionAPI::setAxisSpeed(const QList<int>& axes, const QList<doubl
         QString firstErrorMessage;
         
         static QSet<QPair<int, double>> loggedPairs;
-        bool hasNewPair = false;
         
         // 遍历每个轴进行设置
         for (int i = 0; i < axes.size(); ++i) {
@@ -1962,8 +1948,6 @@ ZmotionResult ZmotionAPI::setAxisSpeed(const QList<int>& axes, const QList<doubl
                 successAxes << QString("轴%1(值:%2)").arg(axis).arg(speedValue);
                 if (!loggedPairs.contains({axis, speedValue})) {
                     loggedPairs.insert({axis, speedValue});
-                    ZINFO << QString("成功设置轴%1的速度为%2 units/s").arg(axis).arg(speedValue);
-                    hasNewPair = true;
                 }
             } else {
                 // 设置失败
@@ -1980,10 +1964,7 @@ ZmotionResult ZmotionAPI::setAxisSpeed(const QList<int>& axes, const QList<doubl
         
         // 根据执行结果返回相应的状态
         if (failedAxes.isEmpty()) {
-            // 所有轴都成功设置
-            if (hasNewPair) {
-                ZINFO << QString("成功设置所有轴的速度：%1").arg(successAxes.join(", "));
-            }
+            // 所有轴设置成功
             return ZmotionResult(true, 0, QString("成功设置所有轴的速度：%1").arg(successAxes.join(", ")));
         } else {
             // 部分轴设置失败
@@ -3434,7 +3415,6 @@ ZmotionResult ZmotionAPI::directMoveAbsolute(const QList<int>& axes, const QList
         qCritical() << result.errorMessage;
         return result;
     }
-    ZINFO << "设置主轴" << mainAxis << "插补速度:" << speed;
 
     // 设置插补加速度
     ret = ZAux_Direct_SetAccel(m_handle, mainAxis, accel);
@@ -3445,7 +3425,6 @@ ZmotionResult ZmotionAPI::directMoveAbsolute(const QList<int>& axes, const QList
         qCritical() << result.errorMessage;
         return result;
     }
-    ZINFO << "设置主轴" << mainAxis << "插补加速度:" << accel;
 
     // 设置插补减速度
     ret = ZAux_Direct_SetDecel(m_handle, mainAxis, decel);
@@ -3456,7 +3435,6 @@ ZmotionResult ZmotionAPI::directMoveAbsolute(const QList<int>& axes, const QList
         qCritical() << result.errorMessage;
         return result;
     }
-    ZINFO << "设置主轴" << mainAxis << "插补减速度:" << decel;
 
     // 转换Qt容器为C数组
     int axisCount = axes.size();

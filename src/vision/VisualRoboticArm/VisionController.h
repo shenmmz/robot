@@ -60,7 +60,7 @@ public:
      */
     void stop();
 
-    bool isRunning() const;
+    bool isRunning() const;//判断是否正在运行
 
     /**
      * @brief 获取 Python 项目目录路径

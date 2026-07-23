@@ -12,10 +12,12 @@
 #include "ui_PointAdjustDialog.h"
 #include "src/logic/RobotController.h"
 #include "src/logic/UiController.h"
+#include "src/vision/cs_vmcontrol/VisionRobotLink.h"
+#include "src/vision/cs_vmcontrol/vmcontrol.h"
+#include "src/vision/cs_vmcontrol/vmwindow/VmWindow.h"
 #include "src/hardware/Rs485Controller.h"
 #include "src/hardware/ServoController.h"
 #include "src/vision/VisualRoboticArm/VisionController.h"
-#include "src/vision/cs_vmcontrol/VisionMasterBridge.h"
 #include "src/models/RobotConfig.h"
 #include "src/models/RobotKinematics.h"
 #include "library/zmotion.h"
@@ -25,9 +27,12 @@
 #include <QApplication>
 #include <QElapsedTimer>
 #include <QMessageBox>
+#include <QAxWidget>
 #include <QThread>
 #include <QTimer>
+#include <QtConcurrent>
 #include <QLineEdit>
+#include <cmath>
 #include <functional>
 #include "ZmotionAPI/ZmotionAPI.h"
 #include "src/hardware/ServoController.h"
@@ -120,6 +125,7 @@ MainWindow::MainWindow(QWidget *parent)
     m_navGroup->addButton(ui->btnNavSettings, 4);// 设置页（第 4 个导航页）
     m_navGroup->addButton(ui->btnNavRs485, 5);// RS485 测试页（第 5 个导航页）
     m_navGroup->addButton(ui->btnNavVision, 6);      // 视觉运动（第 7 个导航页）
+    m_navGroup->addButton(ui->btnNavDraw, 7);  // 画板页
 
     // 默认显示"运行"页 (UI文件设置的是index=6，需纠正)
     ui->contentStack->setCurrentIndex(0);
@@ -146,60 +152,18 @@ MainWindow::MainWindow(QWidget *parent)
     // 视觉下发多轴指令：commands[i] = (axis 0-5, signed_angle_deg)
     connect(m_vision, &VisionController::motorCommands,      this, &MainWindow::onVisionMotorCommands);
 
-    // --- 视觉模块（QProcess 启动 CS-VMC-Dome.exe）---
-    m_vmBridge = new VisionMasterBridge(this);
-    qDebug() << "[MainWindow] VisionMasterBridge created (QProcess mode)";
-    connect(m_vmBridge, &VisionMasterBridge::processStarted, this,
-        [this]() {
-            m_vmRunning = true;
-            ui->btnVerifyVision->setText(QStringLiteral("关闭视觉"));
-            ui->btnVerifyVision->setEnabled(true);
-        });
-    connect(m_vmBridge, &VisionMasterBridge::processFinished, this,
-        [this](int exitCode) {
-            Q_UNUSED(exitCode)
-            m_vmRunning = false;
-            ui->btnVerifyVision->setText(QStringLiteral("执行验证"));
-            ui->btnVerifyVision->setEnabled(true);
-        });
-    connect(m_vmBridge, &VisionMasterBridge::logMessage, this,
-        [this](const QString &message) {
-            if (m_visionLogView) {
-                m_visionLogView->appendPlainText(QStringLiteral("[VM] %1").arg(message));
-            }
-        });
-    connect(m_vmBridge, &VisionMasterBridge::visionDataReceived, this,
-        [this](const QString &line) {
-            if (!m_visionLogView) return;
-            // 解析 VISION_* 格式的数据行
-            const QStringList parts = line.split(QLatin1Char('|'));
-            if (parts.isEmpty()) return;
-            const QString &type = parts[0];
+    // --- 视觉→机械臂联动 ---
+    m_visionLink = new VisionRobotLink(this);
 
-            if (type == QStringLiteral("VISION_POINT") && parts.size() >= 5) {
-                m_visionLogView->appendPlainText(
-                    QStringLiteral("[视觉点位] 流程:%1  x:%2  y:%3  r:%4")
-                        .arg(parts[1], parts[2], parts[3], parts[4]));
-            } else if (type == QStringLiteral("VISION_TARGET") && parts.size() >= 3) {
-                m_visionLogView->appendPlainText(
-                    QStringLiteral("[视觉目标] 流程:%1  数量:%2")
-                        .arg(parts[1], parts[2]));
-                for (int i = 3; i < parts.size(); ++i) {
-                    m_visionLogView->appendPlainText(
-                        QStringLiteral("  → 目标%1: %2").arg(i - 2).arg(parts[i]));
-                }
-            } else if (type == QStringLiteral("VISION_STATUS") && parts.size() >= 2) {
-                m_visionLogView->appendPlainText(
-                    QStringLiteral("[视觉状态] %1").arg(parts[1]));
-            } else if (type == QStringLiteral("VISION_PROCS") && parts.size() >= 2) {
-                m_visionLogView->appendPlainText(
-                    QStringLiteral("[流程列表] %1").arg(parts[1]));
-            } else {
-                m_visionLogView->appendPlainText(QStringLiteral("[视觉数据] %1").arg(line));
-            }
-        });
+    // 注册 Qt 元类型（跨线程信号槽安全）
+    qRegisterMetaType<VisionStatusEvent>("VisionStatusEvent");
+    qRegisterMetaType<VisionDataEvent>("VisionDataEvent");
+    qRegisterMetaType<VisionMessageEvent>("VisionMessageEvent");
 
-    // 连接"执行验证"按钮
+    // VmWindow 延迟创建：首次点击"视觉定位"时创建，内部管理 VMControl 和 ActiveX 渲染
+    // 按钮点击在 onBtnVerifyVision() 中处理
+
+    // 连接"视觉定位"按钮
     connect(ui->btnVerifyVision, &QPushButton::clicked, this, &MainWindow::onBtnVerifyVision);
 
     // 切换到手动编程页时强制刷新布局
@@ -739,12 +703,8 @@ void MainWindow::onHomingClicked()
  */
 void MainWindow::on_pushButton_6_clicked()
 {
-    qDebug() << "[功能测试按钮] 被点击";
-    if (!checkLoginGate()) {
-        qDebug() << "[功能测试按钮] 登录门禁未通过";
-        return;
-    }
-    qDebug() << "[功能测试按钮] 登录门禁通过，m_vision =" << m_vision;
+    qDebug() << "[视觉跟随按钮] 被点击";
+    qDebug() << "[视觉跟随按钮] m_vision =" << m_vision;
 
     if (!m_vision) {
         qDebug() << "[功能测试按钮] m_vision 为空";
@@ -754,6 +714,7 @@ void MainWindow::on_pushButton_6_clicked()
     qDebug() << "[功能测试按钮] m_vision->isRunning() =" << m_vision->isRunning();
     if (m_vision->isRunning()) {
         qDebug() << "[功能测试按钮] 停止视觉进程";
+        m_visionControlActive = false;
         m_vision->stop();
     } else {
         qDebug() << "[功能测试按钮] 启动视觉进程";
@@ -762,40 +723,130 @@ void MainWindow::on_pushButton_6_clicked()
 }
 
 /**
- * @brief 执行验证按钮：启动/关闭 CS-VMC-Dome.exe（QProcess 模式）
+ * @brief 拿水按钮：通过视觉定位水杯并控制机械臂抓取
  *
- * 两态切换：
- * 1. 进程未运行 → 启动 CS-VMC-Dome.exe
- * 2. 进程正在运行 → 终止进程
+ * 流程：
+ * 1. 防重复点击（禁用按钮）
+ * 2. 一次性连接 VisionRobotLink::targetReady（Qt::SingleShotConnection，拿完即断）
+ * 3. 视觉链路已在持续运行，直接等待下一次 targetReady 即可
+ * 4. targetReady 槽中：切换到笛卡尔模式 → moveL 直线插补移动到 (robotX, robotY)
+ * 5. 移动完成后恢复按钮
  */
-void MainWindow::onBtnVerifyVision()
+void MainWindow::on_btnGetWater_clicked()
 {
-    qDebug() << "=== onBtnVerifyVision clicked ===";
+    qDebug() << "[拿水按钮] 被点击";
 
-    if (!m_vmBridge) {
-        qDebug() << "  m_vmBridge is null!";
+    if (!checkLoginGate()) {
+        qDebug() << "[拿水按钮] 登录门禁未通过";
         return;
     }
 
-    if (m_vmBridge->isRunning()) {
-        qDebug() << "  terminating CS-VMC-Dome.exe";
-        ui->btnVerifyVision->setText(QStringLiteral("关闭中..."));
-        ui->btnVerifyVision->setEnabled(false);
-        m_vmBridge->terminate();
-    } else {
-        qDebug() << "  launching CS-VMC-Dome.exe";
-        ui->btnVerifyVision->setText(QStringLiteral("启动中..."));
-        ui->btnVerifyVision->setEnabled(false);
-        if (!m_vmBridge->launch()) {
-            // 启动失败，恢复按钮状态
-            ui->btnVerifyVision->setText(QStringLiteral("执行验证"));
-            ui->btnVerifyVision->setEnabled(true);
-            QMessageBox::warning(this, QStringLiteral("视觉验证"),
-                QStringLiteral("无法启动 CS-VMC-Dome.exe\n"
-                               "请确认可执行文件已复制到程序目录。"));
-        }
-        // 启动成功后按钮状态由 processStarted 信号回调更新
+    if (!m_vmWindow) {
+        QMessageBox::warning(this, QStringLiteral("视觉拿水"),
+            QStringLiteral("请先点击「视觉定位」启动视觉方案"));
+        return;
     }
+
+    if (!m_visionLink) {
+        QMessageBox::warning(this, QStringLiteral("视觉拿水"),
+            QStringLiteral("视觉联动模块未初始化"));
+        return;
+    }
+
+    if (!m_robotController || !m_robotController->isConnected()) {
+        QMessageBox::warning(this, QStringLiteral("视觉拿水"),
+            QStringLiteral("请先连接控制器"));
+        return;
+    }
+
+    // 防重复点击
+    ui->btnGetWater->setEnabled(false);
+    ui->statusbar->showMessage(QStringLiteral("拿水流程：等待视觉定位水杯..."));
+    if (m_visionLogView) {
+        m_visionLogView->appendPlainText(QStringLiteral("--- 拿水：等待视觉定位水杯 ---"));
+    }
+
+    // 一次性连接：拿到一次目标坐标后自动断开（Qt::SingleShotConnection）
+    auto conn = connect(m_visionLink, &VisionRobotLink::targetReady, this,
+        [this](double robotX, double robotY) {
+            qDebug() << "[拿水按钮] targetReady: robotX=" << robotX << " robotY=" << robotY;
+
+            if (m_visionLogView) {
+                m_visionLogView->appendPlainText(
+                    QStringLiteral("视觉目标: X=%1  Y=%2").arg(robotX, 0, 'f', 3).arg(robotY, 0, 'f', 3));
+            }
+
+            // 构造目标笛卡尔坐标：X/Y 来自视觉，Z/Rx/Ry/Rz 使用固定值
+            QList<double> cart = {
+                robotX,      // X：视觉定位
+                robotY,      // Y：视觉定位
+                308.047,     // Z：固定值
+                180.000,     // Rx：固定值
+                0.008,       // Ry：固定值
+                180.000      // Rz：固定值
+            };
+
+            const double speed = ui->debugSpeed->text().toDouble();
+            const double accel = ui->debugAccel->text().toDouble();
+            const double decel = ui->debugDecel->text().toDouble();
+
+            // 三段顺序移动：过渡点(Z=350) → 抓取点(Z=308.047) → 回到过渡点(Z=350)
+            QList<QList<double>> waypoints = {
+                {robotX, robotY, 350.000, 180.000, 0.008, 180.000},  // 过渡点
+                {robotX, robotY, 308.047, 180.000, 0.008, 180.000},  // 抓取点
+                {robotX, robotY, 350.000, 180.000, 0.008, 180.000}   // 回到过渡点
+            };
+
+            for (int i = 0; i < waypoints.size(); ++i) {
+                ui->statusbar->showMessage(QStringLiteral("拿水流程：移动到第 %1 段...").arg(i + 1));
+                m_robotController->moveL(waypoints[i], speed, accel, decel, 5000);
+            }
+
+            ui->statusbar->showMessage(QStringLiteral("拿水流程：已完成抓取并回到过渡点"));
+            if (m_visionLogView) {
+                m_visionLogView->appendPlainText(QStringLiteral("机械臂已完成抓取并回到过渡点"));
+            }
+
+            // 恢复按钮（一次性连接由 Qt::SingleShotConnection 自动断开）
+            ui->btnGetWater->setEnabled(true);//恢复按钮
+        }, Qt::SingleShotConnection);
+    Q_UNUSED(conn)
+}
+
+/**
+ * @brief 视觉定位按钮：创建/显示 VmWindow（含 ActiveX 渲染和方案控制）
+ */
+void MainWindow::onBtnVerifyVision()
+{
+    qDebug() << "[视觉定位按钮] 被点击";
+
+    // 延迟创建 VmWindow（首次点击时）
+    if (!m_vmWindow) {
+        m_vmWindow = new VmWindow();
+        qDebug() << "[MainWindow] VmWindow created";
+
+        // VMControl 结构化数据 → VisionRobotLink 滤波
+        connect(m_vmWindow->vmControl(), &VMControl::dataReady,
+                m_visionLink, &VisionRobotLink::onVisionDataEvent);
+
+        // VMControl 日志 → 视觉日志面板
+        connect(m_vmWindow->vmControl(), &VMControl::messageReady, this,
+            [this](const VisionMessageEvent& event) {
+                if (m_visionLogView)
+                    m_visionLogView->appendPlainText(QStringLiteral("[VM] %1").arg(event.message));
+            });
+
+        // VMControl 状态 → 状态标签
+        connect(m_vmWindow->vmControl(), &VMControl::statusChanged, this,
+            [this](const VisionStatusEvent& event) {
+                if (m_visionStatusLabel)
+                    m_visionStatusLabel->setText(userRoleToString(event.Status));
+            });
+    }
+
+    m_vmWindow->show();
+    m_vmWindow->raise();
+    m_vmWindow->activateWindow();
 }
 
 /**
@@ -826,6 +877,17 @@ void MainWindow::onBtnStop()
  */
 void MainWindow::onBtnShutdown()
 {
+    // 关机确认对话框
+    QMessageBox::StandardButton reply = QMessageBox::question(
+        this,
+        QStringLiteral("确认关机"),
+        QStringLiteral("确定要执行关机操作吗？"),
+        QMessageBox::Ok | QMessageBox::Cancel,
+        QMessageBox::Cancel);
+    if (reply != QMessageBox::Ok) {
+        return;
+    }
+
     // 防重复触发
     ui->btnShutdown->setEnabled(false);
 
@@ -1054,9 +1116,17 @@ void MainWindow::onGetCart()
 void MainWindow::onNavButtonClicked(int index)
 {
     ui->contentStack->setCurrentIndex(index);
-    const QString names[] = {"运行", "程序编程", "IO 监控", "报警日志", "设置", "通信", "视觉运动"};
-    if (index >= 0 && index < 7)
+    const QString names[] = {"运行", "程序编程", "IO 监控", "报警日志", "设置", "通信", "视觉运动", "画板"};
+    if (index >= 0 && index < 8)
         ui->statusbar->showMessage(QStringLiteral("切换到: %1").arg(names[index]));
+
+    if (index == 7) {
+        if (!m_drawingWindow) {
+            m_drawingWindow = new DrawingWindow(this);
+            ui->contentStack->addWidget(m_drawingWindow);
+        }
+        ui->contentStack->setCurrentWidget(m_drawingWindow);
+    }
 }
 
 // ==================== RS485通信 ====================
@@ -2645,7 +2715,12 @@ void MainWindow::showPointAdjustDialog(bool isJoint)
 void MainWindow::onVisionStarted()
 {
 //     qDebug() << "[MainWindow] 视觉程序已启动";
-    ui->pushButton_6->setText(QStringLiteral("停止测试"));
+    m_visionControlActive = true;
+    ui->pushButton_6->setText(QStringLiteral("停止跟随"));
+    if (ui->visionGlobalSpeedBar)
+        ui->visionGlobalSpeedBar->setVisible(true);
+    if (ui->visionAxisGroup)
+        ui->visionAxisGroup->setVisible(true);
     if (m_visionStatusLabel) {
         m_visionStatusLabel->setText(QStringLiteral("视觉程序：运行中 (页签已切到【视觉运动】即可驱动)"));
     }
@@ -2657,9 +2732,11 @@ void MainWindow::onVisionStarted()
 void MainWindow::onVisionStopped(int exitCode)
 {
 //     qDebug() << "[MainWindow] 视觉程序已退出，exitCode=" << exitCode;
-    ui->pushButton_6->setText(QStringLiteral("功能测试"));
+    m_visionControlActive = false;
+    m_axisValueBuffer.clear();
+    ui->pushButton_6->setText(QStringLiteral("视觉跟随"));
     if (m_visionStatusLabel) {
-        m_visionStatusLabel->setText(QStringLiteral("视觉程序：已停止 (由左侧【功能测试】按钮启动)"));
+        m_visionStatusLabel->setText(QStringLiteral("视觉程序：已停止 (点击上方按钮启动)"));
     }
     if (m_visionLogView) {
         m_visionLogView->appendPlainText(
@@ -2670,7 +2747,13 @@ void MainWindow::onVisionStopped(int exitCode)
 void MainWindow::onVisionError(const QString &error)
 {
     qWarning() << "[MainWindow] 视觉程序错误:" << error;
-    ui->pushButton_6->setText(QStringLiteral("功能测试"));
+    m_visionControlActive = false;
+    m_axisValueBuffer.clear();
+    ui->pushButton_6->setText(QStringLiteral("视觉跟随"));
+    if (ui->visionGlobalSpeedBar)
+        ui->visionGlobalSpeedBar->setVisible(false);
+    if (ui->visionAxisGroup)
+        ui->visionAxisGroup->setVisible(false);
 }
 
 void MainWindow::onVisionMessage(const QString &channel, const QString &line)
@@ -2696,6 +2779,7 @@ void MainWindow::onVisionMotorCommands(const QList<QPair<int, double>>& commands
 {
 //     qDebug() << "[MainWindow] onVisionMotorCommands n=" << commands.size();
     if (commands.isEmpty()) return;
+    if (!m_visionControlActive) return;
     if (!m_robotController || !m_robotController->isConnected()) {
         qWarning() << "[MainWindow] 视觉多轴指令未执行：控制器未连接";
         return;
@@ -2714,44 +2798,62 @@ void MainWindow::onVisionMotorCommands(const QList<QPair<int, double>>& commands
             continue;
         }
 
-        // 独立防抖：每轴的相同 angle 需连续出现 kVisionConfirmCount 次才认为稳定
-        const double lastAngle = m_lastVisionAnglePerAxis.value(axis, 1e9);
-        int& cnt = m_visionConsecutiveCountPerAxis[axis];
-        if (qAbs(angle - lastAngle) < 1e-6) {
-            cnt++;
-        } else {
-            m_lastVisionAnglePerAxis[axis] = angle;
-            cnt = 1;
+        // 滑动窗口滤波：窗口填满后计算标准差，低于阈值才下发均值
+        QList<double>& buf = m_axisValueBuffer[axis];
+        buf.append(angle);
+        if (buf.size() < kWindowSize) {
             continue;
         }
-        if (cnt < kVisionConfirmCount) {
+        if (buf.size() > kWindowSize) {
+            buf.removeFirst();
+        }
+
+        // 计算均值和标准差
+        double sum = 0.0;
+        for (double v : buf) sum += v;
+        const double mean = sum / kWindowSize;
+        double sqSum = 0.0;
+        for (double v : buf) {
+            const double d = v - mean;
+            sqSum += d * d;
+        }
+        const double stddev = std::sqrt(sqSum / kWindowSize);
+
+        if (stddev > kStdDevThreshold) {
+            // 波动太大，清空窗口重新积累
+            buf.clear();
             continue;
         }
 
-        // 节流：达到确认次数后首次立即下发，后续按 500ms 间隔
+        // 节流：稳定后按 500ms 间隔下发均值
         const qint64 nowMs = QDateTime::currentMSecsSinceEpoch();
         const qint64 lastMs = m_lastVisionSendMsPerAxis.value(axis, 0);
-        if (cnt > kVisionConfirmCount && (nowMs - lastMs) < 500) {
+        if ((nowMs - lastMs) < 500) {
             continue;
         }
 
+        const double outAngle = mean;
         const double speed = m_axisSpeed[axis];
-        if (!m_robotController->jogJoint(axis, angle, speed, 50.0, 60.0)) {
-            qWarning() << "[MainWindow] jogJoint(" << axis << ", " << angle << ") 失败";
+        if (!m_robotController->jogJoint(axis, outAngle, speed, 50.0, 60.0)) {
+            qWarning() << "[MainWindow] jogJoint(" << axis << ", " << outAngle << ") 失败";
             continue;
         }
         m_lastVisionSendMsPerAxis[axis] = nowMs;
 
         // 更新 UI：角度标签 + 日志
         if (m_axisAngleLabels[axis]) {
-            const QString sign = angle >= 0 ? QStringLiteral("+") : QString();
+            const QString sign = outAngle >= 0 ? QStringLiteral("+") : QString();
             m_axisAngleLabels[axis]->setText(
-                QStringLiteral("%1%2°").arg(sign).arg(angle, 0, 'f', 3));
+                QStringLiteral("%1%2°").arg(sign).arg(outAngle, 0, 'f', 3));
         }
         if (m_visionLogView) {
-            const QString sign = angle >= 0 ? QStringLiteral("+") : QString();
-            m_visionLogView->appendPlainText(
-                QStringLiteral("J%1 → %2%3°").arg(axis).arg(sign).arg(angle, 0, 'f', 3));
+            const double lastLogged = m_lastVisionLoggedAnglePerAxis.value(axis, 1e9);
+            if (qAbs(outAngle - lastLogged) > 1e-6) {
+                m_lastVisionLoggedAnglePerAxis[axis] = outAngle;
+                const QString sign = outAngle >= 0 ? QStringLiteral("+") : QString();
+                m_visionLogView->appendPlainText(
+                    QStringLiteral("J%1 → %2%3°").arg(axis).arg(sign).arg(outAngle, 0, 'f', 3));
+            }
         }
     }
 }
@@ -2876,8 +2978,13 @@ void MainWindow::initVisionControlUI()
     // 状态标签与日志视图（.ui 已创建好，wire 到成员指针）
     m_visionStatusLabel = ui->lblVisionStatus;
     m_visionLogView = ui->visionLogView;
+    if (ui->btnClearVisionLog) {
+        connect(ui->btnClearVisionLog, &QPushButton::clicked, this, [this]() {
+            if (m_visionLogView) m_visionLogView->clear();
+        });
+    }
     if (m_visionStatusLabel) {
-        m_visionStatusLabel->setText(QStringLiteral("视觉程序：已停止 (由左侧【功能测试】按钮启动)"));
+        m_visionStatusLabel->setText(QStringLiteral("视觉程序：已停止 (点击上方按钮启动)"));
     }
 
     // 顶部总速度 SpinBox + "应用到全部轴" 按钮
@@ -2886,6 +2993,12 @@ void MainWindow::initVisionControlUI()
         connect(ui->btnVisionApplySpeed, &QPushButton::clicked,
                 this, &MainWindow::onApplyGlobalSpeedClicked);
     }
+
+    // 初始隐藏关节控制面板，仅在视觉启动后显示
+    if (ui->visionGlobalSpeedBar)
+        ui->visionGlobalSpeedBar->setVisible(false);
+    if (ui->visionAxisGroup)
+        ui->visionAxisGroup->setVisible(false);
 }
 
 // ==================== 开发者账号管理 ====================
@@ -2981,6 +3094,7 @@ void MainWindow::onBtnLogin()
 
     QLineEdit *editUser = new QLineEdit(&dlg);
     editUser->setPlaceholderText(QStringLiteral("账号"));
+    editUser->setText(QStringLiteral("admin"));
     editUser->setStyleSheet("border:1px solid #ccc;border-radius:4px;padding:4px 8px;font-size:12px;min-height:24px;");
 
     QLineEdit *editPwd = new QLineEdit(&dlg);
@@ -3055,4 +3169,15 @@ bool MainWindow::checkLoginGate()
     QMessageBox::warning(this, QStringLiteral("需要登录"),
                          QStringLiteral("请先在「开发者」面板中登录账号后使用此功能"));
     return false;
+}
+
+void MainWindow::initVisionAutoLoad()
+{
+    if (!m_vmWindow) {
+        m_vmWindow = new VmWindow();
+        connect(m_vmWindow->vmControl(), &VMControl::dataReady,
+                m_visionLink, &VisionRobotLink::onVisionDataEvent);
+    }
+    // VmWindow 内部提供完整方案加载和执行界面，用户手动操作
+    m_vmWindow->show();
 }

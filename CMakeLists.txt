@@ -12,7 +12,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # 查找 Qt Widgets 模块，优先使用 Qt6，如果没有则回退到 Qt5。
 find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS Widgets)
-find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Widgets SerialPort Network)
+find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Widgets SerialPort Network Concurrent AxContainer)
 
 # 根 CMakeLists 必须保持简洁，大型项目应使用子目录模块。
 add_subdirectory(library)
@@ -25,6 +25,13 @@ set(PROJECT_SOURCES
     mainwindow.h
     mainwindow.ui
     PointAdjustDialog.ui
+    src/draw/drawing_window.cpp
+    src/draw/drawing_window.h
+    src/draw/WorkPieceCoord.cpp
+    src/draw/WorkPieceCoord.h
+    src/vision/cs_vmcontrol/vmwindow/VmWindow.cpp
+    src/vision/cs_vmcontrol/vmwindow/VmWindow.h
+    src/vision/cs_vmcontrol/vmwindow/VmWindow.ui
 )
 
 
@@ -54,19 +61,26 @@ endif()
 target_link_libraries(Robot_R06 PRIVATE
     Qt${QT_VERSION_MAJOR}::Widgets
     Qt${QT_VERSION_MAJOR}::Network
+    Qt${QT_VERSION_MAJOR}::Concurrent
     robot_models
     robot_hardware
     robot_logic
     robot_utils
     robot_ui
     robot_vision         # 外部 VisualRoboticArmQtController.exe 子进程管理
-    vm_control           # 视觉桥接模块（QProcess 启动 CS-VMC-Dome.exe）
+    vm_control           # VisionMaster SDK 静态库集成
+    Qt${QT_VERSION_MAJOR}::AxContainer  # QAxWidget（VM SDK OpenGL 初始化链依赖）
     zmotion_sdk
 )
 
 target_include_directories(Robot_R06 PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}
 )
+
+# VM SDK 头文件为 GBK 编码，全局屏蔽 C4828（编码）/C4091（typedef 冗余）无害警告
+if(MSVC)
+    target_compile_options(Robot_R06 PRIVATE /wd4828 /wd4091)
+endif()
 
 # Qt 6.1 之后，iOS 平台会自动设置 MACOSX_BUNDLE_GUI_IDENTIFIER。
 # 如果你是开发 iOS 或 macOS 应用，建议手动设置一个固定的 bundle identifier。
@@ -114,21 +128,21 @@ foreach(SDK_FILE ${SDK_FILES})
 endforeach()
 
 # ============================================================
-# CS-VMC-Dome.exe 复制到构建输出目录（视觉模块独立进程）
+# CS-VMC-Dome.exe 复制已禁用：视觉定位已改用 VMControl SDK 静态库，不再需要独立 exe
 # ============================================================
-set(CS_VMC_BUILD_DIR ${CMAKE_SOURCE_DIR}/external/CS-VMC-Dome/build/Desktop_Qt_6_9_0_MSVC2022_64bit-Release)
-set(CS_VMC_EXE ${CS_VMC_BUILD_DIR}/CS-VMC-Dome.exe)
-
-if(EXISTS "${CS_VMC_EXE}")
-    add_custom_command(TARGET Robot_R06 POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E copy_if_different
-            "${CS_VMC_EXE}"
-            "$<TARGET_FILE_DIR:Robot_R06>/CS-VMC-Dome.exe"
-        COMMENT "Copying CS-VMC-Dome.exe to build output"
-    )
-else()
-    message(WARNING "CS-VMC-Dome.exe not found: ${CS_VMC_EXE}. Please build CS-VMC-Dome first.")
-endif()
+# set(CS_VMC_BUILD_DIR ${CMAKE_SOURCE_DIR}/external/CS-VMC-Dome/build/Desktop_Qt_6_9_0_MSVC2022_64bit-Release)
+# set(CS_VMC_EXE ${CS_VMC_BUILD_DIR}/CS-VMC-Dome.exe)
+#
+# if(EXISTS "${CS_VMC_EXE}")
+#     add_custom_command(TARGET Robot_R06 POST_BUILD
+#         COMMAND ${CMAKE_COMMAND} -E copy_if_different
+#             "${CS_VMC_EXE}"
+#             "$<TARGET_FILE_DIR:Robot_R06>/CS-VMC-Dome.exe"
+#         COMMENT "Copying CS-VMC-Dome.exe to build output"
+#     )
+# else()
+#     message(WARNING "CS-VMC-Dome.exe not found: ${CS_VMC_EXE}. Please build CS-VMC-Dome first.")
+# endif()
 
 # 复制 CS-VMC-Dome 运行时依赖 DLL
 foreach(DLL_FILE MultiCard.dll my_cross_platform.dll)
@@ -141,6 +155,17 @@ foreach(DLL_FILE MultiCard.dll my_cross_platform.dll)
         )
     endif()
 endforeach()
+
+# 复制 my_cross_platform.dll（VisionMaster SDK 运行时，静态库集成需要）
+set(VM_SDK_BIN_DIR ${CMAKE_SOURCE_DIR}/external/CS-VMC-Dome/libs/VisonMaster_SDK4.4/bin)
+if(EXISTS "${VM_SDK_BIN_DIR}/my_cross_platform.dll")
+    add_custom_command(TARGET Robot_R06 POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "${VM_SDK_BIN_DIR}/my_cross_platform.dll"
+            "$<TARGET_FILE_DIR:Robot_R06>/my_cross_platform.dll"
+        COMMENT "Copying my_cross_platform.dll (VM SDK) to build output"
+    )
+endif()
 
 # 复制 VisionMaster myLibs 目录（SDK ActiveX 控件运行时依赖）
 set(VM_APPS_DIR "C:/Program Files/VisionMaster4.4.0/Applications")

@@ -422,6 +422,27 @@ QPushButton:checked{background:rgba(21,101,192,0.18);color:#fff;border-left:3px 
                                             </widget>
                                         </item>
                                         <item>
+                                            <widget class="QPushButton" name="btnNavDraw">
+                                                <property name="minimumSize">
+                                                    <size>
+                                                        <width>0</width>
+                                                        <height>56</height>
+                                                    </size>
+                                                </property>
+                                                <property name="styleSheet">
+                                                    <string>QPushButton{background:transparent;color:#b0bec5;border:none;border-left:3px solid transparent;text-align:left;padding:10px 14px 10px 6px;font-size:14px;}
+QPushButton:hover{background:rgba(255,255,255,0.06);color:#cfd8dc;}
+QPushButton:checked{background:rgba(21,101,192,0.18);color:#fff;border-left:3px solid #1565c0;font-weight:bold;}</string>
+                                                </property>
+                                                <property name="text">
+                                                    <string>  ▸ 画  板</string>
+                                                </property>
+                                                <property name="checkable">
+                                                    <bool>true</bool>
+                                                </property>
+                                            </widget>
+                                        </item>
+                                        <item>
                                             <spacer name="sideSpacer">
                                                 <property name="orientation">
                                                     <enum>Qt::Orientation::Vertical</enum>
@@ -461,7 +482,7 @@ QPushButton:checked{background:rgba(21,101,192,0.18);color:#fff;border-left:3px 
                                     <widget class="QWidget" name="pageRun">
                                         <layout class="QVBoxLayout" name="pageRunVLayout">
                                             <item>
-                                                <layout class="QHBoxLayout" name="pageRunLayout" stretch="0,5,0,5,0">
+                                                <layout class="QHBoxLayout" name="pageRunLayout" stretch="0,5,2,5,0">
                                                     <property name="spacing">
                                                         <number>8</number>
                                                     </property>
@@ -1530,6 +1551,12 @@ QPushButton:checked{background:rgba(21,101,192,0.18);color:#fff;border-left:3px 
                                                     </item>
                                                     <item>
                                                         <widget class="QGroupBox" name="devGroupBox">
+                                                            <property name="minimumSize">
+                                                                <size>
+                                                                    <width>150</width>
+                                                                    <height>0</height>
+                                                                </size>
+                                                            </property>
                                                             <property name="styleSheet">
                                                                 <string>QGroupBox{background:#ffffff;border:2px solid #1e3a8a;border-radius:0;margin-top:14px;} QGroupBox::title{subcontrol-origin:margin;left:12px;padding:0 4px;color:#1e3a8a;font-weight:bold;}</string>
                                                             </property>
@@ -1557,12 +1584,12 @@ QPushButton:checked{background:rgba(21,101,192,0.18);color:#fff;border-left:3px 
                                                                     <widget class="QPushButton" name="btnLogin">
                                                                         <property name="minimumSize">
                                                                             <size>
-                                                                                <width>60</width>
-                                                                                <height>28</height>
+                                                                                <width>48</width>
+                                                                                <height>48</height>
                                                                             </size>
                                                                         </property>
                                                                         <property name="styleSheet">
-                                                                            <string>QPushButton{font-size:12px;font-weight:bold;min-height:28px;border-radius:4px;background:#f0f6fc;color:#2c62b3;border-top:2px solid #fff;border-left:2px solid #fff;border-bottom:3px solid #4078c0;border-right:3px solid #4078c0;} QPushButton:hover{background:#e1edfb;} QPushButton:pressed{background:#e1edfb;color:#2c62b3;border-top:3px solid #4078c0;border-left:3px solid #4078c0;border-bottom:2px solid #fff;border-right:2px solid #fff;}</string>
+                                                                            <string>QPushButton{font-size:13px;font-weight:bold;min-width:48px;min-height:48px;max-width:48px;max-height:48px;border-radius:6px;background:#f0f6fc;color:#2c62b3;border-top:2px solid #fff;border-left:2px solid #fff;border-bottom:3px solid #4078c0;border-right:3px solid #4078c0;} QPushButton:hover{background:#e1edfb;} QPushButton:pressed{background:#e1edfb;color:#2c62b3;border-top:3px solid #4078c0;border-left:3px solid #4078c0;border-bottom:2px solid #fff;border-right:2px solid #fff;}</string>
                                                                         </property>
                                                                         <property name="text">
                                                                             <string>登录</string>
@@ -1621,45 +1648,6 @@ QPushButton:checked{background:rgba(21,101,192,0.18);color:#fff;border-left:3px 
                                                                                 </widget>
                                                                             </item>
                                                                             <item>
-                                                                                <layout class="QVBoxLayout" name="oldModeBtnRow">
-                                                                                    <item>
-                                                                                        <widget class="QPushButton" name="pushButton_2">
-                                                                                            <property name="minimumSize">
-                                                                                                <size>
-                                                                                                    <width>44</width>
-                                                                                                    <height>24</height>
-                                                                                                </size>
-                                                                                            </property>
-                                                                                            <property name="styleSheet">
-                                                                                                <string>QPushButton{font-size:14px;font-weight:bold;min-height:32px;border-radius:4px;background:#f0f6fc;color:#2c62b3;border-top:2px solid #fff;border-left:2px solid #fff;border-bottom:3px solid #4078c0;border-right:3px solid #4078c0;} QPushButton:hover{background:#e1edfb;} QPushButton:pressed{background:#e1edfb;color:#2c62b3;border-top:3px solid #4078c0;border-left:3px solid #4078c0;border-bottom:2px solid #fff;border-right:2px solid #fff;}</string>
-                                                                                            </property>
-                                                                                            <property name="text">
-                                                                                                <string>正解</string>
-                                                                                            </property>
-                                                                                        </widget>
-                                                                                    </item>
-                                                                                    <item>
-                                                                                        <widget class="QPushButton" name="pushButton_3">
-                                                                                            <property name="minimumSize">
-                                                                                                <size>
-                                                                                                    <width>44</width>
-                                                                                                    <height>24</height>
-                                                                                                </size>
-                                                                                            </property>
-                                                                                            <property name="styleSheet">
-                                                                                                <string>QPushButton{font-size:14px;font-weight:bold;min-height:32px;border-radius:4px;background:#f0f6fc;color:#2c62b3;border-top:2px solid #fff;border-left:2px solid #fff;border-bottom:3px solid #4078c0;border-right:3px solid #4078c0;} QPushButton:hover{background:#e1edfb;} QPushButton:pressed{background:#e1edfb;color:#2c62b3;border-top:3px solid #4078c0;border-left:3px solid #4078c0;border-bottom:2px solid #fff;border-right:2px solid #fff;}</string>
-                                                                                            </property>
-                                                                                            <property name="text">
-                                                                                                <string>逆解</string>
-                                                                                            </property>
-                                                                                        </widget>
-                                                                                    </item>
-                                                                                </layout>
-                                                                            </item>
-                                                                            <property name="spacing">
-                                                                                <number>4</number>
-                                                                            </property>
-                                                                            <item>
                                                                                 <widget class="QLabel" name="toolTitle">
                                                                                     <property name="visible">
                                                                                         <bool>false</bool>
@@ -1673,52 +1661,102 @@ QPushButton:checked{background:rgba(21,101,192,0.18);color:#fff;border-left:3px 
                                                                                 </widget>
                                                                             </item>
                                                                             <item>
-                                                                                <widget class="QPushButton" name="pushButton">
-                                                                                    <property name="minimumSize">
-                                                                                        <size>
-                                                                                            <width>0</width>
-                                                                                            <height>26</height>
-                                                                                        </size>
+                                                                                <layout class="QHBoxLayout" name="buttonRow">
+                                                                                    <property name="spacing">
+                                                                                        <number>4</number>
                                                                                     </property>
-                                                                                    <property name="styleSheet">
-                                                                                        <string>QPushButton{font-size:14px;font-weight:bold;min-height:32px;border-radius:4px;background:#f0f6fc;color:#2c62b3;border-top:2px solid #fff;border-left:2px solid #fff;border-bottom:3px solid #4078c0;border-right:3px solid #4078c0;} QPushButton:hover{background:#e1edfb;} QPushButton:pressed{background:#e1edfb;color:#2c62b3;border-top:3px solid #4078c0;border-left:3px solid #4078c0;border-bottom:2px solid #fff;border-right:2px solid #fff;}</string>
-                                                                                    </property>
-                                                                                    <property name="text">
-                                                                                        <string>验证建模</string>
-                                                                                    </property>
-                                                                                </widget>
-                                                                            </item>
-                                                                            <item>
-                                                                                <widget class="QPushButton" name="pushButton_6">
-                                                                                    <property name="minimumSize">
-                                                                                        <size>
-                                                                                            <width>0</width>
-                                                                                            <height>26</height>
-                                                                                        </size>
-                                                                                    </property>
-                                                                                    <property name="styleSheet">
-                                                                                        <string>QPushButton{font-size:14px;font-weight:bold;min-height:32px;border-radius:4px;background:#f0f6fc;color:#2c62b3;border-top:2px solid #fff;border-left:2px solid #fff;border-bottom:3px solid #4078c0;border-right:3px solid #4078c0;} QPushButton:hover{background:#e1edfb;} QPushButton:pressed{background:#e1edfb;color:#2c62b3;border-top:3px solid #4078c0;border-left:3px solid #4078c0;border-bottom:2px solid #fff;border-right:2px solid #fff;}</string>
-                                                                                    </property>
-                                                                                    <property name="text">
-                                                                                        <string>功能测试</string>
-                                                                                    </property>
-                                                                                </widget>
-                                                                            </item>
-                                                                            <item>
-                                                                                <widget class="QPushButton" name="btnVerifyVision">
-                                                                                    <property name="minimumSize">
-                                                                                        <size>
-                                                                                            <width>60</width>
-                                                                                            <height>28</height>
-                                                                                        </size>
-                                                                                    </property>
-                                                                                    <property name="styleSheet">
-                                                                                        <string>QPushButton{font-size:12px;font-weight:bold;min-height:28px;border-radius:4px;background:#f0f6fc;color:#2c62b3;border-top:2px solid #fff;border-left:2px solid #fff;border-bottom:3px solid #4078c0;border-right:3px solid #4078c0;} QPushButton:hover{background:#e1edfb;} QPushButton:pressed{background:#e1edfb;color:#2c62b3;border-top:3px solid #4078c0;border-left:3px solid #4078c0;border-bottom:2px solid #fff;border-right:2px solid #fff;}</string>
-                                                                                    </property>
-                                                                                    <property name="text">
-                                                                                        <string>执行验证</string>
-                                                                                    </property>
-                                                                                </widget>
+                                                                                    <item>
+                                                                                        <layout class="QVBoxLayout" name="leftCol">
+                                                                                            <property name="spacing">
+                                                                                                <number>4</number>
+                                                                                            </property>
+                                                                                            <item>
+                                                                                                <widget class="QPushButton" name="pushButton_2">
+                                                                                                    <property name="minimumSize">
+                                                                                                        <size>
+                                                                                                            <width>48</width>
+                                                                                                            <height>48</height>
+                                                                                                        </size>
+                                                                                                    </property>
+                                                                                                    <property name="styleSheet">
+                                                                                                        <string>QPushButton{font-size:13px;font-weight:bold;min-width:48px;min-height:48px;max-width:48px;max-height:48px;border-radius:6px;background:#f0f6fc;color:#2c62b3;border-top:2px solid #fff;border-left:2px solid #fff;border-bottom:3px solid #4078c0;border-right:3px solid #4078c0;} QPushButton:hover{background:#e1edfb;} QPushButton:pressed{background:#e1edfb;color:#2c62b3;border-top:3px solid #4078c0;border-left:3px solid #4078c0;border-bottom:2px solid #fff;border-right:2px solid #fff;}</string>
+                                                                                                    </property>
+                                                                                                    <property name="text">
+                                                                                                        <string>正解</string>
+                                                                                                    </property>
+                                                                                                </widget>
+                                                                                            </item>
+                                                                                            <item>
+                                                                                                <widget class="QPushButton" name="pushButton_3">
+                                                                                                    <property name="minimumSize">
+                                                                                                        <size>
+                                                                                                            <width>48</width>
+                                                                                                            <height>48</height>
+                                                                                                        </size>
+                                                                                                    </property>
+                                                                                                    <property name="styleSheet">
+                                                                                                        <string>QPushButton{font-size:13px;font-weight:bold;min-width:48px;min-height:48px;max-width:48px;max-height:48px;border-radius:6px;background:#f0f6fc;color:#2c62b3;border-top:2px solid #fff;border-left:2px solid #fff;border-bottom:3px solid #4078c0;border-right:3px solid #4078c0;} QPushButton:hover{background:#e1edfb;} QPushButton:pressed{background:#e1edfb;color:#2c62b3;border-top:3px solid #4078c0;border-left:3px solid #4078c0;border-bottom:2px solid #fff;border-right:2px solid #fff;}</string>
+                                                                                                    </property>
+                                                                                                    <property name="text">
+                                                                                                        <string>逆解</string>
+                                                                                                    </property>
+                                                                                                </widget>
+                                                                                            </item>
+                                                                                            <item>
+                                                                                                <widget class="QPushButton" name="btnGetWater">
+                                                                                                    <property name="minimumSize">
+                                                                                                        <size>
+                                                                                                            <width>110</width>
+                                                                                                            <height>36</height>
+                                                                                                        </size>
+                                                                                                    </property>
+                                                                                                    <property name="maximumSize">
+                                                                                                        <size>
+                                                                                                            <width>110</width>
+                                                                                                            <height>36</height>
+                                                                                                        </size>
+                                                                                                    </property>
+                                                                                                    <property name="font">
+                                                                                                        <font>
+                                                                                                            <family>Microsoft YaHei UI</family>
+                                                                                                            <pointsize>11</pointsize>
+                                                                                                            <bold>true</bold>
+                                                                                                        </font>
+                                                                                                    </property>
+                                                                                                    <property name="cursor">
+                                                                                                        <cursorShape>PointingHandCursor</cursorShape>
+                                                                                                    </property>
+                                                                                                    <property name="text">
+                                                                                                        <string>拿水</string>
+                                                                                                    </property>
+                                                                                                </widget>
+                                                                                            </item>
+                                                                                        </layout>
+                                                                                    </item>
+                                                                                    <item>
+                                                                                        <layout class="QVBoxLayout" name="rightCol">
+                                                                                            <property name="spacing">
+                                                                                                <number>4</number>
+                                                                                            </property>
+                                                                                            <item>
+                                                                                                <widget class="QPushButton" name="pushButton">
+                                                                                                    <property name="minimumSize">
+                                                                                                        <size>
+                                                                                                            <width>72</width>
+                                                                                                            <height>48</height>
+                                                                                                        </size>
+                                                                                                    </property>
+                                                                                                    <property name="styleSheet">
+                                                                                                        <string>QPushButton{font-size:13px;font-weight:bold;min-width:72px;min-height:48px;max-width:72px;max-height:48px;border-radius:6px;background:#f0f6fc;color:#2c62b3;border-top:2px solid #fff;border-left:2px solid #fff;border-bottom:3px solid #4078c0;border-right:3px solid #4078c0;} QPushButton:hover{background:#e1edfb;} QPushButton:pressed{background:#e1edfb;color:#2c62b3;border-top:3px solid #4078c0;border-left:3px solid #4078c0;border-bottom:2px solid #fff;border-right:2px solid #fff;}</string>
+                                                                                                    </property>
+                                                                                                    <property name="text">
+                                                                                                        <string>验证建模</string>
+                                                                                                    </property>
+                                                                                                </widget>
+                                                                                            </item>
+                                                                                        </layout>
+                                                                                    </item>
+                                                                                </layout>
                                                                             </item>
                                                                         </layout>
                                                                     </widget>
@@ -5968,6 +6006,84 @@ QPushButton:pressed{background:#0d47a1;}</string>
                                                 </widget>
                                             </item>
                                             <item>
+                                             <layout class="QHBoxLayout" name="visionControlButtonRow">
+                                              <property name="spacing">
+                                               <number>12</number>
+                                              </property>
+                                              <item>
+                                               <widget class="QPushButton" name="pushButton_6">
+                                                <property name="minimumSize">
+                                                 <size>
+                                                  <width>110</width>
+                                                  <height>36</height>
+                                                 </size>
+                                                </property>
+                                                <property name="maximumSize">
+                                                 <size>
+                                                  <width>110</width>
+                                                  <height>36</height>
+                                                 </size>
+                                                </property>
+                                                <property name="font">
+                                                 <font>
+                                                  <family>Microsoft YaHei UI</family>
+                                                  <pointsize>11</pointsize>
+                                                  <bold>true</bold>
+                                                 </font>
+                                                </property>
+                                                <property name="cursor">
+                                                 <cursorShape>PointingHandCursor</cursorShape>
+                                                </property>
+                                                <property name="text">
+                                                 <string>视觉跟随</string>
+                                                </property>
+                                               </widget>
+                                              </item>
+                                              <item>
+                                               <widget class="QPushButton" name="btnVerifyVision">
+                                                <property name="minimumSize">
+                                                 <size>
+                                                  <width>110</width>
+                                                  <height>36</height>
+                                                 </size>
+                                                </property>
+                                                <property name="maximumSize">
+                                                 <size>
+                                                  <width>110</width>
+                                                  <height>36</height>
+                                                 </size>
+                                                </property>
+                                                <property name="font">
+                                                 <font>
+                                                  <family>Microsoft YaHei UI</family>
+                                                  <pointsize>11</pointsize>
+                                                  <bold>true</bold>
+                                                 </font>
+                                                </property>
+                                                <property name="cursor">
+                                                 <cursorShape>PointingHandCursor</cursorShape>
+                                                </property>
+                                                <property name="text">
+                                                 <string>执行验证</string>
+                                                </property>
+                                               </widget>
+                                              </item>
+                                              <item>
+                                               <spacer name="visionControlButtonSpacer">
+                                                <property name="orientation">
+                                                 <enum>Qt::Horizontal</enum>
+                                                </property>
+                                                <property name="sizeHint" stdset="0">
+                                                 <size>
+                                                  <width>40</width>
+                                                  <height>20</height>
+                                                 </size>
+                                                </property>
+                                               </spacer>
+                                              </item>
+                                             </layout>
+                                            </item>
+                                            <item>
                                                 <widget class="QGroupBox" name="visionAxisGroup">
                                                     <property name="styleSheet">
                                                         <string>QGroupBox{background:#ffffff;border:1px solid #d0d5dd;border-radius:8px;margin-top:14px;padding:14px 12px 10px 12px;font-weight:bold;font-size:13px;color:#1a1a2e;}
@@ -6032,9 +6148,72 @@ QGroupBox::title{subcontrol-origin:margin;left:14px;padding:0 8px;}</string>
                                                         <string>color:#37474f;font-size:13px;font-weight:bold;border:none;background:transparent;padding:4px 0;</string>
                                                     </property>
                                                     <property name="text">
-                                                        <string>视觉程序：已停止 (由左侧【功能测试】按钮启动)</string>
+                                                        <string>视觉程序：已停止 (点击上方按钮启动)</string>
                                                     </property>
                                                 </widget>
+                                            </item>
+                                            <item>
+                                             <layout class="QHBoxLayout" name="visionLogTitleRow">
+                                              <property name="spacing">
+                                               <number>8</number>
+                                              </property>
+                                              <item>
+                                               <widget class="QLabel" name="lblVisionLogTitle">
+                                                <property name="styleSheet">
+                                                 <string>color:#37474f;font-size:13px;font-weight:bold;border:none;background:transparent;</string>
+                                                </property>
+                                                <property name="text">
+                                                 <string>视觉输出控制台</string>
+                                                </property>
+                                               </widget>
+                                              </item>
+                                              <item>
+                                               <spacer name="visionLogTitleSpacer">
+                                                <property name="orientation">
+                                                 <enum>Qt::Horizontal</enum>
+                                                </property>
+                                                <property name="sizeHint" stdset="0">
+                                                 <size>
+                                                  <width>40</width>
+                                                  <height>20</height>
+                                                 </size>
+                                                </property>
+                                               </spacer>
+                                              </item>
+                                              <item>
+                                               <widget class="QPushButton" name="btnClearVisionLog">
+                                                <property name="minimumSize">
+                                                 <size>
+                                                  <width>60</width>
+                                                  <height>26</height>
+                                                 </size>
+                                                </property>
+                                                <property name="maximumSize">
+                                                 <size>
+                                                  <width>60</width>
+                                                  <height>26</height>
+                                                 </size>
+                                                </property>
+                                                <property name="font">
+                                                 <font>
+                                                  <family>Microsoft YaHei UI</family>
+                                                  <pointsize>10</pointsize>
+                                                 </font>
+                                                </property>
+                                                <property name="cursor">
+                                                 <cursorShape>PointingHandCursor</cursorShape>
+                                                </property>
+                                                <property name="styleSheet">
+                                                 <string>QPushButton{background:#f5f5f5;color:#555;border:1px solid #d0d5dd;border-radius:4px;}
+QPushButton:hover{background:#e0e0e0;}
+QPushButton:pressed{background:#ccc;}</string>
+                                                </property>
+                                                <property name="text">
+                                                 <string>清空</string>
+                                                </property>
+                                               </widget>
+                                              </item>
+                                             </layout>
                                             </item>
                                             <item>
                                                 <widget class="QPlainTextEdit" name="visionLogView">

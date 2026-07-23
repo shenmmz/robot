@@ -19,13 +19,16 @@
 #include <QSet>
 #include <QPlainTextEdit>
 #include <QVariantMap>
+#include "src/draw/drawing_window.h"
 
 class RobotController;   // 机器人运动控制器（正逆解、关节/笛卡尔运动）
 class UiController;      // UI 逻辑控制器（界面状态与交互逻辑）
+class VisionRobotLink;   // 视觉→机械臂联动控制器
 class Rs485Controller;   // RS485 通信控制器（直连 ZMC306X PWM 模块）
 class ServoController;   // 舵机控制器（舵机驱动与角度控制）
 class VisionController;  // 视觉系统控制器（识别与电机指令下发）
-class VisionMasterBridge;  // VisionMaster 桥接适配层（CS-VMC-Dome）
+class VMControl;           // VisionMaster SDK 静态库控制层
+class VmWindow;            // 视觉方案操作窗口（从 CS-VMC-Dome 集成）
 class QCheckBox;         // 复选框控件（如六轴使能勾选）
 class QDoubleSpinBox;    // 双精度数值输入框（角度/速度等参数）
 class ServoTestWidget;   // 舵机设置界面
@@ -63,6 +66,9 @@ private slots:
     void on_pushButton_3_clicked();  // 逆解模式（笛卡尔空间控制）
     void onHomingClicked();          // 机械回原点（回零→建模→逆解模式）
     void on_pushButton_6_clicked();  // 视觉启停
+
+    // 视觉取放水
+    void on_btnGetWater_clicked();//拿水按钮点击事件
 
     // VisionMaster 验证（CS-VMC-Dome 桥接）
     void onBtnVerifyVision();                     // 执行验证按钮：启动/关闭 CS-VMC-Dome.exe
@@ -108,26 +114,28 @@ private slots:
     void onVisionMotorCommands(const QList<QPair<int, double>>& commands);  // 视觉下发电机指令（axis(0-5)+signed_angle_deg）
     void onAxisEnableToggled(int axis, bool enabled);  // 单轴视觉使能开关切换
     void initVisionControlUI();                  // 初始化视觉控制页面控件
+    void initVisionAutoLoad();                     // 程序启动时自动加载视觉方案并连续执行
     void onApplyGlobalSpeedClicked();            // 把总速度广播到 6 个轴的转速输入框
 
 private:
     Ui::MainWindow *ui;
-    RobotController* m_robotController;
-    UiController* m_uiController;
-    Rs485Controller* m_rs485 = nullptr;
-    ServoController* m_servo = nullptr;
-    VisionController* m_vision = nullptr;
-    VisionMasterBridge* m_vmBridge = nullptr;   // VisionMaster 桥接（QProcess 启动 CS-VMC-Dome.exe）
-    bool m_vmRunning = false;                      // CS-VMC-Dome.exe 进程是否正在运行
+    RobotController* m_robotController;         // 机器人运动控制器（正逆解、关节/笛卡尔运动）
+    UiController* m_uiController;               // UI 逻辑控制器（界面状态与交互逻辑）
+    Rs485Controller* m_rs485 = nullptr;         // RS485 通信控制器（ZMC306X PWM 控制）
+    ServoController* m_servo = nullptr;         // 舵机控制器（舵机驱动与角度控制）
+    VisionController* m_vision = nullptr;       // 视觉系统控制器（识别与电机指令下发）
+    VmWindow* m_vmWindow = nullptr;              // 视觉方案操作窗口（延迟创建）
+    VisionRobotLink* m_visionLink = nullptr;     // 视觉→机械臂联动控制器
+    DrawingWindow* m_drawingWindow = nullptr;      // 画板窗口（非模态）
     bool m_homingDone = false;                     // 回零是否已完成（避免重复回零）
     bool m_isShutdown = false;                     // 是否处于关机状态（回到关机位置）
+    bool m_visionControlActive = false;             // 视觉跟随是否激活（停止时先置false再杀进程）
     QElapsedTimer m_visionThrottleTimer;
-    QHash<int, double> m_lastVisionAnglePerAxis;            // axis → 最近一次下发的角度
-    QHash<int, int>    m_visionConsecutiveCountPerAxis;     // axis → 连续相同角度次数
     QHash<int, qint64> m_lastVisionSendMsPerAxis;           // axis → 上次下发时间戳(ms since epoch)
-    double m_lastVisionAngle = 0;
-    int m_visionConsecutiveCount = 0;
-    static constexpr int kVisionConfirmCount = 10;          // 连续相同角度确认次数（防抖阈值）
+    QHash<int, double> m_lastVisionLoggedAnglePerAxis;      // axis → 上次写入日志的角度
+    QHash<int, QList<double>> m_axisValueBuffer;            // axis → 滑动窗口缓冲
+    static constexpr int kWindowSize = 10;                   // 滑动窗口大小
+    static constexpr double kStdDevThreshold = 0.3;          // 标准差阈值(°)：低于此值认为姿态稳定
     ServoTestWidget* m_servoTestWidget = nullptr;  // 舵机设置界面
     QList<QLabel*> m_servoAngleLabels;  // 手动页舵机板块 6 通道只读角度显示（被动显示）
 
