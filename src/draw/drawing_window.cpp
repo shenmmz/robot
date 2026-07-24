@@ -464,6 +464,11 @@ void DrawingWindow::createToolBar() {
     connect(textBtn, &QAction::triggered, this, &DrawingWindow::onTextDialog);
     toolbar->addAction(textBtn);
 
+    // 工件坐标系设置按钮
+    auto coordBtn = new QAction("坐标系", this);
+    connect(coordBtn, &QAction::triggered, this, &DrawingWindow::onSetWorkPieceCoord);
+    toolbar->addAction(coordBtn);
+
     // 设置按钮（含运动参数和工件平面信息）
     auto settingsBtn = new QAction("设置", this);
     connect(settingsBtn, &QAction::triggered, this, &DrawingWindow::onMotionSettings);
@@ -722,7 +727,7 @@ void DrawingWindow::getDrawingArcs3D(QVector<QVector3D> &starts, QVector<QVector
 
 void DrawingWindow::onSetWorkPieceCoord() {
     QDialog *dialog = new QDialog(this);
-    dialog->setWindowTitle(QStringLiteral("读取当前平面信息"));
+    dialog->setWindowTitle(QStringLiteral("当前工件坐标系信息"));
     dialog->resize(500, 400);
     
     QVBoxLayout *mainLayout = new QVBoxLayout(dialog);
@@ -786,7 +791,7 @@ void DrawingWindow::onSetWorkPieceCoord() {
         QLabel *hintLabel = new QLabel(QStringLiteral("<b>使用说明:</b><br>"
                                                       "- 画板上绘制的 (X, Y) 坐标将映射到工件坐标系平面<br>"
                                                       "- 实际3D坐标 = 原点 + X * X轴向量 + Y * Y轴向量<br>"
-                                                      "- 若要修改坐标系，请在主窗口的\"坐标系\"菜单中设置"));
+                                                      "- 点击下方按钮打开坐标系设置对话框"));
         hintLabel->setWordWrap(true);
         hintLabel->setStyleSheet("padding: 10px; background-color: #e3f2fd; border-radius: 5px;");
         mainLayout->addWidget(hintLabel);
@@ -795,8 +800,7 @@ void DrawingWindow::onSetWorkPieceCoord() {
         warningLabel->setStyleSheet("font-size: 14px; font-weight: bold; color: #dc3545; padding: 10px;");
         mainLayout->addWidget(warningLabel);
         
-        QLabel *infoLabel = new QLabel(QStringLiteral("请先在主窗口 -> 坐标系 -> 工件坐标系中设置坐标系，\n"
-                                                      "设置完成后重新打开此窗口查看平面信息。"));
+        QLabel *infoLabel = new QLabel(QStringLiteral("点击下方按钮进行三点标定设置。"));
         infoLabel->setWordWrap(true);
         infoLabel->setStyleSheet("padding: 10px; background-color: #fff3cd; border-radius: 5px;");
         mainLayout->addWidget(infoLabel);
@@ -805,12 +809,23 @@ void DrawingWindow::onSetWorkPieceCoord() {
         hintLabel->setStyleSheet("padding: 10px;");
         mainLayout->addWidget(hintLabel);
     }
-    
+
+    // 按钮栏
+    QHBoxLayout *btnLayout = new QHBoxLayout();
+    QPushButton *setupBtn = new QPushButton(QStringLiteral("设置坐标系"), dialog);
+    setupBtn->setStyleSheet("padding: 8px 20px; border-radius: 5px; background-color: #1976D2; color: white;");
     QPushButton *closeBtn = new QPushButton(QStringLiteral("关闭"), dialog);
     closeBtn->setStyleSheet("padding: 8px 20px; border-radius: 5px; background-color: #4CAF50; color: white;");
+    btnLayout->addWidget(setupBtn);
+    btnLayout->addWidget(closeBtn);
+    mainLayout->addLayout(btnLayout);
+
+    connect(setupBtn, &QPushButton::clicked, this, [this, dialog]() {
+        dialog->close();
+        emit requestWorkpieceCoordSetup();
+    });
     connect(closeBtn, &QPushButton::clicked, dialog, &QDialog::close);
-    mainLayout->addWidget(closeBtn);
-    
+
     dialog->exec();
 }
 
@@ -1530,15 +1545,24 @@ void DrawingWindow::onMotionSettings() {
 }
 
 void DrawingCanvas::mousePressEvent(QMouseEvent *event) {
+    // 中键或 Ctrl+左键 → 平移
+    if (event->button() == Qt::MiddleButton ||
+        (event->button() == Qt::LeftButton && event->modifiers() & Qt::ControlModifier)) {
+        m_isPanning = true;
+        m_panStart = event->position();
+        setCursor(Qt::ClosedHandCursor);
+        return;
+    }
+
     if (event->button() == Qt::LeftButton) {
         // 选择工具：点击选中文字项
         if (m_currentTool == DrawingTool::Select) {
-            QPointF pt = event->position();
+            QPointF pt = screenToLogical(event->position());
             int idx = hitTestText(pt);
             if (idx >= 0) {
                 m_selectedText = idx;
                 m_dragOffset = pt - m_textItems[idx].pos;
-                m_drawing = true; // 复用 m_drawing 表示拖拽中
+                m_drawing = true;
             } else {
                 m_selectedText = -1;
             }
@@ -1547,14 +1571,13 @@ void DrawingCanvas::mousePressEvent(QMouseEvent *event) {
         }
 
         m_drawing = true;
-        m_endPoint = event->position();
+        m_endPoint = screenToLogical(event->position());
 
         if (m_currentTool == DrawingTool::Arc && m_arcSecondPointSet) {
-            // 第二次点按：A和B都已固定，不覆盖，C由鼠标拖动决定
         } else {
-            m_startPoint = event->position();
+            m_startPoint = screenToLogical(event->position());
             if (m_currentTool == DrawingTool::Arc) {
-                m_arcStartPoint = event->position(); // 记录弧线起点A
+                m_arcStartPoint = screenToLogical(event->position());
             }
         }
 
@@ -1568,18 +1591,28 @@ void DrawingCanvas::mousePressEvent(QMouseEvent *event) {
 }
 
 void DrawingCanvas::mouseMoveEvent(QMouseEvent *event) {
-    emit mousePositionChanged(event->position());
+    // 平移拖拽
+    if (m_isPanning) {
+        QPointF delta = event->position() - m_panStart;
+        m_viewOffset += delta;
+        m_panStart = event->position();
+        update();
+        return;
+    }
+
+    // 发出逻辑坐标（用于状态栏显示）
+    emit mousePositionChanged(screenToLogical(event->position()));
 
     // 选择工具：拖拽移动文字
     if (m_currentTool == DrawingTool::Select && m_drawing && m_selectedText >= 0 && (event->buttons() & Qt::LeftButton)) {
-        QPointF pt = event->position();
+        QPointF pt = screenToLogical(event->position());
         m_textItems[m_selectedText].pos = pt - m_dragOffset;
         update();
         return;
     }
 
     if (m_drawing && (event->buttons() & Qt::LeftButton)) {
-        m_endPoint = event->position();
+        m_endPoint = screenToLogical(event->position());
 
         if (m_currentTool == DrawingTool::FreePen) {
             m_currentPath.lineTo(m_endPoint);
@@ -1590,8 +1623,15 @@ void DrawingCanvas::mouseMoveEvent(QMouseEvent *event) {
 }
 
 void DrawingCanvas::mouseReleaseEvent(QMouseEvent *event) {
+    // 结束平移
+    if (m_isPanning) {
+        m_isPanning = false;
+        setCursor(Qt::ArrowCursor);
+        return;
+    }
+
     if (event->button() == Qt::LeftButton && m_drawing) {
-        m_endPoint = event->position();
+        m_endPoint = screenToLogical(event->position());
 
         switch (m_currentTool) {
             case DrawingTool::Line: {
@@ -1651,7 +1691,18 @@ void DrawingCanvas::wheelEvent(QWheelEvent *event) {
         update();
         return;
     }
-    QWidget::wheelEvent(event);
+    // 视图缩放（Ctrl + 滚轮，或以鼠标位置为中心）
+    double delta = event->angleDelta().y() / 120.0;
+    double factor = (delta > 0) ? 1.15 : (1.0 / 1.15);
+    double newScale = m_viewScale * factor;
+    if (newScale < 0.01) newScale = 0.01;
+    if (newScale > 100.0) newScale = 100.0;
+    QPointF cursor = event->position();
+    // 保持光标下的逻辑点不变
+    QPointF logical = screenToLogical(cursor);
+    m_viewScale = newScale;
+    m_viewOffset = cursor - logical * m_viewScale;
+    update();
 }
 
 int DrawingCanvas::hitTestText(const QPointF &pt) const {
@@ -1669,25 +1720,27 @@ void DrawingCanvas::paintEvent(QPaintEvent *) {
     }
     painter.setRenderHint(QPainter::Antialiasing);
 
+    // 应用视图变换（平移 + 缩放）
+    painter.save();
+    painter.translate(m_viewOffset);
+    painter.scale(m_viewScale, m_viewScale);
+
     // 绘制工件坐标系平面（底层）
     if (m_showWorkPiecePlane) {
         drawWorkPiecePlane(painter);
     }
 
-    // 绘制网格线
+    // 绘制网格线（逻辑坐标）
     drawGrid(painter);
 
-    // 绘制坐标轴 (X/Y 方向标识)
-    drawCoordinateAxes(painter);
-
-    // 绘制圆形（圆心+半径方式存储，单独绘制）
+    // 绘制圆形
     painter.setPen(QPen(Qt::blue, 2));
     painter.setBrush(Qt::NoBrush);
     for (const auto &c : m_circles) {
         painter.drawEllipse(c.center, c.radius, c.radius);
     }
 
-    // 绘制弧线（三点弧，单独绘制）
+    // 绘制弧线
     for (const auto &a : m_arcs) {
         QPainterPath arcPath;
         arcPath.moveTo(a.start);
@@ -1701,10 +1754,15 @@ void DrawingCanvas::paintEvent(QPaintEvent *) {
         painter.drawPath(path);
     }
 
+    // 绘制带颜色的路径（如坐标系轴线）
+    for (const auto &cp : m_coloredPaths) {
+        painter.setPen(QPen(cp.second, 2));
+        painter.drawPath(cp.first);
+    }
+
     // 绘制文字项
     for (int i = 0; i < m_textItems.size(); ++i) {
         const auto &item = m_textItems[i];
-        // 实心笔画显示骨架（蓝），空心显示轮廓（绿）
         QPainterPath tp = item.solidStroke ? item.toTrajectoryPath() : item.toPath();
         if (i == m_selectedText) {
             painter.setPen(QPen(Qt::red, 2));
@@ -1717,7 +1775,6 @@ void DrawingCanvas::paintEvent(QPaintEvent *) {
             painter.setBrush(Qt::NoBrush);
         }
         painter.drawPath(tp);
-        // 选中时绘制边界框
         if (i == m_selectedText) {
             QRectF b = tp.boundingRect();
             painter.setPen(QPen(Qt::red, 1, Qt::DashLine));
@@ -1748,9 +1805,9 @@ void DrawingCanvas::paintEvent(QPaintEvent *) {
                     drawArcThroughThreePoints(arcPath, m_arcStartPoint, m_arcMidPoint, m_endPoint);
                     painter.drawPath(arcPath);
                     painter.setPen(QPen(Qt::red, 4));
-                    painter.drawPoint(m_arcStartPoint); // A: 起点
-                    painter.drawPoint(m_arcMidPoint);    // B: 经过点
-                    painter.drawPoint(m_endPoint);       // C: 终点(活动)
+                    painter.drawPoint(m_arcStartPoint);
+                    painter.drawPoint(m_arcMidPoint);
+                    painter.drawPoint(m_endPoint);
                 } else {
                     painter.drawLine(m_startPoint, m_endPoint);
                 }
@@ -1759,6 +1816,11 @@ void DrawingCanvas::paintEvent(QPaintEvent *) {
                 break;
         }
     }
+
+    painter.restore();
+
+    // 固定 UI 元素：右下角坐标指示器（不受视图变换影响）
+    drawCoordinateAxes(painter);
 }
 
 void DrawingCanvas::drawGrid(QPainter &painter) {
@@ -1770,11 +1832,20 @@ void DrawingCanvas::drawGrid(QPainter &painter) {
     gridPen.setWidth(1);
     painter.setPen(gridPen);
 
-    for (int y = 0; y < height(); y += m_gridSpacing) {
-        painter.drawLine(0, y, width(), y);
+    // 计算可视区域的逻辑坐标范围
+    QPointF logicalTL = screenToLogical(QPointF(0, 0));
+    QPointF logicalBR = screenToLogical(QPointF(width(), height()));
+    int gs = m_gridSpacing;
+    // 自适应网格间距：缩放太小时增大间距避免过密
+    double showSpacing = gs;
+    while (showSpacing * m_viewScale < 8.0) showSpacing *= 2;
+    double startX = floor(logicalTL.x() / showSpacing) * showSpacing;
+    double startY = floor(logicalTL.y() / showSpacing) * showSpacing;
+    for (double x = startX; x <= logicalBR.x(); x += showSpacing) {
+        painter.drawLine(QPointF(x, logicalTL.y()), QPointF(x, logicalBR.y()));
     }
-    for (int x = 0; x < width(); x += m_gridSpacing) {
-        painter.drawLine(x, 0, x, height());
+    for (double y = startY; y <= logicalBR.y(); y += showSpacing) {
+        painter.drawLine(QPointF(logicalTL.x(), y), QPointF(logicalBR.x(), y));
     }
     painter.restore();
 }
@@ -1825,7 +1896,7 @@ void DrawingCanvas::drawWorkPiecePlane(QPainter &painter) {
 
     painter.save();
 
-    QRectF planeRect(QPointF(0, 0), m_workPiecePlaneSize);
+    QRectF planeRect(m_workPiecePlaneOffset, m_workPiecePlaneSize);
 
     QLinearGradient gradient(planeRect.topLeft(), planeRect.bottomRight());
     gradient.setColorAt(0, QColor(135, 206, 250, 100));
@@ -1836,6 +1907,28 @@ void DrawingCanvas::drawWorkPiecePlane(QPainter &painter) {
     painter.drawRect(planeRect);
 
     painter.restore();
+}
+
+void DrawingCanvas::drawWorkpieceCoordRegion(const QPointF &origin,
+                                              const QPointF &xPt,
+                                              const QPointF &yPt) {
+    // 计算工件平面矩形范围（基于三个标定点）
+    double minX = std::min({origin.x(), xPt.x(), yPt.x()});
+    double maxX = std::max({origin.x(), xPt.x(), yPt.x()});
+    double minY = std::min({origin.y(), xPt.y(), yPt.y()});
+    double maxY = std::max({origin.y(), xPt.y(), yPt.y()});
+    double marginW = (maxX - minX) * 0.1;
+    double marginH = (maxY - minY) * 0.1;
+    if (marginW < 5) marginW = 5;
+    if (marginH < 5) marginH = 5;
+    QSizeF planeSize(maxX - minX + 2 * marginW, maxY - minY + 2 * marginH);
+    m_workPiecePlaneSize = planeSize;
+    m_workPiecePlaneOffset = QPointF(minX - marginW, minY - marginH);
+    setWorkPiecePlaneSize(planeSize);
+
+    // 自动适配视图：将坐标系区域居中并缩放到合适大小
+    QRectF bounds(QPointF(minX - marginW, minY - marginH), planeSize);
+    zoomToFit(bounds);
 }
 
 void DrawingCanvas::drawArcThroughThreePoints(QPainterPath &path, const QPointF &p1, const QPointF &p2, const QPointF &p3) {
@@ -2035,4 +2128,31 @@ QVector<QVector<QPointF>> DrawingCanvas::extractPointsGrouped(double resolution)
     }
 
     return allGroups;
+}
+
+void DrawingWindow::drawWorkpieceCoordRegion(const QPointF &origin,
+                                              const QPointF &xPt,
+                                              const QPointF &yPt) {
+    m_canvas->drawWorkpieceCoordRegion(origin, xPt, yPt);
+}
+
+QPointF DrawingCanvas::screenToLogical(const QPointF &screenPos) const {
+    return (screenPos - m_viewOffset) / m_viewScale;
+}
+
+void DrawingCanvas::zoomToFit(const QRectF &bounds) {
+    if (bounds.isEmpty()) return;
+    double margin = 40.0;
+    double availW = width() - 2 * margin;
+    double availH = height() - 2 * margin;
+    if (availW <= 0 || availH <= 0) return;
+    double scaleW = availW / bounds.width();
+    double scaleH = availH / bounds.height();
+    m_viewScale = std::min(scaleW, scaleH);
+    if (m_viewScale < 0.01) m_viewScale = 0.01;
+    if (m_viewScale > 100.0) m_viewScale = 100.0;
+    // 居中
+    QPointF center = bounds.center();
+    m_viewOffset = QPointF(width() / 2.0, height() / 2.0) - center * m_viewScale;
+    update();
 }

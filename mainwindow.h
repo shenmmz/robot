@@ -20,6 +20,7 @@
 #include <QPlainTextEdit>
 #include <QVariantMap>
 #include "src/draw/drawing_window.h"
+#include "src/draw/WorkPieceCoord.h"
 
 class RobotController;   // 机器人运动控制器（正逆解、关节/笛卡尔运动）
 class UiController;      // UI 逻辑控制器（界面状态与交互逻辑）
@@ -117,6 +118,19 @@ private slots:
     void initVisionAutoLoad();                     // 程序启动时自动加载视觉方案并连续执行
     void onApplyGlobalSpeedClicked();            // 把总速度广播到 6 个轴的转速输入框
 
+    // ====== 画板控制 ======
+    void onRequestInverseKinematics();           // 画板请求切换到逆解模式
+    void onRequestStopMotion();                  // 画板请求停止运动
+    void onMotionParamsReceived(const DrawMotionParams &params); // 画板同步运动参数
+    void onDrawingPointsReceived(const QVector<QVector<QVector3D>> &pointGroups,
+                                  double rx, double ry, double rz);
+    void onDrawingCirclesReceived(const QVector<QVector3D> &centers,
+                                   const QVector<double> &radii);
+    void onDrawingArcsReceived(const QVector<QVector3D> &starts,
+                                const QVector<QVector3D> &mids,
+                                const QVector<QVector3D> &ends);
+    void onWorkpieceCoordAction();               // 打开工件坐标系设置对话框
+
 private:
     Ui::MainWindow *ui;
     RobotController* m_robotController;         // 机器人运动控制器（正逆解、关节/笛卡尔运动）
@@ -127,6 +141,8 @@ private:
     VmWindow* m_vmWindow = nullptr;              // 视觉方案操作窗口（延迟创建）
     VisionRobotLink* m_visionLink = nullptr;     // 视觉→机械臂联动控制器
     DrawingWindow* m_drawingWindow = nullptr;      // 画板窗口（非模态）
+    WorkPieceCoord m_workPieceCoord;                // 工件坐标系
+    DrawMotionParams m_motionParams;                // 画板运动参数（速度/加速度/姿态）
     bool m_homingDone = false;                     // 回零是否已完成（避免重复回零）
     bool m_isShutdown = false;                     // 是否处于关机状态（回到关机位置）
     bool m_visionControlActive = false;             // 视觉跟随是否激活（停止时先置false再杀进程）

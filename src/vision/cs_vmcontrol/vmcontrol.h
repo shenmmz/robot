@@ -3,6 +3,7 @@
 
 #include <QMap>
 #include <QObject>
+#include <QSet>
 #include <QSharedPointer>
 #include <QTimer>
 #include <QVector>
@@ -91,6 +92,12 @@ public slots:
      */
     void executeProcedureCommand(ProcMotionType command, const QString& processName);
 
+    /** @brief 设置指定流程的连续采集模式，阻止 hanlePointData 自动 StopRun。 */
+    void setContinuousCollection(const QString &processName, bool enabled);
+
+    /** @brief 重置指定流程的成功标记，使后续回调不被拦截。 */
+    void resetProcSuccessFlag(const QString &processName);
+
     /**
      * @brief 执行模块参数页命令。
      * @param command 模块操作类型，仅支持 Set 和 GroupSet。
@@ -165,6 +172,7 @@ private:
 
     QMap<QString, QTimer*> m_procTimers;                ///< 每个连续执行流程对应的超时定时器。
     QMap<QString, bool> m_procSuccessFlags;             ///< 每个流程是否已成功收到有效数据。
+    QSet<QString> m_continuousProcs;                ///< 处于连续采集模式（不自动 StopRun）的流程集合。
 };
 
 #endif // VMCONTROL_H

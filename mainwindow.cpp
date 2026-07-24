@@ -31,6 +31,7 @@
 #include <QThread>
 #include <QTimer>
 #include <QtConcurrent>
+#include <QtMath>
 #include <QLineEdit>
 #include <cmath>
 #include <functional>
@@ -46,6 +47,15 @@
 #include <QScrollBar>
 #include <QTextCursor>
 #include <QDoubleSpinBox>
+#include <QFileDialog>
+#include <QFile>
+#include <QGroupBox>
+#include <QFormLayout>
+#include <QHBoxLayout>
+#include <QJsonObject>
+#include <QJsonDocument>
+#include <QLabel>
+#include <QPushButton>
 #include <QSerialPort>
 #include <QTabWidget>
 #include <QGridLayout>
@@ -1192,7 +1202,28 @@ void MainWindow::onNavButtonClicked(int index)
         if (!m_drawingWindow) {
             m_drawingWindow = new DrawingWindow(this);
             ui->contentStack->addWidget(m_drawingWindow);
+
+            // 连接画板信号 → MainWindow 槽函数
+            connect(m_drawingWindow, &DrawingWindow::sendDrawingPoints,
+                    this, &MainWindow::onDrawingPointsReceived);
+            connect(m_drawingWindow, &DrawingWindow::sendDrawingCircles,
+                    this, &MainWindow::onDrawingCirclesReceived);
+            connect(m_drawingWindow, &DrawingWindow::sendDrawingArcs,
+                    this, &MainWindow::onDrawingArcsReceived);
+            connect(m_drawingWindow, &DrawingWindow::requestInverseKinematics,
+                    this, &MainWindow::onRequestInverseKinematics);
+            connect(m_drawingWindow, &DrawingWindow::requestStopMotion,
+                    this, &MainWindow::onRequestStopMotion);
+            connect(m_drawingWindow, &DrawingWindow::requestDrawMotionParams,
+                    this, &MainWindow::onMotionParamsReceived);
+            connect(m_drawingWindow, &DrawingWindow::requestWorkpieceCoordSetup,
+                    this, &MainWindow::onWorkpieceCoordAction);
         }
+        // 传递工件坐标系给画板
+        m_drawingWindow->setWorkPieceCoord(&m_workPieceCoord);
+        m_drawingWindow->setDefaultPose(m_workPieceCoord.getRX(),
+                                         m_workPieceCoord.getRY(),
+                                         m_workPieceCoord.getRZ());
         ui->contentStack->setCurrentWidget(m_drawingWindow);
     }
 }
@@ -3255,4 +3286,471 @@ void MainWindow::initVisionAutoLoad()
     }
     // VmWindow 内部提供完整方案加载和执行界面，用户手动操作
     m_vmWindow->show();
+}
+
+// ==================== 画板控制 ====================
+
+void MainWindow::onRequestInverseKinematics()
+{
+    if (!m_robotController || !m_robotController->isConnected()) {
+        qDebug() << "[画板] 控制器未连接，无法切换逆解模式";
+        return;
+    }
+    qDebug() << "[画板] 切换到逆解模式...";
+    if (m_robotController->switchToCartesianMode()) {
+        qDebug() << "[画板] 已切换到逆解模式";
+    } else {
+        qDebug() << "[画板] 切换到逆解模式失败";
+    }
+}
+
+void MainWindow::onRequestStopMotion()
+{
+    if (!m_robotController || !m_robotController->isConnected()) {
+        qDebug() << "[画板] 控制器未连接，无法停止";
+        return;
+    }
+    qDebug() << "[画板] 急停...";
+    m_robotController->executeSafeStop();
+}
+
+void MainWindow::onMotionParamsReceived(const DrawMotionParams &params)
+{
+    m_motionParams = params;
+    qDebug() << "[画板] 运动参数已更新: speed=" << params.speed
+             << "accel=" << params.acceleration
+             << "blend=" << params.blendMode;
+}
+
+void MainWindow::onDrawingPointsReceived(const QVector<QVector<QVector3D>> &pointGroups,
+                                          double rx, double ry, double rz)
+{
+    if (pointGroups.isEmpty()) return;
+    if (!m_robotController || !m_robotController->isConnected()) {
+        qDebug() << "[画板] 控制器未连接，跳过轨迹执行";
+        return;
+    }
+
+    int totalPoints = 0;
+    for (const auto &g : pointGroups) totalPoints += g.size();
+    qDebug() << "[画板] 执行" << pointGroups.size() << "组轨迹, 共" << totalPoints << "个点位";
+
+    // 切换到逆解模式
+    m_robotController->switchToCartesianMode();
+    QThread::msleep(100);
+
+    ZmotionAPI *api = m_robotController->getMotionController()->getZmotionAPI();
+    const QList<int> vAxes = {6, 7, 8, 9, 10, 11};
+    const QList<int> jAxes = {0, 1, 2, 3, 4, 5};
+    float speed  = static_cast<float>(m_motionParams.speed);
+    float accel  = static_cast<float>(m_motionParams.acceleration);
+    float decel  = static_cast<float>(m_motionParams.deceleration);
+    float sramp  = static_cast<float>(m_motionParams.sramp);
+    int blendMode = m_motionParams.blendMode;
+
+    // 设置虚拟轴运动参数
+    QList<double> s(vAxes.size(), speed);
+    QList<double> a(vAxes.size(), accel);
+    QList<double> d(vAxes.size(), decel);
+    QList<double> sr(vAxes.size(), sramp);
+    api->setAxisSpeed(vAxes, s);
+    api->setAxisAccel(vAxes, a);
+    api->setAxisDecel(vAxes, d);
+    api->setAxisSramp(vAxes, sr);
+
+    // 设置关节轴速度（用固定值，不随画板）
+    QList<double> js(jAxes.size(), 200.0);
+    api->setAxisSpeed(jAxes, js);
+    api->setAxisAccel(jAxes, js);
+    api->setAxisDecel(jAxes, js);
+
+    // Force_Speed
+    api->setAxisParamValue(vAxes[0], AxisParamsCommand::Force_Speed, speed);
+
+    QList<int> allAxes = {6, 7, 8, 9, 10, 11};
+
+    // 逐组执行
+    for (int g = 0; g < pointGroups.size(); ++g) {
+        const auto &group = pointGroups[g];
+        if (group.isEmpty()) continue;
+
+        if (g > 0) {
+            // 组间断笔抬笔 10mm
+            auto posZ = api->getAxisPosition(vAxes[2]);
+            auto posX = api->getAxisPosition(vAxes[0]);
+            auto posY = api->getAxisPosition(vAxes[1]);
+            float liftZ = posZ.axisPosition + 10.0f;
+            QList<float> liftPos = { posX.axisPosition, posY.axisPosition,
+                                      liftZ, (float)rx, (float)ry, (float)rz };
+            api->directMoveAbsolute(vAxes, liftPos, speed, accel, decel);
+            api->waitForAxesIdle(vAxes, 30000);
+        }
+
+        float sx = (float)group[0].x(), sy = (float)group[0].y(), sz = (float)group[0].z();
+
+        // 先走到起点上方 10mm
+        QList<float> abovePos = { sx, sy, sz + 10.0f, (float)rx, (float)ry, (float)rz };
+        api->directMoveAbsolute(allAxes, abovePos, speed, accel, decel);
+        api->waitForAxesIdle(allAxes, 30000);
+
+        if (blendMode > 0) {
+            // Merge 连续模式
+            for (int ax : allAxes) api->directSetMerge(ax, true);
+            api->directSetCornerMode(allAxes[0], 2);
+
+            QList<float> firstPos = { sx, sy, sz, (float)rx, (float)ry, (float)rz };
+            api->directMoveAbsolute(allAxes, firstPos, speed, accel, decel);
+            for (int idx = 1; idx < group.size(); idx++) {
+                QList<float> pos = { (float)group[idx].x(), (float)group[idx].y(),
+                                     (float)group[idx].z(), (float)rx, (float)ry, (float)rz };
+                api->directMoveAbsolute(allAxes, pos, speed, accel, decel);
+                QCoreApplication::processEvents();
+            }
+            api->waitForAxesIdle(allAxes, 30000);
+            for (int ax : allAxes) api->directSetMerge(ax, false);
+        } else {
+            // 逐点模式
+            QList<float> firstPos = { sx, sy, sz, (float)rx, (float)ry, (float)rz };
+            api->directMoveAbsolute(allAxes, firstPos, speed, accel, decel);
+            api->waitForAxesIdle(allAxes, 30000);
+            for (int idx = 1; idx < group.size(); idx++) {
+                QList<float> pos = { (float)group[idx].x(), (float)group[idx].y(),
+                                     (float)group[idx].z(), (float)rx, (float)ry, (float)rz };
+                api->directMoveAbsolute(allAxes, pos, speed, accel, decel);
+                api->waitForAxesIdle(allAxes, 30000);
+            }
+        }
+    }
+
+    // 归位：移动到最后一个轨迹点的正上方 z=420
+    api->singleAxisCancel(allAxes, 0);
+    QThread::msleep(50);
+    const auto &lastGroup = pointGroups.last();
+    float lastX = (float)lastGroup.last().x();
+    float lastY = (float)lastGroup.last().y();
+    QList<float> homePos = { lastX, lastY, 420.0f, (float)rx, (float)ry, (float)rz };
+    api->directMoveAbsolute(allAxes, homePos, speed, accel, decel);
+    qDebug() << "[画板] 轨迹执行完成，已归位到最后一个轨迹点上方";
+}
+
+void MainWindow::onDrawingCirclesReceived(const QVector<QVector3D> &centers,
+                                           const QVector<double> &radii)
+{
+    if (centers.isEmpty()) return;
+    qDebug() << "[画板] 收到" << centers.size() << "个圆形，离散为点集执行";
+
+    const int N = 72; // 每圆采样点数
+    QVector<QVector<QVector3D>> pointGroups;
+
+    for (int i = 0; i < centers.size(); ++i) {
+        float cx = (float)centers[i].x(), cy = (float)centers[i].y(), cz = (float)centers[i].z();
+        float r  = (float)radii[i];
+        QVector<QVector3D> pts;
+        for (int j = 0; j <= N; ++j) {
+            double angle = 2.0 * M_PI * j / N;
+            pts.append(QVector3D(cx + r * (float)qCos(angle),
+                                  cy + r * (float)qSin(angle), cz));
+        }
+        pointGroups.append(pts);
+    }
+
+    // 使用工件坐标系姿态
+    double rx = m_workPieceCoord.getRX();
+    double ry = m_workPieceCoord.getRY();
+    double rz = m_workPieceCoord.getRZ();
+    onDrawingPointsReceived(pointGroups, rx, ry, rz);
+}
+
+void MainWindow::onDrawingArcsReceived(const QVector<QVector3D> &starts,
+                                        const QVector<QVector3D> &mids,
+                                        const QVector<QVector3D> &ends)
+{
+    if (starts.isEmpty()) return;
+    qDebug() << "[画板] 收到" << starts.size() << "条弧线，离散为点集执行";
+
+    const int N = 72; // 每弧线采样点数
+    QVector<QVector<QVector3D>> pointGroups;
+
+    for (int i = 0; i < starts.size(); ++i) {
+        float sx = starts[i].x(), sy = starts[i].y(), sz = starts[i].z();
+        float mx = mids[i].x(),  my = mids[i].y();
+        float ex = ends[i].x(),   ey = ends[i].y(), ez = ends[i].z();
+
+        // 用 de Casteljau 二次贝塞尔逼近圆弧
+        QVector<QVector3D> pts;
+        for (int j = 0; j <= N; ++j) {
+            float t = (float)j / N;
+            float it = 1.0f - t;
+            float x = it*it * sx + 2.0f*it*t * mx + t*t * ex;
+            float y = it*it * sy + 2.0f*it*t * my + t*t * ey;
+            float z = it * sz + t * ez;
+            pts.append(QVector3D(x, y, z));
+        }
+        pointGroups.append(pts);
+    }
+
+    double rx = m_workPieceCoord.getRX();
+    double ry = m_workPieceCoord.getRY();
+    double rz = m_workPieceCoord.getRZ();
+    onDrawingPointsReceived(pointGroups, rx, ry, rz);
+}
+
+void MainWindow::onWorkpieceCoordAction()
+{
+    if (!m_robotController || !m_robotController->isConnected()) {
+        QMessageBox::warning(this, QStringLiteral("提示"), QStringLiteral("请先连接机器人控制器"));
+        return;
+    }
+
+    ZmotionAPI *api = m_robotController->getMotionController()->getZmotionAPI();
+    QList<int> vAxes = {6, 7, 8, 9, 10, 11};
+
+    auto getCurrentPos = [=](QDoubleSpinBox *x, QDoubleSpinBox *y, QDoubleSpinBox *z,
+                              QDoubleSpinBox *rx, QDoubleSpinBox *ry, QDoubleSpinBox *rz) {
+        for (int i = 0; i < 6; ++i) {
+            auto r = api->getAxisPosition(vAxes[i]);
+            float val = r.success ? r.axisPosition : 0.0f;
+            (i == 0 ? x : i == 1 ? y : i == 2 ? z : i == 3 ? rx : i == 4 ? ry : rz)->setValue(val);
+        }
+    };
+
+    auto moveToPoint = [=](QDoubleSpinBox *x, QDoubleSpinBox *y, QDoubleSpinBox *z,
+                            QDoubleSpinBox *rx, QDoubleSpinBox *ry, QDoubleSpinBox *rz) {
+        m_robotController->switchToCartesianMode();
+        QThread::msleep(100);
+        QList<float> pos = { (float)x->value(), (float)y->value(), (float)z->value(),
+                              (float)rx->value(), (float)ry->value(), (float)rz->value() };
+        api->directMoveAbsolute(vAxes, pos, 50.0f, 200.0f, 200.0f);
+        api->waitForAxesIdle(vAxes, 30000);
+    };
+
+    QDialog *dlg = new QDialog(this);
+    dlg->setWindowTitle(QStringLiteral("工件坐标系设置"));
+    dlg->resize(550, 600);
+    dlg->setAttribute(Qt::WA_DeleteOnClose);
+    QVBoxLayout *mainLayout = new QVBoxLayout(dlg);
+
+    // 名称
+    QGroupBox *nameGrp = new QGroupBox(QStringLiteral("坐标系名称"));
+    QHBoxLayout *nameLay = new QHBoxLayout(nameGrp);
+    QLineEdit *editName = new QLineEdit(QStringLiteral("工件坐标系1"));
+    nameLay->addWidget(new QLabel(QStringLiteral("名称:")));
+    nameLay->addWidget(editName);
+    mainLayout->addWidget(nameGrp);
+
+    // 创建一行输入框 + 获取/运行按钮
+    auto makePointGroup = [=](const QString &title, double defX, double defY, double defZ) {
+        QGroupBox *grp = new QGroupBox(title);
+        QVBoxLayout *vlay = new QVBoxLayout(grp);
+        QGridLayout *grid = new QGridLayout();
+        QStringList labels = {"X", "Y", "Z", "RX", "RY", "RZ"};
+        QDoubleSpinBox *spins[6];
+        for (int i = 0; i < 6; ++i) {
+            grid->addWidget(new QLabel(labels[i]), 0, i * 2);
+            auto *sb = new QDoubleSpinBox();
+            sb->setDecimals(3);
+            sb->setRange(-9999, 9999);
+            spins[i] = sb;
+            grid->addWidget(sb, 1, i * 2);
+            if (i < 5) grid->addItem(new QSpacerItem(10, 0), 0, i * 2 + 1);
+        }
+        spins[0]->setValue(defX);
+        spins[1]->setValue(defY);
+        spins[2]->setValue(defZ);
+        vlay->addLayout(grid);
+
+        QHBoxLayout *btnLay = new QHBoxLayout();
+        QPushButton *btnGet = new QPushButton(QStringLiteral("获取当前位置"));
+        QPushButton *btnMove = new QPushButton(QStringLiteral("点位运行"));
+        btnGet->setStyleSheet("background-color: #2196F3; color: white; padding: 5px 12px;");
+        btnMove->setStyleSheet("background-color: #FF9800; color: white; padding: 5px 12px;");
+        btnLay->addWidget(btnGet);
+        btnLay->addWidget(btnMove);
+        btnLay->addStretch();
+        vlay->addLayout(btnLay);
+
+        QObject::connect(btnGet, &QPushButton::clicked, [=]() {
+            getCurrentPos(spins[0], spins[1], spins[2], spins[3], spins[4], spins[5]);
+        });
+        QObject::connect(btnMove, &QPushButton::clicked, [=]() {
+            moveToPoint(spins[0], spins[1], spins[2], spins[3], spins[4], spins[5]);
+        });
+
+        return std::make_tuple(grp, spins[0], spins[1], spins[2], spins[3], spins[4], spins[5]);
+    };
+
+    auto [p1Grp, p1x, p1y, p1z, p1rx, p1ry, p1rz] =
+        makePointGroup(QStringLiteral("点1 (原点)"), 0, 0, 0);
+    auto [p2Grp, p2x, p2y, p2z, p2rx, p2ry, p2rz] =
+        makePointGroup(QStringLiteral("点2 (X轴方向)"), 100, 0, 0);
+    auto [p3Grp, p3x, p3y, p3z, p3rx, p3ry, p3rz] =
+        makePointGroup(QStringLiteral("点3 (XY平面)"), 0, 100, 0);
+
+    // 填入当前坐标系已有值
+    if (m_workPieceCoord.isValid()) {
+        auto p1 = m_workPieceCoord.getPoint1(), p2 = m_workPieceCoord.getPoint2(),
+             p3 = m_workPieceCoord.getPoint3();
+        p1x->setValue(p1.x()); p1y->setValue(p1.y()); p1z->setValue(p1.z());
+        p2x->setValue(p2.x()); p2y->setValue(p2.y()); p2z->setValue(p2.z());
+        p3x->setValue(p3.x()); p3y->setValue(p3.y()); p3z->setValue(p3.z());
+        p1rx->setValue(m_workPieceCoord.getRXOriginal());
+        p1ry->setValue(m_workPieceCoord.getRYOriginal());
+        p1rz->setValue(m_workPieceCoord.getRZOriginal());
+        editName->setText(m_workPieceCoord.getName());
+    }
+
+    mainLayout->addWidget(p1Grp);
+    mainLayout->addWidget(p2Grp);
+    mainLayout->addWidget(p3Grp);
+
+    // 按钮栏
+    QHBoxLayout *actLay = new QHBoxLayout();
+    QPushButton *btnLoad = new QPushButton(QStringLiteral("加载坐标系"));
+    QPushButton *btnSave = new QPushButton(QStringLiteral("保存坐标系"));
+    QPushButton *btnConfirm = new QPushButton(QStringLiteral("确认设置"));
+    QPushButton *btnCancel = new QPushButton(QStringLiteral("取消"));
+    btnLoad->setStyleSheet("background-color: #1976D2; color: white; padding: 8px 16px;");
+    btnSave->setStyleSheet("background-color: #FF9800; color: white; padding: 8px 16px;");
+    btnConfirm->setStyleSheet("background-color: #4CAF50; color: white; padding: 8px 16px;");
+    btnCancel->setStyleSheet("background-color: #9E9E9E; color: white; padding: 8px 16px;");
+    actLay->addWidget(btnLoad);
+    actLay->addWidget(btnSave);
+    actLay->addStretch();
+    actLay->addWidget(btnConfirm);
+    actLay->addWidget(btnCancel);
+    mainLayout->addLayout(actLay);
+
+    // 保存/加载目录
+    QString coordDir = QCoreApplication::applicationDirPath() + "/../坐标系管理文件";
+    QDir().mkpath(coordDir);
+
+    // 保存
+    QObject::connect(btnSave, &QPushButton::clicked, dlg, [=]() {
+        QJsonObject json;
+        json["name"] = editName->text();
+        QJsonObject jp1, jp2, jp3;
+        auto savePoint = [](QJsonObject &jp, QDoubleSpinBox *x, QDoubleSpinBox *y,
+                             QDoubleSpinBox *z, QDoubleSpinBox *rx, QDoubleSpinBox *ry,
+                             QDoubleSpinBox *rz) {
+            jp["x"] = x->value(); jp["y"] = y->value(); jp["z"] = z->value();
+            jp["rx"] = rx->value(); jp["ry"] = ry->value(); jp["rz"] = rz->value();
+        };
+        savePoint(jp1, p1x, p1y, p1z, p1rx, p1ry, p1rz);
+        savePoint(jp2, p2x, p2y, p2z, p2rx, p2ry, p2rz);
+        savePoint(jp3, p3x, p3y, p3z, p3rx, p3ry, p3rz);
+        json["point1"] = jp1; json["point2"] = jp2; json["point3"] = jp3;
+        QString path = coordDir + "/" + editName->text() + ".json";
+        QFile f(path);
+        if (f.open(QIODevice::WriteOnly)) {
+            f.write(QJsonDocument(json).toJson(QJsonDocument::Indented));
+            f.close();
+            QMessageBox::information(dlg, QStringLiteral("已保存"),
+                                     QStringLiteral("已保存到:\n%1").arg(path));
+        }
+    });
+
+    // 加载
+    QObject::connect(btnLoad, &QPushButton::clicked, dlg, [=]() {
+        QString path = QFileDialog::getOpenFileName(dlg, QStringLiteral("加载坐标系"),
+                                                     coordDir, QStringLiteral("JSON (*.json)"));
+        if (path.isEmpty()) return;
+        QFile f(path);
+        if (!f.open(QIODevice::ReadOnly)) return;
+        QJsonDocument doc = QJsonDocument::fromJson(f.readAll());
+        f.close();
+        QJsonObject json = doc.object();
+        editName->setText(json["name"].toString());
+        auto fill = [](QJsonObject jp, QDoubleSpinBox *x, QDoubleSpinBox *y,
+                        QDoubleSpinBox *z, QDoubleSpinBox *rx, QDoubleSpinBox *ry,
+                        QDoubleSpinBox *rz) {
+            x->setValue(jp["x"].toDouble()); y->setValue(jp["y"].toDouble());
+            z->setValue(jp["z"].toDouble());
+            rx->setValue(jp["rx"].toDouble()); ry->setValue(jp["ry"].toDouble());
+            rz->setValue(jp["rz"].toDouble());
+        };
+        fill(json["point1"].toObject(), p1x, p1y, p1z, p1rx, p1ry, p1rz);
+        fill(json["point2"].toObject(), p2x, p2y, p2z, p2rx, p2ry, p2rz);
+        fill(json["point3"].toObject(), p3x, p3y, p3z, p3rx, p3ry, p3rz);
+
+        // 自动激活
+        m_workPieceCoord.setOriginalPoints(
+            QVector3D(p1x->value(), p1y->value(), p1z->value()),
+            QVector3D(p2x->value(), p2y->value(), p2z->value()),
+            QVector3D(p3x->value(), p3y->value(), p3z->value()),
+            p1rx->value(), p1ry->value(), p1rz->value());
+        m_workPieceCoord.setName(editName->text());
+        m_workPieceCoord.calculateFromThreePoints(
+            QVector3D(p1x->value(), p1y->value(), p1z->value()),
+            QVector3D(p2x->value(), p2y->value(), p2z->value()),
+            QVector3D(p3x->value(), p3y->value(), p3z->value()));
+        if (m_drawingWindow) {
+            m_drawingWindow->setDefaultPose(m_workPieceCoord.getRX(),
+                                             m_workPieceCoord.getRY(),
+                                             m_workPieceCoord.getRZ());
+        }
+        QMessageBox::information(dlg, QStringLiteral("已加载"),
+            QStringLiteral("工件坐标系 \"%1\" 已激活\n原点: (%2, %3, %4)")
+                .arg(editName->text())
+                .arg(m_workPieceCoord.getOrigin().x(), 0, 'f', 2)
+                .arg(m_workPieceCoord.getOrigin().y(), 0, 'f', 2)
+                .arg(m_workPieceCoord.getOrigin().z(), 0, 'f', 2));
+    });
+
+    // 确认
+    QObject::connect(btnConfirm, &QPushButton::clicked, dlg, [=]() {
+        m_workPieceCoord.setOriginalPoints(
+            QVector3D(p1x->value(), p1y->value(), p1z->value()),
+            QVector3D(p2x->value(), p2y->value(), p2z->value()),
+            QVector3D(p3x->value(), p3y->value(), p3z->value()),
+            p1rx->value(), p1ry->value(), p1rz->value());
+        m_workPieceCoord.setName(editName->text());
+        m_workPieceCoord.calculateFromThreePoints(
+            QVector3D(p1x->value(), p1y->value(), p1z->value()),
+            QVector3D(p2x->value(), p2y->value(), p2z->value()),
+            QVector3D(p3x->value(), p3y->value(), p3z->value()));
+        if (!m_workPieceCoord.isValid()) {
+            QMessageBox::warning(dlg, QStringLiteral("错误"),
+                                 QStringLiteral("三点计算失败，请检查输入点是否共线或重合"));
+            return;
+        }
+        if (m_drawingWindow) {
+            m_drawingWindow->setDefaultPose(m_workPieceCoord.getRX(),
+                                             m_workPieceCoord.getRY(),
+                                             m_workPieceCoord.getRZ());
+            // 在画板上绘制坐标系区域
+            QVector3D p1 = m_workPieceCoord.getPoint1();
+            QVector3D p2 = m_workPieceCoord.getPoint2();
+            QVector3D p3 = m_workPieceCoord.getPoint3();
+            QVector3D xAxis = m_workPieceCoord.getXAxis();
+            QVector3D yAxis = m_workPieceCoord.getYAxis();
+            auto toCanvas = [&](const QVector3D &pt) -> QPointF {
+                QVector3D d = pt - p1;
+                return QPointF(QVector3D::dotProduct(d, xAxis),
+                               QVector3D::dotProduct(d, yAxis));
+            };
+            QPointF c1 = toCanvas(p1);
+            QPointF c2 = toCanvas(p2);
+            QPointF c3 = toCanvas(p3);
+            m_drawingWindow->drawWorkpieceCoordRegion(c1, c2, c3);
+        }
+        QMessageBox::information(dlg, QStringLiteral("已设置"),
+            QStringLiteral("工件坐标系 \"%1\" 已激活\n"
+                           "原点: (%2, %3, %4)\n"
+                           "X轴方向: (%5, %6, %7)\nZ轴方向: (%8, %9, %10)")
+                .arg(editName->text())
+                .arg(m_workPieceCoord.getOrigin().x(), 0, 'f', 2)
+                .arg(m_workPieceCoord.getOrigin().y(), 0, 'f', 2)
+                .arg(m_workPieceCoord.getOrigin().z(), 0, 'f', 2)
+                .arg(m_workPieceCoord.getXAxis().x(), 0, 'f', 4)
+                .arg(m_workPieceCoord.getXAxis().y(), 0, 'f', 4)
+                .arg(m_workPieceCoord.getXAxis().z(), 0, 'f', 4)
+                .arg(m_workPieceCoord.getZAxis().x(), 0, 'f', 4)
+                .arg(m_workPieceCoord.getZAxis().y(), 0, 'f', 4)
+                .arg(m_workPieceCoord.getZAxis().z(), 0, 'f', 4));
+        dlg->close();
+    });
+
+    QObject::connect(btnCancel, &QPushButton::clicked, dlg, &QDialog::close);
+
+    dlg->show();
 }

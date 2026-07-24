@@ -158,3 +158,14 @@ void VisionRobotLink::onVisionDataEvent(const VisionDataEvent& event)
     // ---- 发射目标坐标 ----
     emit targetReady(robotX, robotY);
 }
+
+// ---------------------------------------------------------------------------
+//  帧计数重置
+// ---------------------------------------------------------------------------
+
+void VisionRobotLink::resetFrameCount()
+{
+    m_frameCount = 0;
+    m_xBuf.clear();
+    m_yBuf.clear();
+}

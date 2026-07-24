@@ -1,7 +1,41 @@
+// windows.h 必须在 VM SDK 头文件之前包含，否则 SDK 的
+// using namespace std 与 rpcndr.h 的 typedef unsigned char byte 冲突
+#ifdef _WIN32
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+#endif
+
 #include "vmbase.h"
 #include "VMException.h"
 
 #include <QString>
+#include <vector>
+
+#ifdef _WIN32
+// 显式 GBK(CP936) 编解码，绕开 /utf-8 编译标志对 QString::fromLocal8Bit
+// 的影响。SDK 内部以 GBK 索引流程名，只有 CP936 才能保证双向一致。
+static QString gbkToQString(const char* s)
+{
+    if (!s) return QString();
+    int wlen = MultiByteToWideChar(936, 0, s, -1, nullptr, 0);
+    if (wlen <= 0) return QString();
+    std::vector<wchar_t> wbuf(static_cast<size_t>(wlen));
+    MultiByteToWideChar(936, 0, s, -1, wbuf.data(), wlen);
+    return QString::fromWCharArray(wbuf.data(), wlen - 1);
+}
+
+static QByteArray qstringToGbk(const QString& s)
+{
+    if (s.isEmpty()) return QByteArray();
+    std::wstring w = s.toStdWString();
+    int len = WideCharToMultiByte(936, 0, w.c_str(), -1, nullptr, 0, nullptr, nullptr);
+    if (len <= 0) return QByteArray();
+    QByteArray out;
+    out.resize(len - 1);
+    WideCharToMultiByte(936, 0, w.c_str(), -1, out.data(), len, nullptr, nullptr);
+    return out;
+}
+#endif
 
 /**
  * @brief 构造 VMbase。
@@ -336,7 +370,7 @@ VMbaseInfo VMbase::getprocedureObjList()
             // 将 SDK 对象指针转换为 IVmProcedure 指针。
             IVmProcedure* pProcedure = static_cast<IVmProcedure*>(ObjList.pObjects[i]);
 
-            // 从 SDK 流程对象中读取流程名。
+            // 从 SDK 流程对象中读取流程名（SDK 返回 UTF-8）
             QString procName = QString::fromUtf8(pProcedure->GetName());
 
             // 把流程名写入返回数据包。
@@ -462,7 +496,7 @@ VMbaseInfo VMbase::getIVmProcedure(QString processName)
 
     try {
         // 使用流程名称从方案对象中索引 SDK 流程对象。
-        IVmProcedure* pVmPrc = (IVmProcedure *)(*pVmSol)[processName.toUtf8().constData()];
+        IVmProcedure* pVmPrc = (IVmProcedure *)(*pVmSol)[qstringToGbk(processName).constData()];
 
         // 记录获取成功状态。
         success = true;
@@ -496,7 +530,7 @@ VMbaseInfo VMbase::runPrc(QString processName)
 
     try {
         // 使用流程名称获取流程对象。
-        IVmProcedure* pVmPrc = (IVmProcedure *)(*pVmSol)[processName.toUtf8().constData()];
+        IVmProcedure* pVmPrc = (IVmProcedure *)(*pVmSol)[qstringToGbk(processName).constData()];
 
         // 注册流程回调，流程执行结束后回到 OnWorkEndStatusCallBack。
         pVmPrc->RegisterCallBackEvent(this, pVmPrc);
@@ -542,7 +576,7 @@ VMbaseInfo VMbase::runningPrc(QString processName)
 
     try {
         // 使用流程名称获取流程对象。
-        IVmProcedure* pVmPrc = (IVmProcedure *)(*pVmSol)[processName.toUtf8().constData()];
+        IVmProcedure* pVmPrc = (IVmProcedure *)(*pVmSol)[qstringToGbk(processName).constData()];
 
         // 获取流程参数对象中的渲染控制信息。
         void* pParamData = pVmPrc->GetParamObj()->GetControlInfo();
@@ -588,7 +622,7 @@ VMbaseInfo VMbase::stopPrc(QString processName)
 
     try {
         // 使用流程名称获取流程对象。
-        IVmProcedure* pVmPrc = (IVmProcedure *)(*pVmSol)[processName.toUtf8().constData()];
+        IVmProcedure* pVmPrc = (IVmProcedure *)(*pVmSol)[qstringToGbk(processName).constData()];
 
         // 调用 SDK 停止流程执行。
         pVmPrc->StopRun();
@@ -622,7 +656,7 @@ VMbaseInfo VMbase::setProcess(QString processName)
 
     try {
         // 使用流程名称获取流程对象。
-        IVmProcedure* pVmPrc = (IVmProcedure *)(*pVmSol)[processName.toUtf8().constData()];
+        IVmProcedure* pVmPrc = (IVmProcedure *)(*pVmSol)[qstringToGbk(processName).constData()];
 
         // 获取流程参数控件所需的 SDK 控制信息。
         void * pParamData = pVmPrc->GetParamObj()->GetControlInfo();
@@ -689,7 +723,7 @@ VMbaseInfo VMbase::getResult(QString processName)
 
     try {
         // 使用流程名称获取流程对象。
-        IVmProcedure* pVmPrc = (IVmProcedure *)(*pVmSol)[processName.toUtf8().constData()];
+        IVmProcedure* pVmPrc = (IVmProcedure *)(*pVmSol)[qstringToGbk(processName).constData()];
 
         // 从流程对象读取结果对象。
         IMVSProcedureResults *results = pVmPrc->GetResult();
@@ -750,7 +784,7 @@ void VMbase::OnWorkEndStatusCallBack(const IMVS_PF_MODULE_WORK_STAUS *status, vo
     // 将用户指针还原为流程对象。
     IVmProcedure *procedure = static_cast<IVmProcedure*>(user);
 
-    // 读取流程名称并写入回调包。
+    // 读取流程名称并写入回调包（SDK 返回 UTF-8）
     QString processName = QString::fromUtf8(procedure->GetName());
     backData["processName"] = processName;
 
@@ -842,7 +876,7 @@ VMbaseInfo VMbase::ModuSet(const QString& processName
 
     try {
         // 使用流程名称获取流程对象。
-        IVmProcedure* proTool = (IVmProcedure*)(*pVmSol)[processName.toUtf8().constData()];
+        IVmProcedure* proTool = (IVmProcedure*)(*pVmSol)[qstringToGbk(processName).constData()];
 
         // 流程对象为空时记录错误消息。
         if (proTool == NULL) {
@@ -856,7 +890,7 @@ VMbaseInfo VMbase::ModuSet(const QString& processName
         unsigned int nID = 0;
 
         // 根据完整模块路径从 SDK 中查询模块 ID。
-        IMVS_PF_GetModuleIDByFullName(pParam->Handle, fullName.toUtf8().constData(), false, &nID);
+        IMVS_PF_GetModuleIDByFullName(pParam->Handle, qstringToGbk(fullName).constData(), false, &nID);
 
         // 清空成员级参数结构体，避免旧数据影响本次打开参数页。
         stParamData = { 0 };
@@ -910,7 +944,7 @@ VMbaseInfo VMbase::GroupSet(const QString& processName
 
     try {
         // 使用流程名称获取流程对象。
-        IVmProcedure* proTool = (IVmProcedure*)(*pVmSol)[processName.toUtf8().constData()];
+        IVmProcedure* proTool = (IVmProcedure*)(*pVmSol)[qstringToGbk(processName).constData()];
 
         // 流程对象为空时记录错误消息。
         if (proTool == NULL) {
@@ -924,7 +958,7 @@ VMbaseInfo VMbase::GroupSet(const QString& processName
         unsigned int nID = 0;
 
         // 根据完整模块路径从 SDK 中查询模块 ID。
-        IMVS_PF_GetModuleIDByFullName(pParam->Handle, fullModuleName.toUtf8().constData(), false, &nID);
+        IMVS_PF_GetModuleIDByFullName(pParam->Handle, qstringToGbk(fullModuleName).constData(), false, &nID);
 
         // 清空成员级参数结构体，避免旧数据影响本次打开参数页。
         stParamData = { 0 };

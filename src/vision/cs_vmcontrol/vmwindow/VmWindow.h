@@ -42,6 +42,12 @@ public:
     VMControl* vmControl() const { return m_vmcontrol; }
 
     /**
+     * @brief 获取界面当前选择的流程名，供外部（如 MainWindow）触发流程执行。
+     * @return 当前流程下拉框文本。
+     */
+    QString selectedProcessName() const;
+
+    /**
      * @brief 初始化界面控件状态。
      */
     void initializeUI();
@@ -138,12 +144,6 @@ private slots:
     void on_runPro_Button_6_clicked();
 
 private:
-    /**
-     * @brief 获取界面当前选择的流程名。
-     * @return 当前流程下拉框文本。
-     */
-    QString selectedProcessName() const;
-
     /**
      * @brief 把多目标数据追加显示到数据窗口。
      * @param pack VMControl 返回的数据包，包含 processName 和 TargetDataList。

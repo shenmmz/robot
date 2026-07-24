@@ -55,6 +55,13 @@ public:
      */
     void setFilterWindow(int windowSize);
 
+    /**
+     * @brief 重置帧计数与滤波缓冲区
+     *
+     * 每次开始新一轮多帧采样前调用，清除历史帧的累积状态。
+     */
+    void resetFrameCount();
+
 signals:
     /**
      * @brief 数据转换完成，发射目标坐标

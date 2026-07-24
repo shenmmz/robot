@@ -13,7 +13,10 @@
 #include <QVector>
 #include <QPointF>
 #include <QVector3D>
+#include <QVector2D>
 #include <QLineEdit>
+#include <QPair>
+#include <QColor>
 #include "WorkPieceCoord.h"
 
 /**
@@ -141,8 +144,12 @@ public:
     }
     void setWorkPiecePlaneSize(const QSizeF &size) { m_workPiecePlaneSize = size; m_showWorkPiecePlane = true; update(); }
     void clearWorkPiecePlane() { m_showWorkPiecePlane = false; update(); }
+    void drawWorkpieceCoordRegion(const QPointF &origin, const QPointF &xPt, const QPointF &yPt);
+    QPointF screenToLogical(const QPointF &screenPos) const;
+    void zoomToFit(const QRectF &bounds);
     void clearAll() {
         m_paths.clear();
+        m_coloredPaths.clear();
         m_textItems.clear();
         m_circles.clear();
         m_arcs.clear();
@@ -217,6 +224,7 @@ private:
     QPointF m_endPoint;
     bool m_drawing{false};
     QList<QPainterPath> m_paths;
+    QVector<QPair<QPainterPath, QColor>> m_coloredPaths;  // 带颜色属性的路径
     QVector<TextItemData> m_textItems;
     int m_selectedText = -1;
     QPointF m_dragOffset;
@@ -231,6 +239,13 @@ private:
     bool m_arcSecondPointSet{false};
     bool m_showWorkPiecePlane{false};
     QSizeF m_workPiecePlaneSize;
+    QPointF m_workPiecePlaneOffset;
+
+    // 视图变换
+    double m_viewScale{1.0};
+    QPointF m_viewOffset{0, 0};
+    bool m_isPanning{false};
+    QPointF m_panStart;
 
     void drawGrid(QPainter &painter);
     void drawArcThroughThreePoints(QPainterPath &path, const QPointF &p1, const QPointF &p2, const QPointF &p3);
@@ -250,6 +265,7 @@ public:
 
     void setWorkPieceCoord(const WorkPieceCoord *coord);
     void setDefaultPose(double rx, double ry, double rz);
+    void drawWorkpieceCoordRegion(const QPointF &origin, const QPointF &xPt, const QPointF &yPt);
 
     QVector<QVector3D> getDrawingPoints3D(double resolution = 1.0) const;
     QVector<QPointF> getDrawingPoints(double resolution = 1.0) const;
@@ -264,6 +280,7 @@ signals:
     void requestInverseKinematics();
     void requestStopMotion();
     void requestDrawMotionParams(const DrawMotionParams &params);
+    void requestWorkpieceCoordSetup();              // 请求打开工件坐标系设置对话框
 
 private slots:
     void onClearCanvas();

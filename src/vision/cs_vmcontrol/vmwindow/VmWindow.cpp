@@ -19,7 +19,7 @@
 
 static void outputVisionLine(const QString &line)
 {
-    const QByteArray utf8 = (line + QLatin1Char('\n')).toUtf8();
+    const QByteArray utf8 = (line + QLatin1Char('\n')).toLocal8Bit();
 #ifdef _WIN32
     HANDLE h = GetStdHandle(STD_OUTPUT_HANDLE);
     if (h && h != INVALID_HANDLE_VALUE) {

@@ -6064,7 +6064,7 @@ QPushButton:pressed{background:#0d47a1;}</string>
                                                  <cursorShape>PointingHandCursor</cursorShape>
                                                 </property>
                                                 <property name="text">
-                                                 <string>执行验证</string>
+                                                 <string>视觉定位</string>
                                                 </property>
                                                </widget>
                                               </item>

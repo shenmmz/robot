@@ -205,6 +205,29 @@ void VMControl::executeProcedureCommand(ProcMotionType command, const QString& p
 }
 
 /**
+ * @brief 设置指定流程的连续采集模式。
+ * @param processName 流程名称。
+ * @param enabled true 启用（阻止自动 StopRun），false 恢复默认行为。
+ */
+void VMControl::setContinuousCollection(const QString &processName, bool enabled)
+{
+    if (enabled) {
+        m_continuousProcs.insert(processName);
+    } else {
+        m_continuousProcs.remove(processName);
+    }
+}
+
+/**
+ * @brief 重置流程成功标记，允许后续回调通过拦截。
+ * @param processName 流程名称。
+ */
+void VMControl::resetProcSuccessFlag(const QString &processName)
+{
+    m_procSuccessFlags.remove(processName);
+}
+
+/**
  * @brief 执行模块参数页命令。
  * @param command 模块操作类型。
  * @param params 模块参数包。
@@ -734,8 +757,8 @@ void VMControl::hanlePointData(const QVariantMap &backData)
     // 读取结果所属流程名。
     const QString processName = backData["processName"].toString();
 
-    // 如果该流程已经处理过有效数据，则忽略重复回调。
-    if (m_procSuccessFlags.value(processName, false)) {
+    // 如果该流程已经处理过有效数据且不在连续采集模式下，则忽略重复回调。
+    if (m_procSuccessFlags.value(processName, false) && !m_continuousProcs.contains(processName)) {
         return;
     }
 
@@ -761,13 +784,15 @@ void VMControl::hanlePointData(const QVariantMap &backData)
     // 取出流程对象，用于在拿到有效数据后停止连续执行。
     IVmProcedure *procedure = backData["procedure"].value<IVmProcedure*>();
 
-    // 流程对象有效时停止流程。
-    if (procedure) {
+    // 流程对象有效时停止流程（连续采集模式下不自动停止）。
+    if (procedure && !m_continuousProcs.contains(processName)) {
         procedure->StopRun();
     }
 
-    // 标记该流程已经收到有效数据。
-    m_procSuccessFlags[processName] = true;
+    // 连续采集模式下不设置成功标记，允许后续回调继续通过。
+    if (!m_continuousProcs.contains(processName)) {
+        m_procSuccessFlags[processName] = true;
+    }
 
     // 如果存在超时定时器，收到数据后停止计时。
     if (m_procTimers.contains(processName)) {
