@@ -1,64 +1,299 @@
-from __future__ import annotations
-
 # -*- coding: utf-8 -*-
-"""姿态结果稳定过滤模块。
+"""多帧确认姿态过滤器。
 
-推理服务每帧都会输出角度和电机命令，但真实相机画面存在抖动、遮挡和短暂丢点。
-本模块位于“推理服务 -> UI/通信”之间，负责：
-1. 当前帧无检测结果时，尽量保持上一帧有效姿态；
-2. 当前帧角度变化小于阈值时，保持上一帧，避免电机微抖；
-3. 当前帧角度变化超过阈值时，允许动作输出；
-4. 给 payload 补充 `motion_allowed`、`filter_state`、`filter_reason` 等控制字段。
+优化了原单帧 5° 阈值方案，引入以下机制：
+1. 每个角度独立跟踪，±5° 以内抖动不更新（死区保持）；
+2. 单帧大跳点（与上一原始帧差值 > 20°）视为离群，不更新；
+3. 连续 3 帧同方向超过阈值才确认发送一次；
+4. 仅标记实际变化的角度为 changed，通信层据此按需发送；
+5. 检测点缺失（Pose/Hands/腕部数据无效）时保持不更新不发送；
+6. reset() 在开始采集和重连相机时清空所有状态；
+7. 输出 changed_motor_ids 供通信层筛选。
+
+设计思路：
+- PerAngleFilter 管理单个角度值的多帧状态；
+- PoseMotionFilter 对 payload 中所有角度字段按侧×字段名创建独立过滤器；
+- 输出 payload 中新增 changed_motor_ids 列表，通信层据此判断是否发送。
 """
 
+from __future__ import annotations
+
+import os
 from copy import deepcopy
-from dataclasses import dataclass
 from math import isfinite
 from typing import Any
 
 
-@dataclass(frozen=True)
-class PoseFilterConfig:
-    """过滤配置。
+def _env_int(name: str, default: int) -> int:
+    try:
+        return int(os.environ.get(name, str(default)))
+    except ValueError:
+        return default
 
-    输入字段：
-    - movement_threshold_deg：角度变化阈值，低于该值时认为是抖动而不是有效动作。
+
+# ---- 可配置常量 ----
+# 死区阈值：角度变化绝对值低于此值时视为抖动，保持不更新。
+DEADBAND_THRESHOLD_DEG: float = float(
+    os.environ.get("VISUAL_ARM_DEADBAND_THRESHOLD_DEG", "5.0")
+)
+# 连续确认帧数：角度变化需连续多少帧同方向且超阈值才确认发送。
+CONFIRM_FRAMES: int = _env_int("VISUAL_ARM_CONFIRM_FRAMES", 3)
+# 离群跳点阈值：单帧角度与上一原始帧差值超过此值视为噪声跳点。
+OUTLIER_JUMP_DEG: float = float(
+    os.environ.get("VISUAL_ARM_OUTLIER_JUMP_DEG", "20.0")
+)
+
+
+class PerAngleFilter:
+    """单个角度值的多帧确认滤波器。
+
+    输入：
+    - threshold_deg：死区阈值，低于此值保持不更新；
+    - confirm_frames：连续超阈值且同方向的帧数阈值，达标后确认；
+    - outlier_jump_deg：单帧跳变阈值，超过此值视为离群。
+
+    输出：每次 update() 返回 (filtered_angle, changed)。
     """
-    movement_threshold_deg: float = 5.0
+
+    def __init__(
+        self,
+        threshold_deg: float = DEADBAND_THRESHOLD_DEG,
+        confirm_frames: int = CONFIRM_FRAMES,
+        outlier_jump_deg: float = OUTLIER_JUMP_DEG,
+    ):
+        self.threshold = float(threshold_deg)
+        self.confirm_frames = max(1, int(confirm_frames))
+        self.outlier_jump = float(outlier_jump_deg)
+
+        self.confirmed_angle: float | None = None
+        self.consecutive_count: int = 0
+        self.last_direction: int = 0  # +1 / -1 / 0
+        self.initialized: bool = False
+        self.changed: bool = False
+        self._prev_raw_angle: float | None = None
+
+    def update(self, current_angle: float | None) -> tuple[float | None, bool]:
+        """处理一帧角度。
+
+        输入：
+        - current_angle：当前帧原始角度，None 表示该字段缺失。
+
+        输出：
+        - (filtered_angle, changed)：
+          filtered_angle 为经过滤波的输出值；
+          changed 为 True 表示该角度本帧发生确认变化，应发送。
+        """
+        self.changed = False
+
+        # ---- 缺失处理：保持上次确认值，不发送 ----
+        if current_angle is None or not isfinite(current_angle):
+            return self.confirmed_angle, False
+
+        # ---- 首帧初始化：建立基线，不发送 ----
+        if not self.initialized:
+            self.confirmed_angle = current_angle
+            self._prev_raw_angle = current_angle
+            self.initialized = True
+            return current_angle, False
+
+        # ---- 离群跳点检测：单帧与上一原始帧差 > 阈值视为噪声 ----
+        if self._prev_raw_angle is not None:
+            raw_delta = abs(current_angle - self._prev_raw_angle)
+            if raw_delta > self.outlier_jump:
+                # 离群帧：丢弃原始值跟踪但保持确认值不变
+                self._prev_raw_angle = current_angle
+                self.consecutive_count = 0
+                self.last_direction = 0
+                return self.confirmed_angle, False
+
+        self._prev_raw_angle = current_angle
+
+        # ---- 死区判定：|delta| <= threshold，保持不更新 ----
+        if self.confirmed_angle is None:
+            self.confirmed_angle = current_angle
+            return current_angle, False
+
+        delta = current_angle - self.confirmed_angle
+
+        if abs(delta) <= self.threshold:
+            self.consecutive_count = 0
+            self.last_direction = 0
+            return self.confirmed_angle, False
+
+        # ---- 超阈值：方向一致性检查 ----
+        direction = 1 if delta > 0 else -1
+
+        if direction != self.last_direction:
+            # 方向反转：重置计数
+            self.consecutive_count = 1
+            self.last_direction = direction
+        else:
+            self.consecutive_count += 1
+
+        if self.consecutive_count >= self.confirm_frames:
+            # 连续确认达标：更新确认值，标记 changed，重置计数
+            self.confirmed_angle = current_angle
+            self.consecutive_count = 0
+            self.changed = True
+            return current_angle, True
+
+        # 积累中：仍输出确认值
+        return self.confirmed_angle, False
+
+    def reset(self) -> None:
+        """清空状态，用于相机重连或开始采集。"""
+        self.confirmed_angle = None
+        self.consecutive_count = 0
+        self.last_direction = 0
+        self.initialized = False
+        self.changed = False
+        self._prev_raw_angle = None
+
+
+# ---- 需要按帧独立跟踪的角度字段 ----
+# 格式：(side, field_path, motor_id)
+# motor_id 为 None 表示该字段不直接对应电机（如辅助字段）
+_ARM_ANGLE_FIELDS: list[tuple[str, str, int | None]] = [
+    ("right", "shoulder_flex_deg", 1),
+    ("right", "shoulder_abduction_deg", 2),
+    ("right", "shoulder_rotation_deg", None),
+    ("right", "elbow_flex_deg", 3),
+    ("right", "elbow_abduction_deg", 4),
+    ("right", "elbow_pronation_deg", None),
+    ("right", "wrist_flex_deg", 5),
+    ("left", "shoulder_flex_deg", None),
+    ("left", "shoulder_abduction_deg", None),
+    ("left", "shoulder_rotation_deg", None),
+    ("left", "elbow_flex_deg", None),
+    ("left", "elbow_abduction_deg", None),
+    ("left", "elbow_pronation_deg", None),
+    ("left", "wrist_flex_deg", None),
+]
+# 嵌套字段：wrist_rotation.vertical_deg / horizontal_deg
+_ARM_NESTED_FIELDS: list[tuple[str, str, str, int | None]] = [
+    ("right", "wrist_rotation", "vertical_deg", None),
+    ("right", "wrist_rotation", "horizontal_deg", 6),
+    ("left", "wrist_rotation", "vertical_deg", None),
+    ("left", "wrist_rotation", "horizontal_deg", None),
+]
+
+# Motor 6 独立角度字段（从 motor_6 字典提取）
+_MOTOR6_ANGLE_FIELD: str = "signed_roll_deg"
+
+
+def _normalize_side(value: Any) -> str | None:
+    """标准化左右侧字段。"""
+    side = getattr(value, "value", value)
+    if side in {"left", "right"}:
+        return str(side)
+    return None
+
+
+def _is_number(value: Any) -> bool:
+    """判断值是否为有限数值。"""
+    if isinstance(value, bool):
+        return False
+    if isinstance(value, (int, float)):
+        return isfinite(float(value))
+    return False
+
+
+def _nested_get(data: dict[str, Any], path: str) -> Any:
+    """按 a.b 路径从嵌套 dict 中取值。"""
+    parts = path.split(".")
+    current = data
+    for part in parts:
+        if not isinstance(current, dict):
+            return None
+        current = current.get(part)
+    return current
+
+
+def _nested_set(data: dict[str, Any], path: str, value: Any) -> None:
+    """按 a.b 路径写入嵌套 dict。"""
+    parts = path.split(".")
+    current = data
+    for part in parts[:-1]:
+        if part not in current:
+            current[part] = {}
+        current = current[part]
+    current[parts[-1]] = value
+
+
+def _extract_arm_fields(
+    arm: dict[str, Any],
+) -> dict[str, float | None]:
+    """从单侧手臂字典中提取所有数值角度字段。
+
+    输入：单侧手臂角度字典。
+    输出：{field_path: value | None}。
+    """
+    result: dict[str, float | None] = {}
+    for _, field_path, _ in _ARM_ANGLE_FIELDS:
+        raw = arm.get(field_path)
+        result[field_path] = float(raw) if _is_number(raw) else None
+    for _, parent, field, _ in _ARM_NESTED_FIELDS:
+        raw = _nested_get(arm, f"{parent}.{field}")
+        result[f"{parent}.{field}"] = float(raw) if _is_number(raw) else None
+    return result
+
+
+def _has_required_arm_data(arm: dict[str, Any]) -> bool:
+    """检查手臂字典中是否有腕部旋转关键数据。"""
+    wrist = arm.get("wrist_rotation")
+    if not isinstance(wrist, dict):
+        return False
+    return _is_number(wrist.get("vertical_deg")) and _is_number(wrist.get("horizontal_deg"))
 
 
 class PoseMotionFilter:
-    """稳定推理 payload 的过滤器。
+    """多帧确认姿态过滤器。
 
     输入：
-    - 推理服务输出的 payload 字典。
+    - 推理 payload（含 angles 列表和 motor_6 字典）。
 
     输出：
-    - 字段结构不变、但经过保持/过滤处理的新 payload 字典。
+    - filtered payload（角度值经滤波保持，附加 changed_motor_ids）。
     """
 
-    def __init__(self, movement_threshold_deg: float = 5.0):
+    def __init__(self):
         """初始化过滤器。
 
-        输入：
-        - movement_threshold_deg：动作变化阈值，单位为度。
-
+        输入：无（阈值从环境变量或默认值读取）。
         输出：无。
-        功能：创建左右臂和 6 号电机的上一帧有效状态缓存。
         """
-        self._config = PoseFilterConfig(movement_threshold_deg=float(movement_threshold_deg))
-        self._last_valid_by_side: dict[str, dict[str, Any]] = {}
+        self._angle_filters: dict[str, PerAngleFilter] = {}
+        self._motor6_filter: PerAngleFilter | None = None
         self._last_valid_angles: list[dict[str, Any]] = []
         self._last_valid_motor_6: dict[str, Any] | None = None
+        self._init_filters()
+
+    def _init_filters(self) -> None:
+        """创建所有角度字段的 PerAngleFilter 实例。"""
+        self._angle_filters.clear()
+        # 手臂平铺字段
+        for side, field_path, _ in _ARM_ANGLE_FIELDS:
+            key = f"{side}.{field_path}"
+            self._angle_filters[key] = PerAngleFilter()
+        # 手臂嵌套字段
+        for side, parent, field, _ in _ARM_NESTED_FIELDS:
+            key = f"{side}.{parent}.{field}"
+            self._angle_filters[key] = PerAngleFilter()
+        # Motor 6
+        self._motor6_filter = PerAngleFilter()
 
     def reset(self) -> None:
-        """清空历史缓存。
+        """清空所有滤波器状态。
+
+        调用时机：开始采集（on_start_clicked）或重连相机。
 
         输入：无。
         输出：无。
-        功能：重新连接相机或重置状态时调用，避免沿用旧动作。
         """
-        self._last_valid_by_side.clear()
+        for filt in self._angle_filters.values():
+            filt.reset()
+        if self._motor6_filter is not None:
+            self._motor6_filter.reset()
         self._last_valid_angles.clear()
         self._last_valid_motor_6 = None
 
@@ -66,40 +301,56 @@ class PoseMotionFilter:
         """过滤一帧推理 payload。
 
         输入：
-        - payload：`MediaPipePoseHandService.process_bgr()` 输出的字典。
+        - payload：推理服务输出的字典。
 
         输出：
-        - filtered：深拷贝后的新字典，内部角度和电机命令可能被保持或更新。
-
-        功能实现：
-        - 先稳定 6 号电机命令；
-        - 再逐侧稳定左右臂角度；
-        - 最后统一写回 motion/filter 字段。
+        - filtered：深拷贝后的新字典，角度值经滤波保持，
+          附加 `changed_motor_ids` 和 `motion_allowed` 字段。
         """
         if not isinstance(payload, dict):
             return payload
 
+        # 确保所有 filter 已初始化（reset 后需要重建）
+        if not self._angle_filters or self._motor6_filter is None:
+            self._init_filters()
+
         filtered = deepcopy(payload)
-        # 6 号电机单独处理，因为它直接决定是否发送实际电机动作。
-        motor_6 = self._stabilize_motor_6(payload.get("motor_6"))
-        _apply_motor_6(filtered, motor_6)
+        has_pose = bool(payload.get("has_pose", False))
+        has_right_hand = bool(payload.get("has_right_hand", False))
+        has_left_hand = bool(payload.get("has_left_hand", False))
 
         raw_angles = payload.get("angles")
         current_angles = raw_angles if isinstance(raw_angles, list) else []
 
+        # ---- 处理 Motor 6 ----
+        motor_6 = payload.get("motor_6")
+        motor6_changed = False
+        if isinstance(motor_6, dict) and bool(motor_6.get("valid", False)):
+            raw_angle = motor_6.get(_MOTOR6_ANGLE_FIELD)
+            if _is_number(raw_angle):
+                _, changed = self._motor6_filter.update(float(raw_angle))
+                motor6_changed = changed
+
+        # 稳定 motor_6 字典
+        if isinstance(motor_6, dict):
+            self._last_valid_motor_6 = deepcopy(motor_6)
+        stabilized_motor6 = deepcopy(self._last_valid_motor_6) if self._last_valid_motor_6 else None
+
+        # ---- 无检测处理 ----
         if not current_angles:
-            # 没有人体结果时不清空显示，而是保持上一帧有效角度。
             filtered["angles"] = deepcopy(self._last_valid_angles)
             filtered["pose_valid"] = False
             filtered["motion_allowed"] = False
             filtered["filter_state"] = "hold_last"
             filtered["filter_reason"] = "no_detection"
-            _apply_motor_6(filtered, motor_6)
+            filtered["changed_motor_ids"] = []
+            filtered["motor_6"] = stabilized_motor6
             return filtered
 
+        # ---- 逐臂处理 ----
+        changed_motor_ids: set[int] = set()
         next_angles: list[dict[str, Any]] = []
         pose_valid = False
-        motion_allowed = False
         seen_sides: set[str] = set()
 
         for arm in current_angles:
@@ -111,326 +362,110 @@ class PoseMotionFilter:
                 continue
             seen_sides.add(side)
 
-            previous = self._last_valid_by_side.get(side)
-            # 单侧手臂独立判断，避免一侧丢点影响另一侧显示。
-            stabilized, state = self._stabilize_arm(payload, side, arm, previous)
+            hand_valid = has_right_hand if side == "right" else has_left_hand
 
-            if stabilized is None:
+            if not has_pose:
+                # Pose 无效 → 保持上一帧值
+                prev = _find_arm_by_side(self._last_valid_angles, side)
+                if prev:
+                    next_angles.append(deepcopy(prev))
                 continue
 
-            next_angles.append(stabilized)
-            if state == "move":
-                motion_allowed = True
-                pose_valid = True
-                self._last_valid_by_side[side] = deepcopy(stabilized)
-            elif state == "hold":
-                pose_valid = True
-            elif state == "invalid" and previous is not None:
-                pose_valid = False
+            if not hand_valid:
+                prev = _find_arm_by_side(self._last_valid_angles, side)
+                if prev:
+                    next_angles.append(deepcopy(prev))
+                continue
 
-        for side, previous in self._last_valid_by_side.items():
-            if side not in seen_sides and previous is not None:
-                next_angles.append(deepcopy(previous))
+            if not _has_required_arm_data(arm):
+                prev = _find_arm_by_side(self._last_valid_angles, side)
+                if prev:
+                    next_angles.append(deepcopy(prev))
+                continue
 
+            # 有效检测：逐字段滤波
+            stabilized_arm = deepcopy(arm)
+            arm_changed = False
+
+            # 平铺字段
+            for _, field_path, motor_id in _ARM_ANGLE_FIELDS:
+                if _normalize_side(arm.get("side")) != side:
+                    continue
+                raw = arm.get(field_path)
+                raw_val = float(raw) if _is_number(raw) else None
+                key = f"{side}.{field_path}"
+                filt = self._angle_filters.get(key)
+                if filt is None:
+                    continue
+                filtered_val, changed = filt.update(raw_val)
+                if filtered_val is not None:
+                    stabilized_arm[field_path] = filtered_val
+                if changed and motor_id is not None:
+                    changed_motor_ids.add(motor_id)
+                    arm_changed = True
+
+            # 嵌套字段
+            for _, parent, field, motor_id in _ARM_NESTED_FIELDS:
+                if _normalize_side(arm.get("side")) != side:
+                    continue
+                raw = _nested_get(arm, f"{parent}.{field}")
+                raw_val = float(raw) if _is_number(raw) else None
+                key = f"{side}.{parent}.{field}"
+                filt = self._angle_filters.get(key)
+                if filt is None:
+                    continue
+                filtered_val, changed = filt.update(raw_val)
+                if filtered_val is not None:
+                    _nested_set(stabilized_arm, f"{parent}.{field}", filtered_val)
+                if changed and motor_id is not None:
+                    changed_motor_ids.add(motor_id)
+                    arm_changed = True
+
+            if arm_changed:
+                pose_valid = True
+
+            next_angles.append(stabilized_arm)
+
+        # Motor 6 changed 追加
+        if motor6_changed:
+            changed_motor_ids.add(6)
+
+        # 补充未出现侧的上一帧数据
+        for side, prev_arm in [
+            ("right", _find_arm_by_side(self._last_valid_angles, "right")),
+            ("left", _find_arm_by_side(self._last_valid_angles, "left")),
+        ]:
+            if side not in seen_sides and prev_arm is not None:
+                next_angles.append(deepcopy(prev_arm))
+
+        # 写入结果
         if next_angles:
             filtered["angles"] = next_angles
             self._last_valid_angles = deepcopy(next_angles)
         else:
             filtered["angles"] = deepcopy(self._last_valid_angles)
 
-        filtered["pose_valid"] = pose_valid
+        motion_allowed = bool(changed_motor_ids)
+
+        filtered["pose_valid"] = pose_valid or motion_allowed
         filtered["motion_allowed"] = motion_allowed
-        filtered["filter_state"] = "move" if motion_allowed else ("track" if pose_valid else "hold_last")
+        filtered["filter_state"] = "move" if motion_allowed else ("track" if next_angles else "hold_last")
         filtered["filter_reason"] = "stable"
-        # 统一根据稳定后的 6 号电机刷新 motor_commands。
-        _apply_motor_6(filtered, motor_6)
+        filtered["changed_motor_ids"] = sorted(changed_motor_ids)
+
+        # Motor 6 命令
+        if stabilized_motor6 is not None:
+            stabilized_motor6["motion_allowed"] = motor6_changed
+            stabilized_motor6["reason"] = "ok" if motor6_changed else "hold"
+        filtered["motor_6"] = stabilized_motor6
+        filtered["motor_commands"] = []
+
         return filtered
 
-    def _stabilize_motor_6(self, current: Any) -> dict[str, Any] | None:
-        """稳定 6 号电机命令。
 
-        输入：
-        - current：当前帧 `motor_6` 字段。
-
-        输出：
-        - 稳定后的 motor_6 字典；输入无效时返回上一帧保持命令。
-        """
-        if not isinstance(current, dict):
-            return self._held_motor_6("motor_6_missing")
-
-        if int(current.get("motor_id", 0) or 0) != 6:
-            return self._held_motor_6("motor_6_id_invalid")
-
-        if _normalize_side(current.get("side")) != "right":
-            return self._held_motor_6("motor_6_side_not_right")
-
-        if not bool(current.get("valid", False)):
-            return self._held_motor_6(str(current.get("reason") or "motor_6_invalid"))
-
-        current_angle = _motor_6_angle(current)
-        if current_angle is None:
-            return self._held_motor_6("motor_6_angle_invalid")
-
-        stabilized = deepcopy(current)
-        # 标准化必备字段，保证通信模块可以按统一结构读取。
-        stabilized["motor_id"] = 6
-        stabilized["side"] = "right"
-        stabilized["joint"] = stabilized.get("joint") or "wrist"
-        stabilized["axis"] = stabilized.get("axis") or "roll"
-        stabilized["valid"] = True
-
-        physical_angle = current_angle
-        stabilized["raw_signed_roll_deg"] = current.get("raw_signed_roll_deg", physical_angle)
-        stabilized["baseline_signed_roll_deg"] = 0.0
-        stabilized["signed_roll_deg"] = physical_angle
-        stabilized["roll_deg"] = abs(physical_angle)
-        if abs(physical_angle) < 1e-6:
-            stabilized["direction"] = "unknown"
-            stabilized["rotation_side"] = "neutral"
-
-        previous = self._last_valid_motor_6
-        if previous is None:
-            # 第一帧没有历史值，低于阈值则先保持，高于阈值才允许动作。
-            if abs(physical_angle) < self._config.movement_threshold_deg:
-                stabilized["motion_allowed"] = False
-                stabilized["reason"] = "near_flat_hold"
-                stabilized["filter_state"] = "hold"
-            else:
-                stabilized["motion_allowed"] = True
-                stabilized["reason"] = "ok"
-                stabilized["filter_state"] = "move"
-            self._last_valid_motor_6 = deepcopy(stabilized)
-            return stabilized
-
-        previous_angle = _motor_6_angle(previous)
-        if previous_angle is None:
-            stabilized["motion_allowed"] = True
-            stabilized["reason"] = "ok"
-            stabilized["filter_state"] = "move"
-            self._last_valid_motor_6 = deepcopy(stabilized)
-            return stabilized
-
-        delta = abs(physical_angle - previous_angle)
-        if delta < self._config.movement_threshold_deg:
-            # 变化量过小视为抖动，默认保持上一条有效命令。
-            previous_direction = str(previous.get("direction") or "")
-            current_direction = str(stabilized.get("direction") or "")
-            if (
-                previous_direction in {"left", "right", "Direction.LEFT", "Direction.RIGHT"}
-                and current_direction in {"left", "right", "Direction.LEFT", "Direction.RIGHT"}
-                and previous_direction != current_direction
-            ):
-                stabilized["motion_allowed"] = False
-                stabilized["reason"] = "direction_changed_below_threshold"
-                stabilized["filter_state"] = "hold"
-                stabilized["latest_roll_deg"] = current_angle
-                stabilized["delta_deg"] = delta
-                self._last_valid_motor_6 = deepcopy(stabilized)
-                return stabilized
-
-            held = deepcopy(previous)
-            held["valid"] = True
-            held["motion_allowed"] = False
-            held["reason"] = "below_threshold"
-            held["filter_state"] = "hold"
-            held["latest_roll_deg"] = current_angle
-            held["delta_deg"] = delta
-            return held
-
-        stabilized["motion_allowed"] = True
-        stabilized["reason"] = "ok"
-        stabilized["filter_state"] = "move"
-        stabilized["delta_deg"] = delta
-        self._last_valid_motor_6 = deepcopy(stabilized)
-        return stabilized
-
-    def _held_motor_6(self, reason: str) -> dict[str, Any]:
-        """构造保持状态的 6 号电机命令。
-
-        输入：
-        - reason：保持原因。
-
-        输出：
-        - motor_6 字典，`motion_allowed=False`。
-        """
-        if self._last_valid_motor_6 is not None:
-            held = deepcopy(self._last_valid_motor_6)
-        else:
-            held = {
-                "motor_id": 6,
-                "side": "right",
-                "joint": "wrist",
-                "axis": "roll",
-                "mode": "palm_roll",
-                "reference": "palm_flat",
-                "roll_deg": None,
-                "signed_roll_deg": None,
-                "direction": "unknown",
-                "thumb_direction": "unknown",
-            }
-        held["valid"] = False
-        held["motion_allowed"] = False
-        held["reason"] = reason
-        held["filter_state"] = "hold_last"
-        return held
-
-    def _stabilize_arm(
-        self,
-        payload: dict[str, Any],
-        side: str,
-        current: dict[str, Any],
-        previous: dict[str, Any] | None,
-    ) -> tuple[dict[str, Any] | None, str]:
-        """稳定单侧手臂角度。
-
-        输入：
-        - payload：当前帧完整 payload；
-        - side：`left` 或 `right`；
-        - current：当前帧该侧手臂角度；
-        - previous：上一帧该侧有效角度。
-
-        输出：
-        - `(stabilized, state)`：
-          - `move` 表示角度变化超过阈值，可更新；
-          - `hold` 表示小幅变化，保持上一帧；
-          - `invalid` 表示当前帧缺失关键数据。
-        """
-        if not payload.get("has_pose", False):
-            if previous is not None:
-                return deepcopy(previous), "invalid"
-            return None, "invalid"
-
-        hand_key = "has_right_hand" if side == "right" else "has_left_hand"
-        if not payload.get(hand_key, False):
-            if previous is not None:
-                return deepcopy(previous), "invalid"
-            return None, "invalid"
-
-        if not _has_required_wrist_data(current):
-            if previous is not None:
-                return deepcopy(previous), "invalid"
-            return None, "invalid"
-
-        current_numeric = _numeric_map(current)
-        if previous is None:
-            return deepcopy(current), "move"
-
-        previous_numeric = _numeric_map(previous)
-        if not previous_numeric:
-            return deepcopy(current), "move"
-
-        missing_keys = [key for key in previous_numeric.keys() if key not in current_numeric]
-        if missing_keys:
-            return deepcopy(previous), "invalid"
-
-        max_delta = 0.0
-        for key, previous_value in previous_numeric.items():
-            current_value = current_numeric[key]
-            if not isfinite(current_value):
-                return deepcopy(previous), "invalid"
-            max_delta = max(max_delta, abs(current_value - previous_value))
-
-        if max_delta < self._config.movement_threshold_deg:
-            return deepcopy(previous), "hold"
-
-        return deepcopy(current), "move"
-
-
-def _normalize_side(value: Any) -> str | None:
-    """标准化左右侧字段。
-
-    输入：可能是字符串或 Enum 的 side 值。
-    输出：`left` / `right` / None。
-    """
-    side = getattr(value, "value", value)
-    if side in {"left", "right"}:
-        return str(side)
+def _find_arm_by_side(angles: list[dict[str, Any]], side: str) -> dict[str, Any] | None:
+    """从角度列表中查找指定侧的手臂。"""
+    for arm in angles:
+        if _normalize_side(arm.get("side")) == side:
+            return arm
     return None
-
-
-def _has_required_wrist_data(arm: dict[str, Any]) -> bool:
-    """检查手臂角度中是否包含腕部旋转的必要数值。
-
-    输入：单侧手臂角度字典。
-    输出：True 表示 wrist_rotation.vertical_deg 与 horizontal_deg 都有效。
-    """
-    wrist = arm.get("wrist_rotation")
-    if not isinstance(wrist, dict):
-        return False
-    return _is_number(wrist.get("vertical_deg")) and _is_number(wrist.get("horizontal_deg"))
-
-
-def _numeric_map(value: Any, prefix: str = "") -> dict[str, float]:
-    """递归提取嵌套结构中的数值字段。
-
-    输入：
-    - value：任意嵌套 dict/list/基础值；
-    - prefix：递归路径前缀。
-
-    输出：
-    - `{字段路径: 数值}`，用于比较当前帧和上一帧最大角度变化。
-    """
-    numbers: dict[str, float] = {}
-    if isinstance(value, dict):
-        for key, item in value.items():
-            child_prefix = f"{prefix}.{key}" if prefix else str(key)
-            numbers.update(_numeric_map(item, child_prefix))
-        return numbers
-
-    if _is_number(value):
-        numbers[prefix] = float(value)
-    return numbers
-
-
-def _apply_motor_6(payload: dict[str, Any], motor_6: dict[str, Any] | None) -> None:
-    """把稳定后的 6 号电机命令写回 payload。
-
-    输入：
-    - payload：待修改的 payload 字典；
-    - motor_6：稳定后的 6 号电机命令。
-
-    输出：无，直接修改 payload。
-    功能：根据 valid/motion_allowed 决定是否填充 motor_commands。
-    """
-    if motor_6 is None:
-        payload["motor_commands"] = []
-        return
-
-    payload["motor_6"] = motor_6
-    if bool(motor_6.get("valid")) and bool(motor_6.get("motion_allowed")):
-        payload["motor_commands"] = [deepcopy(motor_6)]
-        payload["motion_allowed"] = True
-        payload["filter_state"] = motor_6.get("filter_state") or "move"
-        payload["filter_reason"] = motor_6.get("reason") or "ok"
-    else:
-        payload["motor_commands"] = []
-        payload["motion_allowed"] = False
-        payload["filter_state"] = motor_6.get("filter_state") or "hold_last"
-        payload["filter_reason"] = motor_6.get("reason") or "motor_6_hold"
-
-
-def _motor_6_angle(command: dict[str, Any]) -> float | None:
-    """提取 6 号电机用于过滤的角度。
-
-    输入：motor_6 命令字典。
-    输出：优先返回 signed_roll_deg，其次返回 roll_deg；无效时返回 None。
-    """
-    value = command.get("signed_roll_deg")
-    if not _is_number(value):
-        value = command.get("roll_deg")
-    if not _is_number(value):
-        return None
-    return float(value)
-
-
-def _is_number(value: Any) -> bool:
-    """判断值是否为有限数值。
-
-    输入：任意值。
-    输出：True 表示 int/float 且不是 bool/NaN/Inf。
-    """
-    if isinstance(value, bool):
-        return False
-    if isinstance(value, (int, float)):
-        return isfinite(float(value))
-    return False

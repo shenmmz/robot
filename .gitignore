@@ -56,3 +56,7 @@ Desktop.ini
 
 # Git 备份目录
 .git_backup_*/
+
+# Claude local state
+memory/
+.claude/settings.local.json

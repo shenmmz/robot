@@ -185,6 +185,15 @@ def _mapped_motor_command(body: dict[str, Any], mapping: MotorMapping) -> dict[s
 
     valid = valid and source_valid
     motion_allowed = valid and source_motion_allowed
+
+    # 多帧确认滤波器支持：仅在 changed_motor_ids 中的电机才允许发送。
+    changed_ids = body.get("changed_motor_ids")
+    if isinstance(changed_ids, list) and len(changed_ids) > 0:
+        if mapping.motor_id not in changed_ids:
+            motion_allowed = False
+            if valid:
+                reason = "motor_not_changed"
+
     state = "send" if motion_allowed and mapping.send_enabled else "hold"
 
     angle_deg = abs(signed_angle) if (signed_angle is not None and mapping.use_absolute_angle) else signed_angle
