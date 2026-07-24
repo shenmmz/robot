@@ -1760,28 +1760,35 @@ void DrawingCanvas::paintEvent(QPaintEvent *) {
         painter.drawPath(cp.first);
     }
 
-    // 绘制文字项
+    // 绘制文字项（退出视图变换，用原生 drawText 在屏幕坐标绘制，绕开骨架化+viewScale 双重压缩）
+    painter.restore();
+    painter.save();
     for (int i = 0; i < m_textItems.size(); ++i) {
         const auto &item = m_textItems[i];
-        QPainterPath tp = item.solidStroke ? item.toTrajectoryPath() : item.toPath();
+        // 逻辑坐标 → 屏幕坐标
+        QPointF screenPos(item.pos.x() * m_viewScale + m_viewOffset.x(),
+                           item.pos.y() * m_viewScale + m_viewOffset.y());
+        QFont font(item.fontFamily, item.fontSize);
+        painter.setFont(font);
         if (i == m_selectedText) {
-            painter.setPen(QPen(Qt::red, 2));
-            painter.setBrush(QColor(255, 0, 0, 30));
-        } else if (item.solidStroke) {
-            painter.setPen(QPen(Qt::blue, 2));
-            painter.setBrush(Qt::NoBrush);
-        } else {
-            painter.setPen(QPen(Qt::darkGreen, 2));
-            painter.setBrush(Qt::NoBrush);
-        }
-        painter.drawPath(tp);
-        if (i == m_selectedText) {
-            QRectF b = tp.boundingRect();
+            painter.setPen(Qt::red);
+            painter.drawText(screenPos, item.text);
+            QFontMetrics fm(font);
+            QRectF br = fm.boundingRect(item.text);
+            QRectF selRect(screenPos.x() + br.x(), screenPos.y() + br.y(),
+                           br.width(), br.height());
             painter.setPen(QPen(Qt::red, 1, Qt::DashLine));
             painter.setBrush(Qt::NoBrush);
-            painter.drawRect(b.adjusted(-4, -4, 4, 4));
+            painter.drawRect(selRect.adjusted(-4, -4, 4, 4));
+        } else {
+            painter.setPen(item.solidStroke ? Qt::blue : Qt::darkGreen);
+            painter.drawText(screenPos, item.text);
         }
     }
+    painter.restore();
+    painter.save();
+    painter.translate(m_viewOffset);
+    painter.scale(m_viewScale, m_viewScale);
 
     // 绘制预览
     if (m_drawing) {
@@ -2134,6 +2141,14 @@ void DrawingWindow::drawWorkpieceCoordRegion(const QPointF &origin,
                                               const QPointF &xPt,
                                               const QPointF &yPt) {
     m_canvas->drawWorkpieceCoordRegion(origin, xPt, yPt);
+}
+
+void DrawingWindow::addCanvasTextItem(const TextItemData &item) {
+    m_canvas->addTextItem(item);
+}
+
+double DrawingWindow::canvasViewScale() const {
+    return m_canvas->viewScale();
 }
 
 QPointF DrawingCanvas::screenToLogical(const QPointF &screenPos) const {

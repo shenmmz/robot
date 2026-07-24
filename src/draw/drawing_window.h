@@ -146,6 +146,7 @@ public:
     void clearWorkPiecePlane() { m_showWorkPiecePlane = false; update(); }
     void drawWorkpieceCoordRegion(const QPointF &origin, const QPointF &xPt, const QPointF &yPt);
     QPointF screenToLogical(const QPointF &screenPos) const;
+    double viewScale() const { return m_viewScale; }
     void zoomToFit(const QRectF &bounds);
     void clearAll() {
         m_paths.clear();
@@ -266,6 +267,8 @@ public:
     void setWorkPieceCoord(const WorkPieceCoord *coord);
     void setDefaultPose(double rx, double ry, double rz);
     void drawWorkpieceCoordRegion(const QPointF &origin, const QPointF &xPt, const QPointF &yPt);
+    void addCanvasTextItem(const TextItemData &item);
+    double canvasViewScale() const;
 
     QVector<QVector3D> getDrawingPoints3D(double resolution = 1.0) const;
     QVector<QPointF> getDrawingPoints(double resolution = 1.0) const;
