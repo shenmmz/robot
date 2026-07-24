@@ -134,8 +134,10 @@ private:
     QHash<int, qint64> m_lastVisionSendMsPerAxis;           // axis → 上次下发时间戳(ms since epoch)
     QHash<int, double> m_lastVisionLoggedAnglePerAxis;      // axis → 上次写入日志的角度
     QHash<int, QList<double>> m_axisValueBuffer;            // axis → 滑动窗口缓冲
+    QHash<int, double> m_lastSentAnglePerAxis;              // axis → 上次实际下发给机械臂的角度
     static constexpr int kWindowSize = 10;                   // 滑动窗口大小
     static constexpr double kStdDevThreshold = 0.3;          // 标准差阈值(°)：低于此值认为姿态稳定
+    static constexpr double kMinAngleDeadband = 0.5;         // 死区阈值(°)：与上次下发角度差异小于此值不下发
     ServoTestWidget* m_servoTestWidget = nullptr;  // 舵机设置界面
     QList<QLabel*> m_servoAngleLabels;  // 手动页舵机板块 6 通道只读角度显示（被动显示）
 

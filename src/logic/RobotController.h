@@ -106,6 +106,9 @@ public:
     // jogJoint: 关节空间点动，Cancel → Move → 立即返回，不等待
     bool jogJoint(int axis, double targetPos, double speed, double accel, double decel);
 
+    // jogJointBatch: 批量多轴点动，一次读取当前位置，叠加目标后一次 directMoveAbsolute 下发
+    bool jogJointBatch(const QHash<int, double>& axisTargets, double speed, double accel, double decel);
+
     // ===== 笛卡尔空间运动 =====
     // moveL: 逆解模式下笛卡尔直线运动，等待到位（阻塞）
     bool moveL(const QList<double>& cartPos, double speed, double accel, double decel, int timeoutMs = 30000);

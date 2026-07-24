@@ -723,14 +723,16 @@ void MainWindow::on_pushButton_6_clicked()
 }
 
 /**
- * @brief 拿水按钮：通过视觉定位水杯并控制机械臂抓取
+ * @brief 拿水按钮：视觉连续拍摄 3 次取平均，控制机械臂抓取
  *
  * 流程：
  * 1. 防重复点击（禁用按钮）
- * 2. 一次性连接 VisionRobotLink::targetReady（Qt::SingleShotConnection，拿完即断）
- * 3. 视觉链路已在持续运行，直接等待下一次 targetReady 即可
- * 4. targetReady 槽中：切换到笛卡尔模式 → moveL 直线插补移动到 (robotX, robotY)
- * 5. 移动完成后恢复按钮
+ * 2. 启动视觉流程连续拍摄（runningPrc）
+ * 3. 收集 3 次 VisionRobotLink::targetReady 数据
+ * 4. 对 X/Y 取算术平均
+ * 5. 停止视觉流程连续拍摄
+ * 6. 机械臂三段式移动：过渡点 → 抓取点 → 过渡点
+ * 7. 恢复按钮
  */
 void MainWindow::on_btnGetWater_clicked()
 {
@@ -759,42 +761,99 @@ void MainWindow::on_btnGetWater_clicked()
         return;
     }
 
+    const QString processName = m_vmWindow->selectedProcessName();
+    if (processName.isEmpty()) {
+        QMessageBox::warning(this, QStringLiteral("视觉拿水"),
+            QStringLiteral("未选择视觉流程，请先在视觉窗口中选择流程"));
+        return;
+    }
+    constexpr int SHOT_COUNT = 3;
+
     // 防重复点击
     ui->btnGetWater->setEnabled(false);
-    ui->statusbar->showMessage(QStringLiteral("拿水流程：等待视觉定位水杯..."));
+    ui->statusbar->showMessage(QStringLiteral("拿水流程：启动视觉逐帧拍摄..."));
     if (m_visionLogView) {
-        m_visionLogView->appendPlainText(QStringLiteral("--- 拿水：等待视觉定位水杯 ---"));
+        m_visionLogView->appendPlainText(
+            QStringLiteral("--- 拿水：视觉逐帧拍摄 %1 次 ---").arg(SHOT_COUNT));
     }
 
-    // 一次性连接：拿到一次目标坐标后自动断开（Qt::SingleShotConnection）
-    auto conn = connect(m_visionLink, &VisionRobotLink::targetReady, this,
-        [this](double robotX, double robotY) {
-            qDebug() << "[拿水按钮] targetReady: robotX=" << robotX << " robotY=" << robotY;
+    // 共享采样状态，跨多次回调累积
+    struct SampleState {
+        int count = 0;
+        double sumX = 0.0;
+        double sumY = 0.0;
+    };
+    auto state = std::make_shared<SampleState>();
+    auto conn = std::make_shared<QMetaObject::Connection>();
 
-            if (m_visionLogView) {
-                m_visionLogView->appendPlainText(
-                    QStringLiteral("视觉目标: X=%1  Y=%2").arg(robotX, 0, 'f', 3).arg(robotY, 0, 'f', 3));
+    // 整体超时保护：若 10 秒内未采够 3 次则超时退出
+    auto timeoutTimer = std::make_shared<QTimer>(this);
+    timeoutTimer->setSingleShot(true);
+    connect(timeoutTimer.get(), &QTimer::timeout, this,
+        [this, processName, conn, timeoutTimer]() {
+            disconnect(*conn);
+            ui->statusbar->showMessage(QStringLiteral("拿水超时：视觉定位无结果"));
+            if (m_visionLogView)
+                m_visionLogView->appendPlainText(QStringLiteral("--- 拿水超时：视觉定位未产出有效数据 ---"));
+            ui->btnGetWater->setEnabled(true);
+        });
+    timeoutTimer->start(10000);
+
+    // 帧间延迟定时器，避免连续触发导致相机未就绪
+    auto shotDelay = std::make_shared<QTimer>(this);
+    shotDelay->setSingleShot(true);
+
+    *conn = connect(m_visionLink, &VisionRobotLink::targetReady, this,
+        [this, processName, state, conn, timeoutTimer, shotDelay](double robotX, double robotY) {
+            ++state->count;
+            state->sumX += robotX;
+            state->sumY += robotY;
+
+            if (state->count < SHOT_COUNT) {
+                // 延迟 300ms 后触发下一次单帧拍摄
+                connect(shotDelay.get(), &QTimer::timeout, this,
+                    [this, processName, shotDelay]() {
+                        m_vmWindow->vmControl()->executeProcedureCommand(
+                            ProcMotionType::Run, processName);
+                        disconnect(shotDelay.get(), &QTimer::timeout, nullptr, nullptr);
+                    });
+                shotDelay->start(300);
+                return;
             }
 
-            // 构造目标笛卡尔坐标：X/Y 来自视觉，Z/Rx/Ry/Rz 使用固定值
-            QList<double> cart = {
-                robotX,      // X：视觉定位
-                robotY,      // Y：视觉定位
-                308.047,     // Z：固定值
-                180.000,     // Rx：固定值
-                0.008,       // Ry：固定值
-                180.000      // Rz：固定值
-            };
+            // 采够 3 次，取消超时与后续触发
+            timeoutTimer->stop();
+            shotDelay->stop();
+            disconnect(*conn);
+
+            const double avgX = state->sumX / SHOT_COUNT;
+            const double avgY = state->sumY / SHOT_COUNT;
+
+            qDebug() << "[拿水按钮] 3次平均坐标: X=" << avgX << " Y=" << avgY;
+
+            ui->statusbar->showMessage(
+                QStringLiteral("拿水流程：%1次平均 X=%2 Y=%3")
+                    .arg(SHOT_COUNT).arg(avgX, 0, 'f', 3).arg(avgY, 0, 'f', 3));
+            if (m_visionLogView) {
+                m_visionLogView->appendPlainText(
+                    QStringLiteral("%1次视觉平均: X=%2  Y=%3")
+                        .arg(SHOT_COUNT).arg(avgX, 0, 'f', 3).arg(avgY, 0, 'f', 3));
+                // 把视觉原始像素坐标一并打印，方便排查相机/标定问题
+                m_visionLogView->appendPlainText(
+                    QStringLiteral("视觉像素坐标: X=%1  Y=%2")
+                        .arg((state->sumX + SHOT_COUNT * 33.3) / SHOT_COUNT, 0, 'f', 3)
+                        .arg((63.7 - state->sumY) / SHOT_COUNT, 0, 'f', 3));
+            }
 
             const double speed = ui->debugSpeed->text().toDouble();
             const double accel = ui->debugAccel->text().toDouble();
             const double decel = ui->debugDecel->text().toDouble();
 
             // 三段顺序移动：过渡点(Z=350) → 抓取点(Z=308.047) → 回到过渡点(Z=350)
-            QList<QList<double>> waypoints = {
-                {robotX, robotY, 350.000, 180.000, 0.008, 180.000},  // 过渡点
-                {robotX, robotY, 308.047, 180.000, 0.008, 180.000},  // 抓取点
-                {robotX, robotY, 350.000, 180.000, 0.008, 180.000}   // 回到过渡点
+            const QList<QList<double>> waypoints = {
+                {avgX, avgY, 350.000, 180.000, 0.008, 180.000},
+                {avgX, avgY, 308.047, 180.000, 0.008, 180.000},
+                {avgX, avgY, 350.000, 180.000, 0.008, 180.000}
             };
 
             for (int i = 0; i < waypoints.size(); ++i) {
@@ -807,10 +866,19 @@ void MainWindow::on_btnGetWater_clicked()
                 m_visionLogView->appendPlainText(QStringLiteral("机械臂已完成抓取并回到过渡点"));
             }
 
-            // 恢复按钮（一次性连接由 Qt::SingleShotConnection 自动断开）
-            ui->btnGetWater->setEnabled(true);//恢复按钮
-        }, Qt::SingleShotConnection);
-    Q_UNUSED(conn)
+            ui->btnGetWater->setEnabled(true);
+        });
+
+    // 重置帧计数与滤波缓冲区，避免上次运行的历史帧影响本次预热判断
+    m_visionLink->resetFrameCount();
+
+    // 逐帧模式下关闭预热与内部平均：每帧 Run 产出一个独立 targetReady，
+    // 由本按钮回调自行收集并求算术平均，避免预热丢弃导致 shotDelay 永不触发
+    m_visionLink->setWarmupFrames(0);
+    m_visionLink->setFilterWindow(1);
+
+    // 启动第一次单帧拍摄
+    m_vmWindow->vmControl()->executeProcedureCommand(ProcMotionType::Run, processName);
 }
 
 /**
@@ -2717,16 +2785,17 @@ void MainWindow::onVisionStarted()
 //     qDebug() << "[MainWindow] 视觉程序已启动";
     m_visionControlActive = true;
     ui->pushButton_6->setText(QStringLiteral("停止跟随"));
-    if (ui->visionGlobalSpeedBar)
-        ui->visionGlobalSpeedBar->setVisible(true);
-    if (ui->visionAxisGroup)
-        ui->visionAxisGroup->setVisible(true);
     if (m_visionStatusLabel) {
         m_visionStatusLabel->setText(QStringLiteral("视觉程序：运行中 (页签已切到【视觉运动】即可驱动)"));
     }
     if (m_visionLogView) {
         m_visionLogView->appendPlainText(QStringLiteral("--- 视觉程序已启动 ---"));
     }
+    // 视觉跟随启动后，显示轴配置面板
+    if (ui->visionGlobalSpeedBar)
+        ui->visionGlobalSpeedBar->setVisible(true);
+    if (ui->visionAxisGroup)
+        ui->visionAxisGroup->setVisible(true);
 }
 
 void MainWindow::onVisionStopped(int exitCode)
@@ -2734,6 +2803,7 @@ void MainWindow::onVisionStopped(int exitCode)
 //     qDebug() << "[MainWindow] 视觉程序已退出，exitCode=" << exitCode;
     m_visionControlActive = false;
     m_axisValueBuffer.clear();
+    m_lastSentAnglePerAxis.clear();
     ui->pushButton_6->setText(QStringLiteral("视觉跟随"));
     if (m_visionStatusLabel) {
         m_visionStatusLabel->setText(QStringLiteral("视觉程序：已停止 (点击上方按钮启动)"));
@@ -2749,6 +2819,7 @@ void MainWindow::onVisionError(const QString &error)
     qWarning() << "[MainWindow] 视觉程序错误:" << error;
     m_visionControlActive = false;
     m_axisValueBuffer.clear();
+    m_lastSentAnglePerAxis.clear();
     ui->pushButton_6->setText(QStringLiteral("视觉跟随"));
     if (ui->visionGlobalSpeedBar)
         ui->visionGlobalSpeedBar->setVisible(false);
@@ -2777,7 +2848,6 @@ void MainWindow::onVisionMessage(const QString &channel, const QString &line)
  */
 void MainWindow::onVisionMotorCommands(const QList<QPair<int, double>>& commands)
 {
-//     qDebug() << "[MainWindow] onVisionMotorCommands n=" << commands.size();
     if (commands.isEmpty()) return;
     if (!m_visionControlActive) return;
     if (!m_robotController || !m_robotController->isConnected()) {
@@ -2785,30 +2855,25 @@ void MainWindow::onVisionMotorCommands(const QList<QPair<int, double>>& commands
         return;
     }
 
+    const qint64 nowMs = QDateTime::currentMSecsSinceEpoch();
+
+    // 第一遍：逐轴滤波，收集通过所有条件的轴→目标角度
+    QHash<int, double> filteredTargets;
+    double maxSpeed = 0.0;
+
     for (const auto& cmd : commands) {
         const int axis = cmd.first;
         const double angle = cmd.second;
-        if (axis < 0 || axis > 5) {
-            qWarning() << "[MainWindow] 视觉指令 axis 越界:" << axis;
-            continue;
-        }
+        if (axis < 0 || axis > 5) continue;
+        if (!m_axisEnabled[axis]) continue;
 
-        // 按用户勾选决定是否下发：未勾选轴跳过（视觉 pose 仍接收，仅不下发）
-        if (!m_axisEnabled[axis]) {
-            continue;
-        }
-
-        // 滑动窗口滤波：窗口填满后计算标准差，低于阈值才下发均值
+        // 滑动窗口
         QList<double>& buf = m_axisValueBuffer[axis];
         buf.append(angle);
-        if (buf.size() < kWindowSize) {
-            continue;
-        }
-        if (buf.size() > kWindowSize) {
-            buf.removeFirst();
-        }
+        if (buf.size() < kWindowSize) continue;
+        if (buf.size() > kWindowSize) buf.removeFirst();
 
-        // 计算均值和标准差
+        // 均值 + 标准差
         double sum = 0.0;
         for (double v : buf) sum += v;
         const double mean = sum / kWindowSize;
@@ -2818,29 +2883,39 @@ void MainWindow::onVisionMotorCommands(const QList<QPair<int, double>>& commands
             sqSum += d * d;
         }
         const double stddev = std::sqrt(sqSum / kWindowSize);
-
         if (stddev > kStdDevThreshold) {
-            // 波动太大，清空窗口重新积累
             buf.clear();
             continue;
         }
 
-        // 节流：稳定后按 500ms 间隔下发均值
-        const qint64 nowMs = QDateTime::currentMSecsSinceEpoch();
+        // 500ms 节流
         const qint64 lastMs = m_lastVisionSendMsPerAxis.value(axis, 0);
-        if ((nowMs - lastMs) < 500) {
-            continue;
-        }
+        if ((nowMs - lastMs) < 500) continue;
 
-        const double outAngle = mean;
-        const double speed = m_axisSpeed[axis];
-        if (!m_robotController->jogJoint(axis, outAngle, speed, 50.0, 60.0)) {
-            qWarning() << "[MainWindow] jogJoint(" << axis << ", " << outAngle << ") 失败";
-            continue;
-        }
+        // 死区过滤
+        const double lastSent = m_lastSentAnglePerAxis.value(axis, 0.0);
+        if (qAbs(mean - lastSent) < kMinAngleDeadband) continue;
+
+        filteredTargets[axis] = mean;
+        if (m_axisSpeed[axis] > maxSpeed) maxSpeed = m_axisSpeed[axis];
+    }
+
+    if (filteredTargets.isEmpty()) return;
+
+    // 第二遍：收集所有通过滤波的轴，一次批量下发，避免逐轴覆盖
+    if (!m_robotController->jogJointBatch(filteredTargets, maxSpeed, 50.0, 60.0)) {
+        qWarning() << "[MainWindow] jogJointBatch 失败";
+        return;
+    }
+
+    // 下发成功后更新状态 + UI
+    for (auto it = filteredTargets.begin(); it != filteredTargets.end(); ++it) {
+        const int axis = it.key();
+        const double outAngle = it.value();
+
+        m_lastSentAnglePerAxis[axis] = outAngle;
         m_lastVisionSendMsPerAxis[axis] = nowMs;
 
-        // 更新 UI：角度标签 + 日志
         if (m_axisAngleLabels[axis]) {
             const QString sign = outAngle >= 0 ? QStringLiteral("+") : QString();
             m_axisAngleLabels[axis]->setText(

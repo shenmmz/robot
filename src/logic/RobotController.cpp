@@ -633,6 +633,47 @@ bool RobotController::jogJoint(int axis, double targetAngle,
 }
 
 /**
+ * @brief 批量多轴关节点动——一次读取当前位置、叠加多个轴目标后单次下发
+ *
+ * 解决逐轴调用 jogJoint 时后一轴的"当前位置快照"覆盖前一轴尚未到达的目标的问题。
+ * 适用于视觉跟随等需要每帧下发多轴指令的场景。
+ *
+ * @param axisTargets 要更新的轴索引(0~5) → 目标角度（°）
+ * @param speed 速度
+ * @param accel 加速度
+ * @param decel 减速度
+ * @return 指令是否成功发送
+ */
+bool RobotController::jogJointBatch(const QHash<int, double>& axisTargets,
+                                     double speed, double accel, double decel)
+{
+    if (!isConnected()) return false;
+
+    switchToJointMode();
+
+    ZmotionAPI* api = m_motionController->getZmotionAPI();
+    QList<int> axes = m_config->getJointAxisList();
+
+    // 一次读取所有轴当前真实位置
+    QList<double> joints = m_state->getAllAxisPositions();
+
+    // 叠加本帧所有目标轴的新角度（未在 axisTargets 中的轴保留当前值）
+    for (auto it = axisTargets.begin(); it != axisTargets.end(); ++it) {
+        const int axis = it.key();
+        const double targetAngle = it.value();
+        if (axis >= 0 && axis < joints.size())
+            joints[axis] = targetAngle;
+    }
+
+    QList<float> targets;
+    for (double pos : joints) targets.append(static_cast<float>(pos));
+
+    api->directMoveAbsolute(axes, targets, static_cast<float>(speed),
+                            static_cast<float>(accel), static_cast<float>(decel));
+    return true;
+}
+
+/**
  * @brief 笛卡尔空间点动——Move → 立即返回
  *
  * 确保逆解模式后直接发笛卡尔绝对位置指令，不等待到位。
