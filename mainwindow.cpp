@@ -3428,7 +3428,7 @@ void MainWindow::onDrawingPointsReceived(const QVector<QVector<QVector3D>> &poin
     const auto &lastGroup = pointGroups.last();
     float lastX = (float)lastGroup.last().x();
     float lastY = (float)lastGroup.last().y();
-    QList<float> homePos = { lastX, lastY, 420.0f, (float)rx, (float)ry, (float)rz };
+    QList<float> homePos = { lastX, lastY, (float)lastGroup.last().z() + 20.0f, (float)rx, (float)ry, (float)rz };
     api->directMoveAbsolute(allAxes, homePos, speed, accel, decel);
     qDebug() << "[画板] 轨迹执行完成，已归位到最后一个轨迹点上方";
 }
@@ -3732,49 +3732,6 @@ void MainWindow::onWorkpieceCoordAction()
             QPointF c2 = toCanvas(p2);
             QPointF c3 = toCanvas(p3);
             m_drawingWindow->drawWorkpieceCoordRegion(c1, c2, c3);
-
-            // 计算平面矩形四角（与 drawWorkpieceCoordRegion 内部一致）
-            double minX = std::min({c1.x(), c2.x(), c3.x()});
-            double maxX = std::max({c1.x(), c2.x(), c3.x()});
-            double minY = std::min({c1.y(), c2.y(), c3.y()});
-            double maxY = std::max({c1.y(), c2.y(), c3.y()});
-            double marginW = (maxX - minX) * 0.1;
-            double marginH = (maxY - minY) * 0.1;
-            if (marginW < 5) marginW = 5;
-            if (marginH < 5) marginH = 5;
-            QPointF tl(minX - marginW, minY - marginH);
-            QPointF tr(maxX + marginW, minY - marginH);
-            QPointF bl(minX - marginW, maxY + marginH);
-            QPointF br(maxX + marginW, maxY + marginH);
-
-            // 画板逻辑坐标 → 世界坐标 (mm)
-            auto toWorld = [&](const QPointF &c) -> QVector3D {
-                return p1 + xAxis * c.x() + yAxis * c.y();
-            };
-            QVector3D wTL = toWorld(tl);
-            QVector3D wTR = toWorld(tr);
-            QVector3D wBL = toWorld(bl);
-            QVector3D wBR = toWorld(br);
-
-            // 在四角添加世界坐标文字标注
-            auto makeLabel = [](const QPointF &pos, const QVector3D &w) -> TextItemData {
-                TextItemData item;
-                item.text = QString("(%1, %2)").arg(w.x(), 0, 'f', 1).arg(w.y(), 0, 'f', 1);
-                item.pos = pos;
-                item.fontFamily = "Microsoft YaHei Light";
-                item.fontSize = 10;
-                item.solidStroke = true;
-                item.scale = 1.0;
-                return item;
-            };
-            // 左侧标签向左偏移 marginW+10，右侧标签不偏移
-            double labelOffsetLX = marginW + 12.0;
-            QPointF tlLabel(tl.x() - labelOffsetLX, tl.y());
-            QPointF blLabel(bl.x() - labelOffsetLX, bl.y());
-            m_drawingWindow->addCanvasTextItem(makeLabel(tlLabel, wTL));
-            m_drawingWindow->addCanvasTextItem(makeLabel(tr, wTR));
-            m_drawingWindow->addCanvasTextItem(makeLabel(blLabel, wBL));
-            m_drawingWindow->addCanvasTextItem(makeLabel(br, wBR));
         }
         QMessageBox::information(dlg, QStringLiteral("已设置"),
             QStringLiteral("工件坐标系 \"%1\" 已激活\n"
