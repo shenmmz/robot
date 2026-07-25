@@ -17,6 +17,7 @@
 #include <QLineEdit>
 #include <QPair>
 #include <QColor>
+#include <QSet>
 #include "WorkPieceCoord.h"
 
 /**
@@ -28,7 +29,8 @@ enum class DrawingTool {
     Rectangle,  ///< 矩形
     Circle,     ///< 圆形
     Arc,        ///< 圆弧
-    Select      ///< 选择/移动
+    Select,     ///< 选择/移动
+    Eraser      ///< 橡皮擦
 };
 
 /**
@@ -123,6 +125,20 @@ private:
 };
 
 /**
+ * @brief 剪贴板数据结构（深拷贝）
+ */
+struct ClipboardData {
+    QList<QPainterPath> paths;
+    QVector<CircleData> circles;
+    QVector<ArcData> arcs;
+    QVector<TextItemData> texts;
+    bool isEmpty() const {
+        return paths.isEmpty() && circles.isEmpty() && arcs.isEmpty() && texts.isEmpty();
+    }
+    void clear() { paths.clear(); circles.clear(); arcs.clear(); texts.clear(); }
+};
+
+/**
  * @brief 绘图画布类
  */
 class DrawingCanvas : public QWidget {
@@ -130,6 +146,7 @@ class DrawingCanvas : public QWidget {
 public:
     explicit DrawingCanvas(QWidget *parent = nullptr) : QWidget(parent) {
         setMouseTracking(true);
+        setFocusPolicy(Qt::StrongFocus);
         setBackgroundRole(QPalette::Base);
         setAutoFillBackground(true);
         m_showWorkPiecePlane = false;
@@ -137,7 +154,11 @@ public:
     }
 
     void setCurrentTool(DrawingTool tool) {
-        if (m_currentTool == DrawingTool::Select) deselectText();
+        if (m_currentTool == DrawingTool::Select) deselectAll();
+        if (m_currentTool == DrawingTool::Eraser && tool != DrawingTool::Eraser) {
+            m_eraserPoints.clear();
+            m_eraserCoveragePath = QPainterPath();
+        }
         m_currentTool = tool;
         m_drawing = false;
         m_arcSecondPointSet = false;
@@ -155,9 +176,12 @@ public:
         m_circles.clear();
         m_arcs.clear();
         m_undoStack.clear();
+        m_eraserPoints.clear();
+        m_eraserCoveragePath = QPainterPath();
         m_drawing = false;
         m_arcSecondPointSet = false;
         m_selectedText = -1;
+        deselectAll();
         update();
     }
 
@@ -207,7 +231,14 @@ public:
     QVector<QPointF> extractPoints(double resolution = 1.0) const;
     QVector<QVector<QPointF>> extractPointsGrouped(double resolution = 1.0) const;
 
-    void deselectText() { m_selectedText = -1; update(); }
+    void deselectAll() {
+        m_selectedText = -1;
+        m_selectedPathIndices.clear();
+        m_selectedCircleIndices.clear();
+        m_selectedArcIndices.clear();
+        m_selectedTextIndices.clear();
+        update();
+    }
 
 signals:
     void mousePositionChanged(const QPointF &pos);
@@ -218,6 +249,7 @@ protected:
     void mouseReleaseEvent(QMouseEvent *event) override;
     void paintEvent(QPaintEvent *) override;
     void wheelEvent(QWheelEvent *event) override;
+    void keyPressEvent(QKeyEvent *event) override;
 
 private:
     DrawingTool m_currentTool{DrawingTool::FreePen};
@@ -233,6 +265,10 @@ private:
     QVector<ArcData> m_arcs;
     QPainterPath m_currentPath;
     QStack<QPainterPath> m_undoStack;
+    // 橡皮擦
+    QVector<QPointF> m_eraserPoints;
+    QPainterPath m_eraserCoveragePath;
+    double m_eraserRadius{10.0};
     bool m_showGrid{false};
     int m_gridSpacing{20};
     QPointF m_arcStartPoint;
@@ -248,8 +284,34 @@ private:
     bool m_isPanning{false};
     QPointF m_panStart;
 
+    // 选择功能
+    QSet<int> m_selectedPathIndices;
+    QSet<int> m_selectedCircleIndices;
+    QSet<int> m_selectedArcIndices;
+    QSet<int> m_selectedTextIndices;
+    bool m_isSelectingRect{false};
+    QPointF m_selectRectStart;
+    QPointF m_selectRectEnd;
+    QPointF m_moveLastPoint;      // 移动操作的上一个鼠标位置
+    bool m_isMovingElements{false};
+
+    // 剪贴板
+    ClipboardData m_clipboard;
+
+    // 辅助方法
+    int hitTestPath(const QPointF &pt) const;
+    int hitTestCircle(const QPointF &pt) const;
+    int hitTestArc(const QPointF &pt) const;
+    bool isAnySelected() const;
+    void clearSelection();
+    void copySelection();
+    void pasteSelection();
+    QRectF computeSelectionBounds() const;
+    QRectF pathBoundingRect(const QPainterPath &path) const;
+    void drawBoundingBox(QPainter &painter, const QRectF &rect, const QColor &color) const;
+
     void drawGrid(QPainter &painter);
-    void drawArcThroughThreePoints(QPainterPath &path, const QPointF &p1, const QPointF &p2, const QPointF &p3);
+    void drawArcThroughThreePoints(QPainterPath &path, const QPointF &p1, const QPointF &p2, const QPointF &p3) const;
     void drawWorkPiecePlane(QPainter &painter);
     void drawCoordinateAxes(QPainter &painter);
     int hitTestText(const QPointF &pt) const;

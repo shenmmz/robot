@@ -25,6 +25,8 @@
  * 开发环境: Qt 6.9.0 + MSVC2022_64bit + Windows 10
  *********************************************************************/
 #include "drawing_window.h"
+#include <QKeyEvent>
+#include <QKeySequence>
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QFormLayout>
@@ -51,6 +53,7 @@
 #include <QCheckBox>
 #include <functional>
 #include <cmath>
+#include <algorithm>
 
 static QString ensureDir(const QString &dirPath) {
     QDir dir(dirPath);
@@ -60,198 +63,145 @@ static QString ensureDir(const QString &dirPath) {
     return dirPath;
 }
 
-// 实心笔画：高分辨率渲染 + Zhang-Suen 细化 + 骨架追踪
+// 笔画合并：将骨架追踪产生的碎片路径合并为完整笔画
+// 阈值：端点距离 < mergeThreshold（像素空间），方向夹角条件见合并规则
+static QVector<QVector<QPoint>> mergeStrokePaths(
+    const QVector<QVector<QPoint>> &paths, double mergeThreshold)
+{
+    if (paths.size() < 2) return paths;
+
+    // 计算路径端点的稳健方向向量（取首/尾2-3个点）
+    auto computeDir = [](const QVector<QPoint> &pts, bool fromStart) -> QPointF {
+        int n = qMin(3, pts.size());
+        if (n < 2) return QPointF(0, 0);
+        QPointF dir(0, 0);
+        if (fromStart) {
+            for (int i = 0; i < n - 1; ++i)
+                dir += QPointF(pts[i + 1].x() - pts[i].x(), pts[i + 1].y() - pts[i].y());
+        } else {
+            for (int i = pts.size() - 1; i > pts.size() - n; --i)
+                dir += QPointF(pts[i].x() - pts[i - 1].x(), pts[i].y() - pts[i - 1].y());
+        }
+        double len = qSqrt(dir.x() * dir.x() + dir.y() * dir.y());
+        if (len > 1e-9) { dir.rx() /= len; dir.ry() /= len; }
+        return dir;
+    };
+
+    // 两归一化方向向量夹角（度）
+    auto angleBetween = [](const QPointF &d1, const QPointF &d2) -> double {
+        double dot = qBound(-1.0, d1.x() * d2.x() + d1.y() * d2.y(), 1.0);
+        return qRadiansToDegrees(qAcos(dot));
+    };
+
+    QList<QVector<QPoint>> merged;
+    for (const auto &p : paths) merged.append(p);
+
+    bool changed = true;
+    while (changed) {
+        changed = false;
+        double bestDist = mergeThreshold;
+        int bestI = -1, bestJ = -1;
+        int bestType = 0; // 0:A+B  1:A+revB  2:revA+B  3:revA+revB
+
+        struct EndpointInfo { QPoint start, end; QPointF dirStart, dirEnd; };
+        QVector<EndpointInfo> info;
+        info.reserve(merged.size());
+        for (const auto &p : merged) {
+            EndpointInfo ei;
+            ei.start = p.first();
+            ei.end = p.last();
+            ei.dirStart = computeDir(p, true);
+            ei.dirEnd = computeDir(p, false);
+            info.append(ei);
+        }
+
+        for (int i = 0; i < merged.size(); ++i) {
+            for (int j = i + 1; j < merged.size(); ++j) {
+                double d, ang;
+
+                // 规则1: end_i → start_j，方向一致（< 45°）→ A+B
+                d = qSqrt(qPow(info[i].end.x() - info[j].start.x(), 2) + qPow(info[i].end.y() - info[j].start.y(), 2));
+                if (d < bestDist) {
+                    ang = angleBetween(info[i].dirEnd, info[j].dirStart);
+                    if (ang < 45.0) { bestDist = d; bestI = i; bestJ = j; bestType = 0; }
+                }
+
+                // 规则2: end_i → end_j，方向相反（> 135°）→ A+revB
+                d = qSqrt(qPow(info[i].end.x() - info[j].end.x(), 2) + qPow(info[i].end.y() - info[j].end.y(), 2));
+                if (d < bestDist) {
+                    ang = angleBetween(info[i].dirEnd, info[j].dirEnd);
+                    if (ang > 135.0) { bestDist = d; bestI = i; bestJ = j; bestType = 1; }
+                }
+
+                // 对称: start_i → end_j，方向相反 → revA+B
+                d = qSqrt(qPow(info[i].start.x() - info[j].end.x(), 2) + qPow(info[i].start.y() - info[j].end.y(), 2));
+                if (d < bestDist) {
+                    ang = angleBetween(info[i].dirStart, info[j].dirEnd);
+                    if (ang > 135.0) { bestDist = d; bestI = i; bestJ = j; bestType = 2; }
+                }
+
+                // 对称: start_i → start_j，方向相反 → revA+revB
+                d = qSqrt(qPow(info[i].start.x() - info[j].start.x(), 2) + qPow(info[i].start.y() - info[j].start.y(), 2));
+                if (d < bestDist) {
+                    ang = angleBetween(info[i].dirStart, info[j].dirStart);
+                    if (ang > 135.0) { bestDist = d; bestI = i; bestJ = j; bestType = 3; }
+                }
+            }
+        }
+
+        if (bestI >= 0) {
+            const auto &a = merged[bestI];
+            const auto &b = merged[bestJ];
+            QVector<QPoint> combined;
+
+            switch (bestType) {
+            case 0: // A + B (skip duplicate first point)
+                combined = a;
+                for (int k = 1; k < b.size(); ++k) combined.append(b[k]);
+                break;
+            case 1: // A + reverse(B)
+                combined = a;
+                for (int k = b.size() - 2; k >= 0; --k) combined.append(b[k]);
+                break;
+            case 2: // reverse(A) + B
+                for (int k = a.size() - 1; k >= 0; --k) combined.append(a[k]);
+                for (int k = 1; k < b.size(); ++k) combined.append(b[k]);
+                break;
+            case 3: // reverse(A) + reverse(B)
+                for (int k = a.size() - 1; k >= 0; --k) combined.append(a[k]);
+                for (int k = b.size() - 2; k >= 0; --k) combined.append(b[k]);
+                break;
+            }
+
+            merged.removeAt(qMax(bestI, bestJ));
+            merged.removeAt(qMin(bestI, bestJ));
+            merged.append(combined);
+            changed = true;
+        }
+    }
+
+    return QVector<QVector<QPoint>>(merged.begin(), merged.end());
+}
+
+// 实心笔画：高分辨率渲染 + Zhang-Suen 细化 + 骨架追踪（逐字符独立处理）
 QPainterPath TextItemData::computeTrajectoryPath() const
 {
     if (!solidStroke)
         return toPath();
 
-    QPainterPath outline = toPath();
-    QRectF bounds = outline.boundingRect();
-    if (bounds.isEmpty() || text.isEmpty()) return outline;
+    if (text.isEmpty()) return toPath();
 
-    // 高分辨率渲染：fontSize*2，最小 80px，保证笔画有足够像素宽度
+    QFont f(fontFamily, fontSize);
+    double s = scale;
+    if (s < 0.1) s = 0.1;
+    if (s > 10.0) s = 10.0;
+    QFontMetrics fm(f);
+
     const double targetH = qBound(80.0, (double)fontSize * 2.0, 250.0);
-    double scale = targetH / bounds.height();
-    int pad = 10;
-    int w = qBound(4, (int)(bounds.width() * scale) + pad * 2, 4000);
-    int h = qBound(4, (int)(bounds.height() * scale) + pad * 2, 4000);
+    const double simplifyEps = std::max(1.5, targetH * 0.02);
 
     qDebug() << "[实心笔画] 文字:" << text << "字体:" << fontFamily
-             << "size:" << fontSize << "bounds:" << bounds
-             << "渲染:" << w << "x" << h << "targetH:" << targetH;
-
-    // 渲染填充轮廓到灰度图
-    QImage img(w, h, QImage::Format_Grayscale8);
-    img.fill(0);
-    {
-        QPainter p(&img);
-        p.setRenderHint(QPainter::Antialiasing, true);
-        p.setBrush(Qt::white);
-        p.setPen(Qt::NoPen);
-        p.translate(-bounds.x() * scale + pad, -bounds.y() * scale + pad);
-        p.scale(scale, scale);
-        p.drawPath(outline);
-    }
-
-    // 转二值数组
-    QVector<QVector<bool>> px(h, QVector<bool>(w));
-    int fgCount = 0;
-    for (int y = 0; y < h; ++y) {
-        const uchar *line = img.scanLine(y);
-        for (int x = 0; x < w; ++x) {
-            px[y][x] = (line[x] >= 128);
-            if (px[y][x]) fgCount++;
-        }
-    }
-    qDebug() << "[实心笔画] 前景像素:" << fgCount << "/" << (w*h);
-
-    // Zhang-Suen 细化（不填洞，保留内部结构）
-    {
-        bool changed = true;
-        int iterCount = 0;
-        QVector<QPoint> toRemove;
-        while (changed && iterCount < 50) {
-            changed = false; iterCount++;
-            // Step 1
-            for (int y = 1; y < h - 1; ++y) {
-                for (int x = 1; x < w - 1; ++x) {
-                    if (!px[y][x]) continue;
-                    int p2 = px[y-1][x],   p3 = px[y-1][x+1], p4 = px[y][x+1],
-                        p5 = px[y+1][x+1], p6 = px[y+1][x],   p7 = px[y+1][x-1],
-                        p8 = px[y][x-1],   p9 = px[y-1][x-1];
-                    int bp = p2+p3+p4+p5+p6+p7+p8+p9;
-                    if (bp < 2 || bp > 6) continue;
-                    int ap = (p2==0&&p3==1)+(p3==0&&p4==1)+(p4==0&&p5==1)+(p5==0&&p6==1)
-                           +(p6==0&&p7==1)+(p7==0&&p8==1)+(p8==0&&p9==1)+(p9==0&&p2==1);
-                    if (ap != 1) continue;
-                    if (p2 && p4 && p6) continue;
-                    if (p4 && p6 && p8) continue;
-                    toRemove.append(QPoint(x, y));
-                }
-            }
-            for (const auto &pt : toRemove) { px[pt.y()][pt.x()] = false; changed = true; }
-            toRemove.clear();
-            // Step 2
-            for (int y = 1; y < h - 1; ++y) {
-                for (int x = 1; x < w - 1; ++x) {
-                    if (!px[y][x]) continue;
-                    int p2 = px[y-1][x],   p3 = px[y-1][x+1], p4 = px[y][x+1],
-                        p5 = px[y+1][x+1], p6 = px[y+1][x],   p7 = px[y+1][x-1],
-                        p8 = px[y][x-1],   p9 = px[y-1][x-1];
-                    int bp = p2+p3+p4+p5+p6+p7+p8+p9;
-                    if (bp < 2 || bp > 6) continue;
-                    int ap = (p2==0&&p3==1)+(p3==0&&p4==1)+(p4==0&&p5==1)+(p5==0&&p6==1)
-                           +(p6==0&&p7==1)+(p7==0&&p8==1)+(p8==0&&p9==1)+(p9==0&&p2==1);
-                    if (ap != 1) continue;
-                    if (p2 && p4 && p8) continue;
-                    if (p2 && p6 && p8) continue;
-                    toRemove.append(QPoint(x, y));
-                }
-            }
-            for (const auto &pt : toRemove) { px[pt.y()][pt.x()] = false; changed = true; }
-            toRemove.clear();
-        }
-        fgCount = 0;
-        for (int y = 0; y < h; ++y)
-            for (int x = 0; x < w; ++x)
-                if (px[y][x]) fgCount++;
-        qDebug() << "[实心笔画] 细化" << iterCount << "轮, 骨架像素:" << fgCount;
-    }
-
-    // 追踪骨架路径（预标记交汇点，确保不可删除）
-    QVector<QVector<QPoint>> paths;
-    {
-        const int dx8[8] = {1, 1, 0, -1, -1, -1, 0, 1};
-        const int dy8[8] = {0, -1, -1, -1, 0, 1, 1, 1};
-        auto countNb = [&](int x, int y) -> int {
-            int c = 0;
-            for (int i = 0; i < 8; ++i) {
-                int nx = x + dx8[i], ny = y + dy8[i];
-                if (nx >= 0 && nx < w && ny >= 0 && ny < h && px[ny][nx]) c++;
-            }
-            return c;
-        };
-        auto findNext = [&](int x, int y, int &nx, int &ny) -> bool {
-            for (int i = 0; i < 8; ++i) {
-                nx = x + dx8[i]; ny = y + dy8[i];
-                if (nx >= 0 && nx < w && ny >= 0 && ny < h && px[ny][nx]) return true;
-            }
-            return false;
-        };
-
-        // 预标记交汇点（追踪前快照，避免动态变化）
-        QVector<QVector<bool>> junction(h, QVector<bool>(w, false));
-        for (int y = 0; y < h; ++y)
-            for (int x = 0; x < w; ++x)
-                if (px[y][x] && countNb(x, y) >= 3)
-                    junction[y][x] = true;
-
-        // 单方向追踪（从当前点走到终点/交汇点）
-        auto traceOneWay = [&](int sx, int sy, QVector<QPoint> &out, bool forward) {
-            int cx = sx, cy = sy;
-            while (true) {
-                if (!junction[cy][cx]) px[cy][cx] = false;
-                int nx, ny;
-                if (!findNext(cx, cy, nx, ny)) {
-                    out.append(QPoint(cx, cy));
-                    break;
-                }
-                if (junction[ny][nx]) {
-                    out.append(QPoint(cx, cy));       // 当前点
-                    out.append(QPoint(nx, ny));       // 交汇点（共用的终点）
-                    break;
-                }
-                out.append(QPoint(cx, cy));
-                cx = nx; cy = ny;
-            }
-        };
-
-        for (int round = 0; round < 2; ++round) {
-            for (int y = 0; y < h; ++y) {
-                for (int x = 0; x < w; ++x) {
-                    if (!px[y][x] || junction[y][x]) continue;
-                    int nb = countNb(x, y);
-                    if (nb == 0) { px[y][x] = false; continue; }
-                    if (round == 0 && nb != 1) continue;
-
-                    QVector<QPoint> path;
-                    if (round == 0 || nb == 1) {
-                        // 端点出发：单向追踪
-                        traceOneWay(x, y, path, true);
-                    } else {
-                        // 中间点出发（nb==2）：先清起点，再双向追踪，保证整段连续
-                        px[y][x] = false;
-                        // 找两个邻居
-                        int n1x = -1, n1y = -1, n2x = -1, n2y = -1;
-                        for (int i = 0; i < 8; ++i) {
-                            int nx = x + dx8[i], ny = y + dy8[i];
-                            if (nx >= 0 && nx < w && ny >= 0 && ny < h && px[ny][nx]) {
-                                if (n1x < 0) { n1x = nx; n1y = ny; }
-                                else { n2x = nx; n2y = ny; break; }
-                            }
-                        }
-                        // 方向1追踪（反向放到起点前面）
-                        if (n1x >= 0) {
-                            QVector<QPoint> part;
-                            traceOneWay(n1x, n1y, part, true);
-                            // part = [N1, ..., J1/端点], 反转变为 [J1/端点, ..., N1]
-                            for (int i = part.size() - 1; i >= 0; --i)
-                                path.append(part[i]);
-                        }
-                        // 起点
-                        path.append(QPoint(x, y));
-                        // 方向2追踪（正向放到起点后面）
-                        if (n2x >= 0) {
-                            traceOneWay(n2x, n2y, path, true);
-                        }
-                    }
-                    if (path.size() >= 2) paths.append(path);
-                }
-            }
-        }
-    }
-    qDebug() << "[实心笔画] 追踪路径数:" << paths.size();
+             << "size:" << fontSize << "scale:" << s << "targetH:" << targetH;
 
     // Douglas-Peucker 折线简化（消除像素级锯齿）
     std::function<QVector<QPoint>(const QVector<QPoint>&, double)> simplifyPath;
@@ -283,27 +233,288 @@ QPainterPath TextItemData::computeTrajectoryPath() const
         return left;
     };
 
-    // 转回原坐标系
-    double invScale = 1.0 / scale;
-    // 简化阈值：与渲染尺寸成比例（2% = 对100px高字体约2px），只消除像素锯齿
-    double simplifyEps = std::max(1.5, targetH * 0.02);
     QPainterPath result;
-    int totalPts = 0;
-    for (const auto &pts : paths) {
-        if (pts.size() < 2) continue;
-        QVector<QPoint> simplified = simplifyPath(pts, simplifyEps);
-        totalPts += simplified.size();
-        QPainterPath sp;
-        sp.moveTo((simplified[0].x() - pad) * invScale + bounds.x(),
-                   (simplified[0].y() - pad) * invScale + bounds.y());
-        for (int i = 1; i < simplified.size(); ++i)
-            sp.lineTo((simplified[i].x() - pad) * invScale + bounds.x(),
-                       (simplified[i].y() - pad) * invScale + bounds.y());
-        result.addPath(sp);
-    }
-    qDebug() << "[实心笔画] 简化后总点数:" << totalPts << "路径数:" << paths.size();
 
-    return result.isEmpty() ? outline : result;
+    // 逐字符独立骨架化，确保不同字符的笔画不会交叉
+    for (int ci = 0; ci < text.length(); ++ci) {
+        QString ch(text.at(ci));
+
+        // 用子串 advance 精确定位字符（兼容字距/kerning）
+        double charAdvancePx = fm.horizontalAdvance(text.left(ci));
+
+        // 生成单字符轮廓 + 偏移，映射到最终坐标空间
+        QPainterPath rawChar;
+        rawChar.addText(0, 0, f, ch);
+        QTransform t;
+        t.translate(pos.x() + charAdvancePx * s, pos.y());
+        t.scale(s, s);
+        QPainterPath charOutline = t.map(rawChar);
+        QRectF bounds = charOutline.boundingRect();
+        if (bounds.isEmpty()) continue;
+
+        double renderScale = targetH / bounds.height();
+        int pad = 10;
+        int w = qBound(4, (int)(bounds.width() * renderScale) + pad * 2, 4000);
+        int h = qBound(4, (int)(bounds.height() * renderScale) + pad * 2, 4000);
+
+        qDebug() << "[实心笔画] 字符'" << ch << "' bounds:" << bounds
+                 << "渲染:" << w << "x" << h;
+
+        // 渲染到灰度图
+        QImage img(w, h, QImage::Format_Grayscale8);
+        img.fill(0);
+        {
+            QPainter p(&img);
+            p.setRenderHint(QPainter::Antialiasing, true);
+            p.setBrush(Qt::white);
+            p.setPen(Qt::NoPen);
+            p.translate(-bounds.x() * renderScale + pad, -bounds.y() * renderScale + pad);
+            p.scale(renderScale, renderScale);
+            p.drawPath(charOutline);
+        }
+
+        // 二值数组
+        QVector<QVector<bool>> px(h, QVector<bool>(w));
+        int fgCount = 0;
+        for (int y = 0; y < h; ++y) {
+            const uchar *line = img.scanLine(y);
+            for (int x = 0; x < w; ++x) {
+                px[y][x] = (line[x] >= 128);
+                if (px[y][x]) fgCount++;
+            }
+        }
+        qDebug() << "[实心笔画] 字符'" << ch << "' 前景像素:" << fgCount << "/" << (w*h);
+
+        // Zhang-Suen 细化（不填洞，保留内部结构）
+        {
+            bool changed = true;
+            int iterCount = 0;
+            QVector<QPoint> toRemove;
+            while (changed && iterCount < 50) {
+                changed = false; iterCount++;
+                // Step 1
+                for (int y = 1; y < h - 1; ++y) {
+                    for (int x = 1; x < w - 1; ++x) {
+                        if (!px[y][x]) continue;
+                        int p2 = px[y-1][x],   p3 = px[y-1][x+1], p4 = px[y][x+1],
+                            p5 = px[y+1][x+1], p6 = px[y+1][x],   p7 = px[y+1][x-1],
+                            p8 = px[y][x-1],   p9 = px[y-1][x-1];
+                        int bp = p2+p3+p4+p5+p6+p7+p8+p9;
+                        if (bp < 2 || bp > 6) continue;
+                        int ap = (p2==0&&p3==1)+(p3==0&&p4==1)+(p4==0&&p5==1)+(p5==0&&p6==1)
+                               +(p6==0&&p7==1)+(p7==0&&p8==1)+(p8==0&&p9==1)+(p9==0&&p2==1);
+                        if (ap != 1) continue;
+                        if (p2 && p4 && p6) continue;
+                        if (p4 && p6 && p8) continue;
+                        toRemove.append(QPoint(x, y));
+                    }
+                }
+                for (const auto &pt : toRemove) { px[pt.y()][pt.x()] = false; changed = true; }
+                toRemove.clear();
+                // Step 2
+                for (int y = 1; y < h - 1; ++y) {
+                    for (int x = 1; x < w - 1; ++x) {
+                        if (!px[y][x]) continue;
+                        int p2 = px[y-1][x],   p3 = px[y-1][x+1], p4 = px[y][x+1],
+                            p5 = px[y+1][x+1], p6 = px[y+1][x],   p7 = px[y+1][x-1],
+                            p8 = px[y][x-1],   p9 = px[y-1][x-1];
+                        int bp = p2+p3+p4+p5+p6+p7+p8+p9;
+                        if (bp < 2 || bp > 6) continue;
+                        int ap = (p2==0&&p3==1)+(p3==0&&p4==1)+(p4==0&&p5==1)+(p5==0&&p6==1)
+                               +(p6==0&&p7==1)+(p7==0&&p8==1)+(p8==0&&p9==1)+(p9==0&&p2==1);
+                        if (ap != 1) continue;
+                        if (p2 && p4 && p8) continue;
+                        if (p2 && p6 && p8) continue;
+                        toRemove.append(QPoint(x, y));
+                    }
+                }
+                for (const auto &pt : toRemove) { px[pt.y()][pt.x()] = false; changed = true; }
+                toRemove.clear();
+            }
+            fgCount = 0;
+            for (int y = 0; y < h; ++y)
+                for (int x = 0; x < w; ++x)
+                    if (px[y][x]) fgCount++;
+            qDebug() << "[实心笔画] 字符'" << ch << "' 细化" << iterCount << "轮, 骨架像素:" << fgCount;
+        }
+
+        // 追踪骨架路径（预标记交汇点，确保不可删除）
+        QVector<QVector<QPoint>> paths;
+        {
+            const int dx8[8] = {1, 1, 0, -1, -1, -1, 0, 1};
+            const int dy8[8] = {0, -1, -1, -1, 0, 1, 1, 1};
+            auto countNb = [&](int x, int y) -> int {
+                int c = 0;
+                for (int i = 0; i < 8; ++i) {
+                    int nx = x + dx8[i], ny = y + dy8[i];
+                    if (nx >= 0 && nx < w && ny >= 0 && ny < h && px[ny][nx]) c++;
+                }
+                return c;
+            };
+            auto findNext = [&](int x, int y, int &nx, int &ny) -> bool {
+                for (int i = 0; i < 8; ++i) {
+                    nx = x + dx8[i]; ny = y + dy8[i];
+                    if (nx >= 0 && nx < w && ny >= 0 && ny < h && px[ny][nx]) return true;
+                }
+                return false;
+            };
+
+            // 预标记交汇点（追踪前快照，避免动态变化）
+            QVector<QVector<bool>> junction(h, QVector<bool>(w, false));
+            for (int y = 0; y < h; ++y)
+                for (int x = 0; x < w; ++x)
+                    if (px[y][x] && countNb(x, y) >= 3)
+                        junction[y][x] = true;
+
+            // 单方向追踪（从当前点走到终点/交汇点）
+            auto traceOneWay = [&](int sx, int sy, QVector<QPoint> &out, bool forward) {
+                int cx = sx, cy = sy;
+                while (true) {
+                    if (!junction[cy][cx]) px[cy][cx] = false;
+                    int nx, ny;
+                    if (!findNext(cx, cy, nx, ny)) {
+                        out.append(QPoint(cx, cy));
+                        break;
+                    }
+                    if (junction[ny][nx]) {
+                        out.append(QPoint(cx, cy));       // 当前点
+                        out.append(QPoint(nx, ny));       // 交汇点（共用的终点）
+                        break;
+                    }
+                    out.append(QPoint(cx, cy));
+                    cx = nx; cy = ny;
+                }
+            };
+
+            for (int round = 0; round < 2; ++round) {
+                for (int y = 0; y < h; ++y) {
+                    for (int x = 0; x < w; ++x) {
+                        if (!px[y][x] || junction[y][x]) continue;
+                        int nb = countNb(x, y);
+                        if (nb == 0) { px[y][x] = false; continue; }
+                        if (round == 0 && nb != 1) continue;
+
+                        QVector<QPoint> path;
+                        if (round == 0 || nb == 1) {
+                            // 端点出发：单向追踪
+                            traceOneWay(x, y, path, true);
+                        } else {
+                            // 中间点出发（nb==2）：先清起点，再双向追踪，保证整段连续
+                            px[y][x] = false;
+                            // 找两个邻居
+                            int n1x = -1, n1y = -1, n2x = -1, n2y = -1;
+                            for (int i = 0; i < 8; ++i) {
+                                int nx = x + dx8[i], ny = y + dy8[i];
+                                if (nx >= 0 && nx < w && ny >= 0 && ny < h && px[ny][nx]) {
+                                    if (n1x < 0) { n1x = nx; n1y = ny; }
+                                    else { n2x = nx; n2y = ny; break; }
+                                }
+                            }
+                            // 方向1追踪（反向放到起点前面）
+                            if (n1x >= 0) {
+                                QVector<QPoint> part;
+                                traceOneWay(n1x, n1y, part, true);
+                                // part = [N1, ..., J1/端点], 反转变为 [J1/端点, ..., N1]
+                                for (int i = part.size() - 1; i >= 0; --i)
+                                    path.append(part[i]);
+                            }
+                            // 起点
+                            path.append(QPoint(x, y));
+                            // 方向2追踪（正向放到起点后面）
+                            if (n2x >= 0) {
+                                traceOneWay(n2x, n2y, path, true);
+                            }
+                        }
+                        if (path.size() >= 2) paths.append(path);
+                    }
+                }
+            }
+        }
+        qDebug() << "[实心笔画] 字符'" << ch << "' 追踪路径数:" << paths.size();
+
+        // 合并碎片路径为完整笔画
+        double mergeThreshold = targetH * 0.05;
+        QVector<QVector<QPoint>> mergedPaths = mergeStrokePaths(paths, mergeThreshold);
+        if (mergedPaths.size() < paths.size())
+            qDebug() << "[实心笔画] 字符'" << ch << "' 合并后路径数:" << mergedPaths.size()
+                     << "减少:" << (paths.size() - mergedPaths.size());
+        paths = mergedPaths;
+
+        // 简化所有路径，计算包围盒用于空间排序
+        struct StrokeInfo {
+            QVector<QPoint> pts;  // 简化后的像素空间点
+            QRectF bbox;          // 像素空间包围盒
+            QPoint startPt;       // 像素空间起点
+        };
+        QVector<StrokeInfo> strokes;
+        for (const auto &pts : paths) {
+            if (pts.size() < 2) continue;
+            QVector<QPoint> simplified = simplifyPath(pts, simplifyEps);
+            int minX = 100000, minY = 100000, maxX = -1, maxY = -1;
+            for (const auto &pt : simplified) {
+                if (pt.x() < minX) minX = pt.x();
+                if (pt.y() < minY) minY = pt.y();
+                if (pt.x() > maxX) maxX = pt.x();
+                if (pt.y() > maxY) maxY = pt.y();
+            }
+            strokes.append({
+                simplified,
+                QRectF(minX, minY, maxX - minX, maxY - minY),
+                simplified.first()
+            });
+        }
+
+        // 过滤噪声碎片：包围盒宽高均小于字符渲染高度 3% 的路径视为骨架化噪点
+        double minBBoxSize = targetH * 0.03;
+        int noiseFiltered = 0;
+        strokes.erase(std::remove_if(strokes.begin(), strokes.end(),
+            [&](const StrokeInfo &s) {
+                if (s.bbox.width() < minBBoxSize && s.bbox.height() < minBBoxSize) {
+                    noiseFiltered++;
+                    return true;
+                }
+                return false;
+            }), strokes.end());
+        if (noiseFiltered > 0)
+            qDebug() << "[实心笔画] 字符'" << ch << "' 过滤噪声:" << noiseFiltered;
+
+        // 空间排序：Y中心分组 → X最小 → 起点Y → 起点X（模拟从上到下、从左到右书写顺序）
+        std::sort(strokes.begin(), strokes.end(), [](const StrokeInfo &a, const StrokeInfo &b) {
+            double aCY = a.bbox.center().y();
+            double bCY = b.bbox.center().y();
+            double avgH = (a.bbox.height() + b.bbox.height()) * 0.5;
+            double yTol = avgH * 0.25;  // 同一"行"的Y容差
+            if (qAbs(aCY - bCY) > yTol)
+                return aCY < bCY;
+
+            if (qAbs(a.bbox.left() - b.bbox.left()) > 1.5)
+                return a.bbox.left() < b.bbox.left();
+
+            if (a.startPt.y() != b.startPt.y())
+                return a.startPt.y() < b.startPt.y();
+            return a.startPt.x() < b.startPt.x();
+        });
+
+        // 转回最终坐标系 + 加入 result
+        double invScale = 1.0 / renderScale;
+        int charTotalPts = 0;
+        for (const auto &s : strokes) {
+            charTotalPts += s.pts.size();
+            QPainterPath sp;
+            sp.moveTo((s.pts[0].x() - pad) * invScale + bounds.x(),
+                       (s.pts[0].y() - pad) * invScale + bounds.y());
+            for (int i = 1; i < s.pts.size(); ++i)
+                sp.lineTo((s.pts[i].x() - pad) * invScale + bounds.x(),
+                           (s.pts[i].y() - pad) * invScale + bounds.y());
+            result.addPath(sp);
+        }
+        qDebug() << "[实心笔画] 字符'" << ch << "' 简化后点数:" << charTotalPts
+                 << "笔画数:" << strokes.size();
+    }
+
+    qDebug() << "[实心笔画] 完成，" << text.length() << "个字符，结果子路径数:" << result.elementCount();
+
+    return result.isEmpty() ? toPath() : result;
 }
 
 static QString getProjectRoot() {
@@ -458,6 +669,15 @@ void DrawingWindow::createToolBar() {
                 m_toolLabel->setText("当前工具: 选择");
             });
     toolbar->addAction(selectBtn);
+
+    // 橡皮擦按钮
+    auto eraserBtn = new QAction("橡皮", this);
+    connect(eraserBtn, &QAction::triggered,
+            [this](){
+                m_canvas->setCurrentTool(DrawingTool::Eraser);
+                m_toolLabel->setText("当前工具: 橡皮擦");
+            });
+    toolbar->addAction(eraserBtn);
 
     // 文字输入按钮（弹窗打字）
     auto textBtn = new QAction("文字", this);
@@ -1555,16 +1775,84 @@ void DrawingCanvas::mousePressEvent(QMouseEvent *event) {
     }
 
     if (event->button() == Qt::LeftButton) {
-        // 选择工具：点击选中文字项
-        if (m_currentTool == DrawingTool::Select) {
+        // 橡皮擦：记录起点，开始擦除
+        if (m_currentTool == DrawingTool::Eraser) {
+            m_drawing = true;
+            m_eraserPoints.clear();
+            m_eraserCoveragePath = QPainterPath();
             QPointF pt = screenToLogical(event->position());
-            int idx = hitTestText(pt);
-            if (idx >= 0) {
-                m_selectedText = idx;
-                m_dragOffset = pt - m_textItems[idx].pos;
-                m_drawing = true;
+            m_eraserPoints.append(pt);
+            m_eraserCoveragePath.addEllipse(pt, m_eraserRadius, m_eraserRadius);
+            update();
+            return;
+        }
+
+        // 选择工具
+        if (m_currentTool == DrawingTool::Select) {
+            setFocus();
+            QPointF pt = screenToLogical(event->position());
+            bool shift = event->modifiers() & Qt::ShiftModifier;
+
+            // 检测是否命中已有元素
+            int pathIdx = hitTestPath(pt);
+            int circleIdx = hitTestCircle(pt);
+            int arcIdx = hitTestArc(pt);
+            int textIdx = hitTestText(pt);
+
+            bool hitAny = (pathIdx >= 0 || circleIdx >= 0 || arcIdx >= 0 || textIdx >= 0);
+
+            if (shift) {
+                // Shift+点击：切换选中
+                if (pathIdx >= 0) {
+                    if (m_selectedPathIndices.contains(pathIdx))
+                        m_selectedPathIndices.remove(pathIdx);
+                    else
+                        m_selectedPathIndices.insert(pathIdx);
+                }
+                if (circleIdx >= 0) {
+                    if (m_selectedCircleIndices.contains(circleIdx))
+                        m_selectedCircleIndices.remove(circleIdx);
+                    else
+                        m_selectedCircleIndices.insert(circleIdx);
+                }
+                if (arcIdx >= 0) {
+                    if (m_selectedArcIndices.contains(arcIdx))
+                        m_selectedArcIndices.remove(arcIdx);
+                    else
+                        m_selectedArcIndices.insert(arcIdx);
+                }
+                if (textIdx >= 0) {
+                    if (m_selectedTextIndices.contains(textIdx))
+                        m_selectedTextIndices.remove(textIdx);
+                    else
+                        m_selectedTextIndices.insert(textIdx);
+                }
+                update();
+                return;
+            }
+
+            if (hitAny) {
+                // 单击命中：先清空旧选择，再选中新元素，进入移动模式
+                if (!m_selectedPathIndices.contains(pathIdx) &&
+                    !m_selectedCircleIndices.contains(circleIdx) &&
+                    !m_selectedArcIndices.contains(arcIdx) &&
+                    !m_selectedTextIndices.contains(textIdx)) {
+                    clearSelection();
+                }
+                if (pathIdx >= 0) m_selectedPathIndices.insert(pathIdx);
+                if (circleIdx >= 0) m_selectedCircleIndices.insert(circleIdx);
+                if (arcIdx >= 0) m_selectedArcIndices.insert(arcIdx);
+                if (textIdx >= 0) m_selectedTextIndices.insert(textIdx);
+                m_isMovingElements = true;
+                m_moveLastPoint = pt;
+                m_selectedText = textIdx;
             } else {
+                // 点击空白：开始框选
+                clearSelection();
                 m_selectedText = -1;
+                m_isSelectingRect = true;
+                m_selectRectStart = pt;
+                m_selectRectEnd = pt;
             }
             update();
             return;
@@ -1603,10 +1891,109 @@ void DrawingCanvas::mouseMoveEvent(QMouseEvent *event) {
     // 发出逻辑坐标（用于状态栏显示）
     emit mousePositionChanged(screenToLogical(event->position()));
 
-    // 选择工具：拖拽移动文字
-    if (m_currentTool == DrawingTool::Select && m_drawing && m_selectedText >= 0 && (event->buttons() & Qt::LeftButton)) {
+    // 选择工具
+    if (m_currentTool == DrawingTool::Select) {
         QPointF pt = screenToLogical(event->position());
-        m_textItems[m_selectedText].pos = pt - m_dragOffset;
+
+        if (m_isSelectingRect) {
+            // 框选拖拽中
+            m_selectRectEnd = pt;
+            update();
+            return;
+        }
+
+        if (m_isMovingElements && (event->buttons() & Qt::LeftButton)) {
+            // 移动选中的元素
+            QPointF delta = pt - m_moveLastPoint;
+            if (!delta.isNull()) {
+                // 移动路径
+                for (int idx : m_selectedPathIndices) {
+                    if (idx >= 0 && idx < m_paths.size()) {
+                        m_paths[idx].translate(delta);
+                    }
+                }
+                // 移动圆形
+                for (int idx : m_selectedCircleIndices) {
+                    if (idx >= 0 && idx < m_circles.size()) {
+                        m_circles[idx].center += delta;
+                    }
+                }
+                // 移动弧线
+                for (int idx : m_selectedArcIndices) {
+                    if (idx >= 0 && idx < m_arcs.size()) {
+                        m_arcs[idx].start += delta;
+                        m_arcs[idx].mid += delta;
+                        m_arcs[idx].end += delta;
+                    }
+                }
+                // 移动文字
+                for (int idx : m_selectedTextIndices) {
+                    if (idx >= 0 && idx < m_textItems.size()) {
+                        m_textItems[idx].pos += delta;
+                    }
+                }
+                m_moveLastPoint = pt;
+            }
+            update();
+            return;
+        }
+
+        // 兼容旧的单一文字拖拽（保留 m_selectedText 路径）
+        if (m_drawing && m_selectedText >= 0 && (event->buttons() & Qt::LeftButton)) {
+            m_textItems[m_selectedText].pos = pt - m_dragOffset;
+            update();
+            return;
+        }
+        return;
+    }
+
+    // 橡皮擦：拖拽擦除
+    if (m_currentTool == DrawingTool::Eraser && m_drawing && (event->buttons() & Qt::LeftButton)) {
+        QPointF pt = screenToLogical(event->position());
+        m_eraserPoints.append(pt);
+
+        // 沿轨迹生成覆盖圆，扩充 eraserCoveragePath
+        QPointF lastPt = m_eraserPoints[m_eraserPoints.size() - 2];
+        QLineF line(lastPt, pt);
+        double step = m_eraserRadius * 0.5;
+        double len = line.length();
+        int steps = qMax(1, (int)(len / step));
+        for (int i = 1; i <= steps; ++i) {
+            QPointF ip = line.pointAt((double)i / steps);
+            m_eraserCoveragePath.addEllipse(ip, m_eraserRadius, m_eraserRadius);
+        }
+
+        // 对每条路径做减法
+        for (int i = m_paths.size() - 1; i >= 0; --i) {
+            QPainterPath &path = m_paths[i];
+            if (path.intersects(m_eraserCoveragePath)) {
+                QPainterPath result = path.subtracted(m_eraserCoveragePath);
+                if (result.isEmpty()) {
+                    m_paths.removeAt(i);
+                } else {
+                    path = result;
+                }
+            }
+        }
+
+        // 对圆形做擦除：检查圆心是否在橡皮擦区域内
+        for (int i = m_circles.size() - 1; i >= 0; --i) {
+            if (m_eraserCoveragePath.contains(m_circles[i].center)) {
+                m_circles.removeAt(i);
+            }
+        }
+
+        // 对弧线做擦除：检查三个关键点是否在橡皮擦区域内
+        for (int i = m_arcs.size() - 1; i >= 0; --i) {
+            const auto &a = m_arcs[i];
+            bool hit = m_eraserCoveragePath.contains(a.start)
+                    || m_eraserCoveragePath.contains(a.mid)
+                    || m_eraserCoveragePath.contains(a.end);
+            if (hit) {
+                m_arcs.removeAt(i);
+            }
+        }
+
         update();
         return;
     }
@@ -1632,6 +2019,15 @@ void DrawingCanvas::mouseReleaseEvent(QMouseEvent *event) {
 
     if (event->button() == Qt::LeftButton && m_drawing) {
         m_endPoint = screenToLogical(event->position());
+
+        // 橡皮擦：松开后清理临时状态
+        if (m_currentTool == DrawingTool::Eraser) {
+            m_drawing = false;
+            m_eraserPoints.clear();
+            m_eraserCoveragePath = QPainterPath();
+            update();
+            return;
+        }
 
         switch (m_currentTool) {
             case DrawingTool::Line: {
@@ -1676,7 +2072,44 @@ void DrawingCanvas::mouseReleaseEvent(QMouseEvent *event) {
         update();
     }
     if (event->button() == Qt::LeftButton && m_currentTool == DrawingTool::Select) {
+        // 结束框选
+        if (m_isSelectingRect) {
+            m_isSelectingRect = false;
+            m_selectRectEnd = screenToLogical(event->position());
+            QRectF selRect = QRectF(m_selectRectStart, m_selectRectEnd).normalized();
+            if (selRect.width() > 2 || selRect.height() > 2) {
+                // 选择矩形内的所有元素
+                for (int i = 0; i < m_paths.size(); ++i) {
+                    if (selRect.contains(pathBoundingRect(m_paths[i])))
+                        m_selectedPathIndices.insert(i);
+                }
+                for (int i = 0; i < m_circles.size(); ++i) {
+                    QRectF cr(m_circles[i].center.x() - m_circles[i].radius,
+                              m_circles[i].center.y() - m_circles[i].radius,
+                              2 * m_circles[i].radius, 2 * m_circles[i].radius);
+                    if (selRect.contains(cr))
+                        m_selectedCircleIndices.insert(i);
+                }
+                for (int i = 0; i < m_arcs.size(); ++i) {
+                    QRectF ar(QPointF(std::min({m_arcs[i].start.x(), m_arcs[i].mid.x(), m_arcs[i].end.x()}),
+                                      std::min({m_arcs[i].start.y(), m_arcs[i].mid.y(), m_arcs[i].end.y()})),
+                              QPointF(std::max({m_arcs[i].start.x(), m_arcs[i].mid.x(), m_arcs[i].end.x()}),
+                                      std::max({m_arcs[i].start.y(), m_arcs[i].mid.y(), m_arcs[i].end.y()})));
+                    if (selRect.contains(ar))
+                        m_selectedArcIndices.insert(i);
+                }
+                for (int i = 0; i < m_textItems.size(); ++i) {
+                    if (selRect.contains(m_textItems[i].boundingRect()))
+                        m_selectedTextIndices.insert(i);
+                }
+            }
+            update();
+            return;
+        }
+        // 结束移动
+        m_isMovingElements = false;
         m_drawing = false;
+        return;
     }
 }
 
@@ -1736,12 +2169,25 @@ void DrawingCanvas::paintEvent(QPaintEvent *) {
     // 绘制圆形
     painter.setPen(QPen(Qt::blue, 2));
     painter.setBrush(Qt::NoBrush);
-    for (const auto &c : m_circles) {
+    for (int i = 0; i < m_circles.size(); ++i) {
+        const auto &c = m_circles[i];
+        if (m_selectedCircleIndices.contains(i)) {
+            painter.setPen(QPen(QColor(0, 120, 215), 2.5));
+        } else {
+            painter.setPen(QPen(Qt::blue, 2));
+        }
         painter.drawEllipse(c.center, c.radius, c.radius);
     }
 
     // 绘制弧线
-    for (const auto &a : m_arcs) {
+    painter.setPen(QPen(Qt::blue, 2));
+    for (int i = 0; i < m_arcs.size(); ++i) {
+        const auto &a = m_arcs[i];
+        if (m_selectedArcIndices.contains(i)) {
+            painter.setPen(QPen(QColor(0, 120, 215), 2.5));
+        } else {
+            painter.setPen(QPen(Qt::blue, 2));
+        }
         QPainterPath arcPath;
         arcPath.moveTo(a.start);
         drawArcThroughThreePoints(arcPath, a.start, a.mid, a.end);
@@ -1750,7 +2196,13 @@ void DrawingCanvas::paintEvent(QPaintEvent *) {
 
     // 绘制已完成的路径
     painter.setPen(QPen(Qt::blue, 2));
-    for (const auto &path : m_paths) {
+    for (int i = 0; i < m_paths.size(); ++i) {
+        const auto &path = m_paths[i];
+        if (m_selectedPathIndices.contains(i)) {
+            painter.setPen(QPen(QColor(0, 120, 215), 2.5));
+        } else {
+            painter.setPen(QPen(Qt::blue, 2));
+        }
         painter.drawPath(path);
     }
 
@@ -1758,6 +2210,37 @@ void DrawingCanvas::paintEvent(QPaintEvent *) {
     for (const auto &cp : m_coloredPaths) {
         painter.setPen(QPen(cp.second, 2));
         painter.drawPath(cp.first);
+    }
+
+    // 绘制选中元素的蓝色虚线包围盒
+    painter.setBrush(Qt::NoBrush);
+    QPen selBoxPen(QColor(0, 120, 215), 1.5, Qt::DashLine);
+    painter.setPen(selBoxPen);
+    // 路径包围盒
+    for (int idx : m_selectedPathIndices) {
+        if (idx >= 0 && idx < m_paths.size()) {
+            drawBoundingBox(painter, pathBoundingRect(m_paths[idx]), QColor(0, 120, 215));
+        }
+    }
+    // 圆形包围盒
+    for (int idx : m_selectedCircleIndices) {
+        if (idx >= 0 && idx < m_circles.size()) {
+            const auto &c = m_circles[idx];
+            QRectF r(c.center.x() - c.radius, c.center.y() - c.radius,
+                     2 * c.radius, 2 * c.radius);
+            drawBoundingBox(painter, r, QColor(0, 120, 215));
+        }
+    }
+    // 弧线包围盒
+    for (int idx : m_selectedArcIndices) {
+        if (idx >= 0 && idx < m_arcs.size()) {
+            const auto &a = m_arcs[idx];
+            double minX = std::min({a.start.x(), a.mid.x(), a.end.x()});
+            double minY = std::min({a.start.y(), a.mid.y(), a.end.y()});
+            double maxX = std::max({a.start.x(), a.mid.x(), a.end.x()});
+            double maxY = std::max({a.start.y(), a.mid.y(), a.end.y()});
+            drawBoundingBox(painter, QRectF(minX, minY, maxX - minX, maxY - minY), QColor(0, 120, 215));
+        }
     }
 
     // 绘制文字项（退出视图变换，用原生 drawText 在屏幕坐标绘制，绕开骨架化+viewScale 双重压缩）
@@ -1770,7 +2253,8 @@ void DrawingCanvas::paintEvent(QPaintEvent *) {
                            item.pos.y() * m_viewScale + m_viewOffset.y());
         QFont font(item.fontFamily, item.fontSize);
         painter.setFont(font);
-        if (i == m_selectedText) {
+        bool isSelected = m_selectedTextIndices.contains(i) || i == m_selectedText;
+        if (isSelected) {
             painter.setPen(Qt::red);
             painter.drawText(screenPos, item.text);
             QFontMetrics fm(font);
@@ -1789,6 +2273,15 @@ void DrawingCanvas::paintEvent(QPaintEvent *) {
     painter.save();
     painter.translate(m_viewOffset);
     painter.scale(m_viewScale, m_viewScale);
+
+    // 绘制框选矩形预览
+    if (m_isSelectingRect) {
+        QRectF selRect = QRectF(m_selectRectStart, m_selectRectEnd).normalized();
+        painter.setPen(QPen(QColor(0, 120, 215), 1.5, Qt::DashLine));
+        painter.setBrush(QColor(0, 120, 215, 30));
+        painter.drawRect(selRect);
+        painter.setBrush(Qt::NoBrush);
+    }
 
     // 绘制预览
     if (m_drawing) {
@@ -1817,6 +2310,15 @@ void DrawingCanvas::paintEvent(QPaintEvent *) {
                     painter.drawPoint(m_endPoint);
                 } else {
                     painter.drawLine(m_startPoint, m_endPoint);
+                }
+                break;
+            case DrawingTool::Eraser:
+                // 橡皮擦光标指示：当前擦除位置的圆形区域
+                if (!m_eraserPoints.isEmpty()) {
+                    painter.setPen(QPen(QColor(200, 60, 60), 1, Qt::DashLine));
+                    painter.setBrush(QColor(255, 120, 120, 60));
+                    painter.drawEllipse(m_eraserPoints.last(), m_eraserRadius, m_eraserRadius);
+                    painter.setBrush(Qt::NoBrush);
                 }
                 break;
             default:
@@ -1938,7 +2440,7 @@ void DrawingCanvas::drawWorkpieceCoordRegion(const QPointF &origin,
     zoomToFit(bounds);
 }
 
-void DrawingCanvas::drawArcThroughThreePoints(QPainterPath &path, const QPointF &p1, const QPointF &p2, const QPointF &p3) {
+void DrawingCanvas::drawArcThroughThreePoints(QPainterPath &path, const QPointF &p1, const QPointF &p2, const QPointF &p3) const {
     double A = 2 * (p2.x() - p1.x());
     double B = 2 * (p2.y() - p1.y());
     double C = p2.x() * p2.x() + p2.y() * p2.y() - p1.x() * p1.x() - p1.y() * p1.y();
@@ -2134,7 +2636,28 @@ QVector<QVector<QPointF>> DrawingCanvas::extractPointsGrouped(double resolution)
         if (!strokePoints.isEmpty()) allGroups.append(strokePoints);
     }
 
-    return allGroups;
+    // 合并邻近 group：若前一组终点与后一组起点距离 < 5.0mm，则拼接，
+    // 机械臂提笔前直接走过去，减少提笔次数提升书写效率
+    if (allGroups.isEmpty()) return allGroups;
+    const double mergeThreshold = 5.0;  // 世界坐标 mm
+    QVector<QVector<QPointF>> merged;
+    merged.append(allGroups.first());
+    for (int i = 1; i < allGroups.size(); ++i) {
+        const auto &prev = merged.last();
+        const auto &cur  = allGroups[i];
+        if (!prev.isEmpty() && !cur.isEmpty()) {
+            double d = QLineF(prev.last(), cur.first()).length();
+            if (d < mergeThreshold) {
+                merged.last().append(cur);
+                continue;
+            }
+        }
+        merged.append(cur);
+    }
+    qDebug() << "[分组合并] 原始" << allGroups.size() << "组 → 合并后" << merged.size() << "组"
+             << "(阈值:" << mergeThreshold << "mm)";
+
+    return merged;
 }
 
 void DrawingWindow::drawWorkpieceCoordRegion(const QPointF &origin,
@@ -2170,4 +2693,226 @@ void DrawingCanvas::zoomToFit(const QRectF &bounds) {
     QPointF center = bounds.center();
     m_viewOffset = QPointF(width() / 2.0, height() / 2.0) - center * m_viewScale;
     update();
+}
+
+// ========== 选择/移动/复制粘贴 辅助方法 ==========
+
+int DrawingCanvas::hitTestPath(const QPointF &pt) const {
+    // 使用 QPainterPathStroker 将路径扩宽后检测点击命中
+    QPainterPathStroker stroker;
+    stroker.setWidth(12.0 / m_viewScale); // 考虑缩放后的容差
+    for (int i = m_paths.size() - 1; i >= 0; --i) {
+        QPainterPath stroked = stroker.createStroke(m_paths[i]);
+        if (stroked.contains(pt))
+            return i;
+    }
+    return -1;
+}
+
+int DrawingCanvas::hitTestCircle(const QPointF &pt) const {
+    double tolerance = 6.0 / m_viewScale;
+    for (int i = m_circles.size() - 1; i >= 0; --i) {
+        double dist = QLineF(pt, m_circles[i].center).length();
+        if (qAbs(dist - m_circles[i].radius) <= tolerance)
+            return i;
+    }
+    return -1;
+}
+
+int DrawingCanvas::hitTestArc(const QPointF &pt) const {
+    double tolerance = 8.0 / m_viewScale;
+    for (int i = m_arcs.size() - 1; i >= 0; --i) {
+        const auto &a = m_arcs[i];
+        // 检查是否靠近三个关键点
+        if (QLineF(pt, a.start).length() <= tolerance) return i;
+        if (QLineF(pt, a.mid).length() <= tolerance) return i;
+        if (QLineF(pt, a.end).length() <= tolerance) return i;
+        // 检查是否靠近弧线本身（采样检测）
+        QPainterPath arcPath;
+        arcPath.moveTo(a.start);
+        drawArcThroughThreePoints(arcPath, a.start, a.mid, a.end);
+        QPainterPathStroker stroker;
+        stroker.setWidth(10.0 / m_viewScale);
+        if (stroker.createStroke(arcPath).contains(pt))
+            return i;
+    }
+    return -1;
+}
+
+bool DrawingCanvas::isAnySelected() const {
+    return !m_selectedPathIndices.isEmpty() ||
+           !m_selectedCircleIndices.isEmpty() ||
+           !m_selectedArcIndices.isEmpty() ||
+           !m_selectedTextIndices.isEmpty();
+}
+
+void DrawingCanvas::clearSelection() {
+    m_selectedText = -1;
+    m_selectedPathIndices.clear();
+    m_selectedCircleIndices.clear();
+    m_selectedArcIndices.clear();
+    m_selectedTextIndices.clear();
+}
+
+void DrawingCanvas::copySelection() {
+    m_clipboard.clear();
+    // 深拷贝路径（QPainterPath 值类型，自动深拷贝）
+    for (int idx : m_selectedPathIndices) {
+        if (idx >= 0 && idx < m_paths.size())
+            m_clipboard.paths.append(m_paths[idx]);
+    }
+    for (int idx : m_selectedCircleIndices) {
+        if (idx >= 0 && idx < m_circles.size())
+            m_clipboard.circles.append(m_circles[idx]);
+    }
+    for (int idx : m_selectedArcIndices) {
+        if (idx >= 0 && idx < m_arcs.size())
+            m_clipboard.arcs.append(m_arcs[idx]);
+    }
+    for (int idx : m_selectedTextIndices) {
+        if (idx >= 0 && idx < m_textItems.size())
+            m_clipboard.texts.append(m_textItems[idx]);
+    }
+}
+
+void DrawingCanvas::pasteSelection() {
+    if (m_clipboard.isEmpty()) return;
+
+    QPointF offset(20.0, 20.0);
+    clearSelection();
+
+    for (const auto &path : m_clipboard.paths) {
+        QPainterPath p = path;
+        p.translate(offset);
+        m_paths.append(p);
+        m_selectedPathIndices.insert(m_paths.size() - 1);
+    }
+    for (const auto &c : m_clipboard.circles) {
+        CircleData cd = c;
+        cd.center += offset;
+        m_circles.append(cd);
+        m_selectedCircleIndices.insert(m_circles.size() - 1);
+    }
+    for (const auto &a : m_clipboard.arcs) {
+        ArcData ad = a;
+        ad.start += offset;
+        ad.mid += offset;
+        ad.end += offset;
+        m_arcs.append(ad);
+        m_selectedArcIndices.insert(m_arcs.size() - 1);
+    }
+    for (const auto &t : m_clipboard.texts) {
+        TextItemData td = t;
+        td.pos += offset;
+        // 清空内部缓存让 toTrajectoryPath 重新计算
+        m_textItems.append(td);
+        m_selectedTextIndices.insert(m_textItems.size() - 1);
+    }
+    update();
+}
+
+QRectF DrawingCanvas::computeSelectionBounds() const {
+    QRectF bounds;
+    bool first = true;
+    for (int idx : m_selectedPathIndices) {
+        if (idx >= 0 && idx < m_paths.size()) {
+            QRectF r = pathBoundingRect(m_paths[idx]);
+            if (first) { bounds = r; first = false; }
+            else bounds = bounds.united(r);
+        }
+    }
+    for (int idx : m_selectedCircleIndices) {
+        if (idx >= 0 && idx < m_circles.size()) {
+            QRectF r(m_circles[idx].center.x() - m_circles[idx].radius,
+                     m_circles[idx].center.y() - m_circles[idx].radius,
+                     2 * m_circles[idx].radius, 2 * m_circles[idx].radius);
+            if (first) { bounds = r; first = false; }
+            else bounds = bounds.united(r);
+        }
+    }
+    for (int idx : m_selectedArcIndices) {
+        if (idx >= 0 && idx < m_arcs.size()) {
+            const auto &a = m_arcs[idx];
+            QRectF r(QPointF(std::min({a.start.x(), a.mid.x(), a.end.x()}),
+                             std::min({a.start.y(), a.mid.y(), a.end.y()})),
+                     QPointF(std::max({a.start.x(), a.mid.x(), a.end.x()}),
+                             std::max({a.start.y(), a.mid.y(), a.end.y()})));
+            if (first) { bounds = r; first = false; }
+            else bounds = bounds.united(r);
+        }
+    }
+    for (int idx : m_selectedTextIndices) {
+        if (idx >= 0 && idx < m_textItems.size()) {
+            QRectF r = m_textItems[idx].boundingRect();
+            if (first) { bounds = r; first = false; }
+            else bounds = bounds.united(r);
+        }
+    }
+    return bounds;
+}
+
+QRectF DrawingCanvas::pathBoundingRect(const QPainterPath &path) const {
+    return path.boundingRect();
+}
+
+void DrawingCanvas::drawBoundingBox(QPainter &painter, const QRectF &rect, const QColor &color) const {
+    painter.save();
+    QPen pen(color, 1.5, Qt::DashLine);
+    painter.setPen(pen);
+    painter.setBrush(Qt::NoBrush);
+    QRectF r = rect.adjusted(-3, -3, 3, 3);
+    painter.drawRect(r);
+    painter.restore();
+}
+
+void DrawingCanvas::keyPressEvent(QKeyEvent *event) {
+    if (m_currentTool != DrawingTool::Select) {
+        QWidget::keyPressEvent(event);
+        return;
+    }
+
+    if (event->matches(QKeySequence::Copy)) {
+        copySelection();
+        update();
+        return;
+    }
+
+    if (event->matches(QKeySequence::Paste)) {
+        pasteSelection();
+        return;
+    }
+
+    if (event->key() == Qt::Key_Delete || event->key() == Qt::Key_Backspace) {
+        // 删除选中元素
+        // 从后往前删除，避免索引变化
+        QList<int> sortedPaths(m_selectedPathIndices.begin(), m_selectedPathIndices.end());
+        std::sort(sortedPaths.begin(), sortedPaths.end(), std::greater<int>());
+        for (int idx : sortedPaths) {
+            if (idx >= 0 && idx < m_paths.size())
+                m_paths.removeAt(idx);
+        }
+        QList<int> sortedCircles(m_selectedCircleIndices.begin(), m_selectedCircleIndices.end());
+        std::sort(sortedCircles.begin(), sortedCircles.end(), std::greater<int>());
+        for (int idx : sortedCircles) {
+            if (idx >= 0 && idx < m_circles.size())
+                m_circles.removeAt(idx);
+        }
+        QList<int> sortedArcs(m_selectedArcIndices.begin(), m_selectedArcIndices.end());
+        std::sort(sortedArcs.begin(), sortedArcs.end(), std::greater<int>());
+        for (int idx : sortedArcs) {
+            if (idx >= 0 && idx < m_arcs.size())
+                m_arcs.removeAt(idx);
+        }
+        QList<int> sortedTexts(m_selectedTextIndices.begin(), m_selectedTextIndices.end());
+        std::sort(sortedTexts.begin(), sortedTexts.end(), std::greater<int>());
+        for (int idx : sortedTexts) {
+            if (idx >= 0 && idx < m_textItems.size())
+                m_textItems.removeAt(idx);
+        }
+        clearSelection();
+        update();
+        return;
+    }
+
+    QWidget::keyPressEvent(event);
 }
