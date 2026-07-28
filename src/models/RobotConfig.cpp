@@ -8,6 +8,8 @@
  * - 初始化默认配置参数
  */
 #include "RobotConfig.h"
+#include <QDir>
+#include <QFileInfo>
 #include "../../library/RobotConstants.h"
 #include <QJsonDocument>
 #include <QJsonArray>
@@ -234,6 +236,13 @@ bool RobotConfig::saveToJson(const QString& filePath) const
 
     QJsonDocument doc(obj);
     
+    // 确保目标目录存在
+    QFileInfo fileInfo(filePath);
+    QDir dir = fileInfo.absoluteDir();
+    if (!dir.exists()) {
+        dir.mkpath(QStringLiteral("."));
+    }
+
     QFile file(filePath);
     if (!file.open(QIODevice::WriteOnly)) {
         return false;

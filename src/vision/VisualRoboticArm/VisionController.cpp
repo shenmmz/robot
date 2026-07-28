@@ -316,11 +316,6 @@ void VisionController::onNewConnection()
 
     connect(m_tcpSocket, &QTcpSocket::readyRead, this, &VisionController::onReadyRead);
     connect(m_tcpSocket, &QTcpSocket::disconnected, this, &VisionController::onClientDisconnected);
-
-//     qDebug() << "[Vision] Python TCP 客户端已连接 from"
-//              << m_tcpSocket->peerAddress().toString()
-//              << ":" << m_tcpSocket->peerPort()
-//              << " state=" << m_tcpSocket->state();
 }
 
 void VisionController::onReadyRead()
@@ -328,8 +323,6 @@ void VisionController::onReadyRead()
     if (!m_tcpSocket) return;
 
     const QByteArray chunk = m_tcpSocket->readAll();
-//     qDebug() << "[Vision] tcp-receive bytes=" << chunk.size()
-//              << " preview=" << QString::fromUtf8(chunk.left(80));
     m_tcpBuffer.append(chunk);
 
     while (true) {
@@ -415,7 +408,6 @@ void VisionController::parseAndDispatch(const QByteArray &line)
             list.append({motorId - 1, angle});  // motor_id 1..6 → axis 0..5
         }
         if (!list.isEmpty()) {
-//             qDebug() << "[Vision] 收到多轴指令" << list.size() << "条";
             emit motorCommands(list);
         }
         return;

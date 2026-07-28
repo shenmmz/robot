@@ -654,6 +654,10 @@ bool RobotController::jogJointBatch(const QHash<int, double>& axisTargets,
     ZmotionAPI* api = m_motionController->getZmotionAPI();
     QList<int> axes = m_config->getJointAxisList();
 
+    // 取消当前运动，确保新指令立即生效（视觉追踪场景最新目标优先）
+    api->singleAxisCancel(axes, 0);
+    api->waitForAxesIdle(axes, 200);
+
     // 一次读取所有轴当前真实位置
     QList<double> joints = m_state->getAllAxisPositions();
 
@@ -668,9 +672,9 @@ bool RobotController::jogJointBatch(const QHash<int, double>& axisTargets,
     QList<float> targets;
     for (double pos : joints) targets.append(static_cast<float>(pos));
 
-    api->directMoveAbsolute(axes, targets, static_cast<float>(speed),
+    ZmotionResult result = api->directMoveAbsolute(axes, targets, static_cast<float>(speed),
                             static_cast<float>(accel), static_cast<float>(decel));
-    return true;
+    return result.success;
 }
 
 /**

@@ -933,8 +933,8 @@ ZmotionResult ZmotionAPI::singleAxisCancel(const QList<int>& axes, int mode) {
             if (result == 0) {
                 // 成功停止
                 successAxes.append(axis);
-                ZINFO << QString("轴 %1 停止成功，模式 %2")
-                        .arg(axis).arg(mode);
+                // ZINFO << QString("轴 %1 停止成功，模式 %2")
+                //         .arg(axis).arg(mode);
             } else {
                 // 停止失败
                 failedAxes.append(axis);
@@ -3453,8 +3453,19 @@ ZmotionResult ZmotionAPI::directMoveAbsolute(const QList<int>& axes, const QList
         result.success = true;
         result.errorCode = 0;
         result.errorMessage = "绝对直线插补运动成功";
-        ZINFO << result.errorMessage << "轴列表:" << axes << "距离列表:" << distances
-                << "速度:" << speed << "加速度:" << accel << "减速度:" << decel;
+        static QList<int> lastAxes;
+        static QList<float> lastDistances;
+        static float lastSpeed = -1, lastAccel = -1, lastDecel = -1;
+        if (axes != lastAxes || distances != lastDistances
+            || speed != lastSpeed || accel != lastAccel || decel != lastDecel) {
+            ZINFO << result.errorMessage << "轴列表:" << axes << "距离列表:" << distances
+                    << "速度:" << speed << "加速度:" << accel << "减速度:" << decel;
+            lastAxes = axes;
+            lastDistances = distances;
+            lastSpeed = speed;
+            lastAccel = accel;
+            lastDecel = decel;
+        }
     }
 
     return result;

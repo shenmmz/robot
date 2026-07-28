@@ -73,7 +73,7 @@
 #include <QCryptographicHash>
 #include <QSettings>
 
-static QString findConfigFile()
+QString MainWindow::findConfigFile()
 {
     // 从 exe 所在目录向上查找 config/robot_config.json
     QDir dir(QCoreApplication::applicationDirPath());
@@ -2880,7 +2880,10 @@ void MainWindow::onVisionMessage(const QString &channel, const QString &line)
 void MainWindow::onVisionMotorCommands(const QList<QPair<int, double>>& commands)
 {
     if (commands.isEmpty()) return;
-    if (!m_visionControlActive) return;
+    if (!m_visionControlActive) {
+        qWarning() << "[MainWindow] 视觉多轴指令被忽略：视觉控制未激活";
+        return;
+    }
     if (!m_robotController || !m_robotController->isConnected()) {
         qWarning() << "[MainWindow] 视觉多轴指令未执行：控制器未连接";
         return;
@@ -2919,9 +2922,9 @@ void MainWindow::onVisionMotorCommands(const QList<QPair<int, double>>& commands
             continue;
         }
 
-        // 500ms 节流
+        // 200ms 节流
         const qint64 lastMs = m_lastVisionSendMsPerAxis.value(axis, 0);
-        if ((nowMs - lastMs) < 500) continue;
+        if ((nowMs - lastMs) < 200) continue;
 
         // 死区过滤
         const double lastSent = m_lastSentAnglePerAxis.value(axis, 0.0);
@@ -2931,7 +2934,17 @@ void MainWindow::onVisionMotorCommands(const QList<QPair<int, double>>& commands
         if (m_axisSpeed[axis] > maxSpeed) maxSpeed = m_axisSpeed[axis];
     }
 
+    // 对未通过节流/死区的轴，沿用上次下发目标，避免 jogJointBatch
+    // 的 cancel+getAllAxisPositions 用真实中途位置覆盖未更新轴。
+    // 仅在至少一个轴通过了完整过滤时才补齐（防止节流死循环）。
     if (filteredTargets.isEmpty()) return;
+
+    for (int axis = 0; axis < 6; ++axis) {
+        if (filteredTargets.contains(axis)) continue;
+        if (!m_axisEnabled[axis]) continue;
+        if (m_lastSentAnglePerAxis.contains(axis))
+            filteredTargets[axis] = m_lastSentAnglePerAxis[axis];
+    }
 
     // 第二遍：收集所有通过滤波的轴，一次批量下发，避免逐轴覆盖
     if (!m_robotController->jogJointBatch(filteredTargets, maxSpeed, 50.0, 60.0)) {
@@ -2952,14 +2965,20 @@ void MainWindow::onVisionMotorCommands(const QList<QPair<int, double>>& commands
             m_axisAngleLabels[axis]->setText(
                 QStringLiteral("%1%2°").arg(sign).arg(outAngle, 0, 'f', 3));
         }
-        if (m_visionLogView) {
-            const double lastLogged = m_lastVisionLoggedAnglePerAxis.value(axis, 1e9);
-            if (qAbs(outAngle - lastLogged) > 1e-6) {
-                m_lastVisionLoggedAnglePerAxis[axis] = outAngle;
-                const QString sign = outAngle >= 0 ? QStringLiteral("+") : QString();
-                m_visionLogView->appendPlainText(
-                    QStringLiteral("J%1 → %2%3°").arg(axis).arg(sign).arg(outAngle, 0, 'f', 3));
-            }
+    }
+
+    // 日志：始终输出全部 6 轴最新值，避免逐轴零散打印
+    if (m_visionLogView) {
+        QStringList logItems;
+        for (int axis = 0; axis < 6; ++axis) {
+            if (!m_lastSentAnglePerAxis.contains(axis)) continue;
+            const double outAngle = m_lastSentAnglePerAxis[axis];
+            const QString sign = outAngle >= 0 ? QStringLiteral("+") : QString();
+            logItems << QStringLiteral("J%1:%2%3").arg(axis).arg(sign).arg(outAngle, 0, 'f', 1);
+        }
+        if (logItems.size() == 6) {
+            m_visionLogView->appendPlainText(
+                QStringLiteral("[SEND] %1").arg(logItems.join(QStringLiteral(" "))));
         }
     }
 }
