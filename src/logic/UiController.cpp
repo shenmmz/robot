@@ -13,6 +13,8 @@
 #include "../../ZmotionAPI/ZmotionAPI.h"
 #include "../../library/zauxdll2.h"
 #include "../utils/MathUtils.h"
+#include "../utils/Logger.h"
+#include "../mainwindow.h"
 
 #include <QWidget>
 #include <QMouseEvent>
@@ -3522,8 +3524,16 @@ void UiController::onLoadSettings()
  */
 void UiController::onSaveSettings()
 {
+    auto* statusbar = m_mainWindow->findChild<QStatusBar*>(QStringLiteral("statusbar"));
+
     RobotConfig* config = m_robotController->getConfig();
-    if (!config) return;
+    if (!config) {
+        const QString errMsg = QStringLiteral("配置对象未初始化，保存失败");
+        Logger::error(errMsg);
+        appendConsole(QStringLiteral("[错误] %1").arg(errMsg));
+        if (statusbar) statusbar->showMessage(errMsg);
+        return;
+    }
 
     // 回零原点位置
     QList<double> homePos;
@@ -3533,11 +3543,30 @@ void UiController::onSaveSettings()
     }
     config->setHomePosition(homePos);
 
-    QString configPath = QCoreApplication::applicationDirPath() + "/config/robot_config.json";
-    auto* statusbar = m_mainWindow->findChild<QStatusBar*>(QStringLiteral("statusbar"));
+    Logger::info(QStringLiteral("正在保存配置，回零原点位置: [%1, %2, %3, %4, %5, %6]")
+                     .arg(homePos[0], 0, 'f', 2)
+                     .arg(homePos[1], 0, 'f', 2)
+                     .arg(homePos[2], 0, 'f', 2)
+                     .arg(homePos[3], 0, 'f', 2)
+                     .arg(homePos[4], 0, 'f', 2)
+                     .arg(homePos[5], 0, 'f', 2));
+
+    QString configPath = MainWindow::findConfigFile();
     if (config->saveToJson(configPath)) {
-        if (statusbar) statusbar->showMessage(QStringLiteral("配置已保存"));
+        QString msg = QStringLiteral("配置已保存 [%1, %2, %3, %4, %5, %6]")
+                          .arg(homePos[0], 0, 'f', 2)
+                          .arg(homePos[1], 0, 'f', 2)
+                          .arg(homePos[2], 0, 'f', 2)
+                          .arg(homePos[3], 0, 'f', 2)
+                          .arg(homePos[4], 0, 'f', 2)
+                          .arg(homePos[5], 0, 'f', 2);
+        Logger::info(msg);
+        appendConsole(QStringLiteral("✔ %1").arg(msg));
+        if (statusbar) statusbar->showMessage(msg);
     } else {
+        const QString errMsg = QStringLiteral("配置保存失败 (路径: %1)").arg(configPath);
+        Logger::error(errMsg);
+        appendConsole(QStringLiteral("✘ %1").arg(errMsg));
         if (statusbar) statusbar->showMessage(QStringLiteral("配置保存失败"));
     }
 }
