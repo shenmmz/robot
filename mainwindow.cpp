@@ -2036,18 +2036,30 @@ void MainWindow::initManualProgUI()
     twoColGrid->setVerticalSpacing(4);
     twoColGrid->setContentsMargins(0, 4, 0, 4);
 
-    // 中间加一条 1px 分隔线(放在第 7 列)
-    // 关节列:0,1,2,3,4,5 | 分隔:6 | 笛卡尔列:7,8,9,10,11,12
-    // 让关节列拉伸 1、笛卡尔列拉伸 1,中间不拉伸
+    // 列布局: J标签 | J值 | 分隔线 | C标签 | C值
+    const QString labelStyle = QStringLiteral(
+        "color:#333;font-size:14px;font-weight:bold;border:none;background:transparent;");
+
     for (int i = 0; i < 6; ++i) {
         QLineEdit* spJ = spinJ[i];
         QLineEdit* spC = spinC[i];
 
-        // SpinBox 重新设置 prefix(因为 buildJogPage 没跑过,SpinBox 仍是默认值)
+        // SpinBox 重新设置 parent
         spJ->setParent(jogMergedGroup);
         spC->setParent(jogMergedGroup);
-        spJ->setPlaceholderText(jointLabels[i] + QStringLiteral(": "));
-        spC->setPlaceholderText(cartLabels[i]  + QStringLiteral(": "));
+
+        // 关节标签 (J0~J5)
+        QLabel* lbJ = new QLabel(jointLabels[i], jogMergedGroup);
+        lbJ->setStyleSheet(labelStyle);
+        lbJ->setFixedWidth(24);
+        lbJ->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
+
+        // 笛卡尔标签 (X/Y/Z/A/B/C)
+        QLabel* lbC = new QLabel(cartLabels[i], jogMergedGroup);
+        lbC->setStyleSheet(labelStyle);
+        lbC->setFixedWidth(24);
+        lbC->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
+
         // 加大字体 + 加大 padding,值更醒目
         const QString spinStyle = QStringLiteral(
             "QLineEdit{font-family:Consolas,'Microsoft YaHei UI';font-size:17px;"
@@ -2066,19 +2078,23 @@ void MainWindow::initManualProgUI()
         spJ->setMinimumWidth(0);
         spC->setMinimumWidth(0);
 
-        twoColGrid->addWidget(spJ, i, 0);
-        twoColGrid->addWidget(spC, i, 2);
+        twoColGrid->addWidget(lbJ, i, 0);
+        twoColGrid->addWidget(spJ, i, 1);
+        twoColGrid->addWidget(lbC, i, 3);
+        twoColGrid->addWidget(spC, i, 4);
     }
-    // 分隔线(第 1 列)
+    // 分隔线(第 2 列)
     QFrame* vline = new QFrame(jogMergedGroup);
     vline->setFrameShape(QFrame::VLine);
     vline->setFrameShadow(QFrame::Plain);
     vline->setStyleSheet(QStringLiteral("color:#e0e0e0;background:#e0e0e0;"));
     vline->setFixedWidth(1);
-    twoColGrid->addWidget(vline, 0, 1, 6, 1);
-    twoColGrid->setColumnStretch(0, 1);
-    twoColGrid->setColumnStretch(1, 0);
-    twoColGrid->setColumnStretch(2, 1);
+    twoColGrid->addWidget(vline, 0, 2, 6, 1);
+    twoColGrid->setColumnStretch(0, 0);
+    twoColGrid->setColumnStretch(1, 1);
+    twoColGrid->setColumnStretch(2, 0);
+    twoColGrid->setColumnStretch(3, 0);
+    twoColGrid->setColumnStretch(4, 1);
     jogMainLay->addLayout(twoColGrid);
 
     // "调节"按钮:放在两列下方中央

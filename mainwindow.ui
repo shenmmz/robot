@@ -482,7 +482,7 @@ QPushButton:checked{background:rgba(21,101,192,0.18);color:#fff;border-left:3px 
                                     <widget class="QWidget" name="pageRun">
                                         <layout class="QVBoxLayout" name="pageRunVLayout">
                                             <item>
-                                                <layout class="QHBoxLayout" name="pageRunLayout" stretch="0,5,2,5,0">
+                                                <layout class="QHBoxLayout" name="pageRunLayout" stretch="0,5,2,5,2,0">
                                                     <property name="spacing">
                                                         <number>8</number>
                                                     </property>
@@ -1701,37 +1701,7 @@ QPushButton:checked{background:rgba(21,101,192,0.18);color:#fff;border-left:3px 
                                                                                                         <string>逆解</string>
                                                                                                     </property>
                                                                                                 </widget>
-                                                                                            </item>
-                                                                                            <item>
-                                                                                                <widget class="QPushButton" name="btnGetWater">
-                                                                                                    <property name="minimumSize">
-                                                                                                        <size>
-                                                                                                            <width>110</width>
-                                                                                                            <height>36</height>
-                                                                                                        </size>
-                                                                                                    </property>
-                                                                                                    <property name="maximumSize">
-                                                                                                        <size>
-                                                                                                            <width>110</width>
-                                                                                                            <height>36</height>
-                                                                                                        </size>
-                                                                                                    </property>
-                                                                                                    <property name="font">
-                                                                                                        <font>
-                                                                                                            <family>Microsoft YaHei UI</family>
-                                                                                                            <pointsize>11</pointsize>
-                                                                                                            <bold>true</bold>
-                                                                                                        </font>
-                                                                                                    </property>
-                                                                                                    <property name="cursor">
-                                                                                                        <cursorShape>PointingHandCursor</cursorShape>
-                                                                                                    </property>
-                                                                                                    <property name="text">
-                                                                                                        <string>拿水</string>
-                                                                                                    </property>
-                                                                                                </widget>
-                                                                                            </item>
-                                                                                        </layout>
+                                                                                            </item>                                                                                        </layout>
                                                                                     </item>
                                                                                     <item>
                                                                                         <layout class="QVBoxLayout" name="rightCol">
@@ -1760,6 +1730,80 @@ QPushButton:checked{background:rgba(21,101,192,0.18);color:#fff;border-left:3px 
                                                                             </item>
                                                                         </layout>
                                                                     </widget>
+                                                                </item>
+                                                            </layout>
+                                                        </widget>
+                                                    </item>
+                                                    <item>
+                                                        <widget class="QGroupBox" name="funcGroupBox">
+                                                            <property name="minimumSize">
+                                                                <size>
+                                                                    <width>0</width>
+                                                                    <height>360</height>
+                                                                </size>
+                                                            </property>
+                                                            <property name="styleSheet">
+                                                                <string>QGroupBox{background:#ffffff;border:2px solid #1e3a8a;border-radius:0;margin-top:14px;} QGroupBox::title{subcontrol-origin:margin;left:12px;padding:0 4px;color:#1e3a8a;font-weight:bold;}</string>
+                                                            </property>
+                                                            <property name="title">
+                                                                <string>功能</string>
+                                                            </property>
+                                                            <layout class="QVBoxLayout" name="funcVLayout">
+                                                                <property name="spacing">
+                                                                    <number>8</number>
+                                                                </property>
+                                                                <item>
+                                                                    <widget class="QPushButton" name="btnGetWater">
+                                                                        <property name="minimumSize">
+                                                                            <size>
+                                                                                <width>130</width>
+                                                                                <height>52</height>
+                                                                            </size>
+                                                                        </property>
+                                                                        <property name="font">
+                                                                            <font>
+                                                                                <family>Microsoft YaHei UI</family>
+                                                                                <pointsize>14</pointsize>
+                                                                                <bold>true</bold>
+                                                                            </font>
+                                                                        </property>
+                                                                        <property name="cursor">
+                                                                            <cursorShape>PointingHandCursor</cursorShape>
+                                                                        </property>
+                                                                        <property name="styleSheet">
+                                                                            <string>QPushButton{
+    background:qlineargradient(x1:0,y1:0,x2:0,y2:1,stop:0 #42a5f5,stop:1 #1565c0);
+    color:#fff;
+    border:1px solid #0d47a1;
+    border-radius:8px;
+    padding:8px 16px;
+}
+QPushButton:hover{
+    background:qlineargradient(x1:0,y1:0,x2:0,y2:1,stop:0 #64b5f6,stop:1 #1976d2);
+}
+QPushButton:pressed{
+    background:qlineargradient(x1:0,y1:0,x2:0,y2:1,stop:0 #1565c0,stop:1 #0d47a1);
+    padding-top:10px;
+    padding-bottom:6px;
+}</string>
+                                                                        </property>
+                                                                        <property name="text">
+                                                                            <string>💧 拿水</string>
+                                                                        </property>
+                                                                    </widget>
+                                                                </item>
+                                                                <item>
+                                                                    <spacer name="funcBottomSpacer">
+                                                                        <property name="orientation">
+                                                                            <enum>Qt::Vertical</enum>
+                                                                        </property>
+                                                                        <property name="sizeHint">
+                                                                            <size>
+                                                                                <width>20</width>
+                                                                                <height>40</height>
+                                                                            </size>
+                                                                        </property>
+                                                                    </spacer>
                                                                 </item>
                                                             </layout>
                                                         </widget>
@@ -1844,7 +1888,7 @@ QGroupBox::title{subcontrol-origin:margin;left:14px;padding:0 8px;}</string>
                                                                                     </size>
                                                                                 </property>
                                                                                 <property name="styleSheet">
-                                                                                    <string>color:#888;font-size:14px;font-weight:bold;border:none;background:transparent;</string>
+                                                                                    <string>color:#333;font-size:14px;font-weight:bold;border:none;background:transparent;</string>
                                                                                 </property>
                                                                                 <property name="text">
                                                                                     <string>J0</string>
@@ -1883,7 +1927,7 @@ QGroupBox::title{subcontrol-origin:margin;left:14px;padding:0 8px;}</string>
                                                                                     </size>
                                                                                 </property>
                                                                                 <property name="styleSheet">
-                                                                                    <string>color:#888;font-size:14px;font-weight:bold;border:none;background:transparent;</string>
+                                                                                    <string>color:#333;font-size:14px;font-weight:bold;border:none;background:transparent;</string>
                                                                                 </property>
                                                                                 <property name="text">
                                                                                     <string>J1</string>
@@ -1922,7 +1966,7 @@ QGroupBox::title{subcontrol-origin:margin;left:14px;padding:0 8px;}</string>
                                                                                     </size>
                                                                                 </property>
                                                                                 <property name="styleSheet">
-                                                                                    <string>color:#888;font-size:14px;font-weight:bold;border:none;background:transparent;</string>
+                                                                                    <string>color:#333;font-size:14px;font-weight:bold;border:none;background:transparent;</string>
                                                                                 </property>
                                                                                 <property name="text">
                                                                                     <string>J2</string>
@@ -1961,7 +2005,7 @@ QGroupBox::title{subcontrol-origin:margin;left:14px;padding:0 8px;}</string>
                                                                                     </size>
                                                                                 </property>
                                                                                 <property name="styleSheet">
-                                                                                    <string>color:#888;font-size:14px;font-weight:bold;border:none;background:transparent;</string>
+                                                                                    <string>color:#333;font-size:14px;font-weight:bold;border:none;background:transparent;</string>
                                                                                 </property>
                                                                                 <property name="text">
                                                                                     <string>J3</string>
@@ -2000,7 +2044,7 @@ QGroupBox::title{subcontrol-origin:margin;left:14px;padding:0 8px;}</string>
                                                                                     </size>
                                                                                 </property>
                                                                                 <property name="styleSheet">
-                                                                                    <string>color:#888;font-size:14px;font-weight:bold;border:none;background:transparent;</string>
+                                                                                    <string>color:#333;font-size:14px;font-weight:bold;border:none;background:transparent;</string>
                                                                                 </property>
                                                                                 <property name="text">
                                                                                     <string>J4</string>
@@ -2039,7 +2083,7 @@ QGroupBox::title{subcontrol-origin:margin;left:14px;padding:0 8px;}</string>
                                                                                     </size>
                                                                                 </property>
                                                                                 <property name="styleSheet">
-                                                                                    <string>color:#888;font-size:14px;font-weight:bold;border:none;background:transparent;</string>
+                                                                                    <string>color:#333;font-size:14px;font-weight:bold;border:none;background:transparent;</string>
                                                                                 </property>
                                                                                 <property name="text">
                                                                                     <string>J5</string>
@@ -2120,7 +2164,7 @@ QGroupBox::title{subcontrol-origin:margin;left:14px;padding:0 8px;}</string>
                                                                                     </size>
                                                                                 </property>
                                                                                 <property name="styleSheet">
-                                                                                    <string>color:#888;font-size:14px;font-weight:bold;border:none;background:transparent;</string>
+                                                                                    <string>color:#333;font-size:14px;font-weight:bold;border:none;background:transparent;</string>
                                                                                 </property>
                                                                                 <property name="text">
                                                                                     <string>X</string>
@@ -2159,7 +2203,7 @@ QGroupBox::title{subcontrol-origin:margin;left:14px;padding:0 8px;}</string>
                                                                                     </size>
                                                                                 </property>
                                                                                 <property name="styleSheet">
-                                                                                    <string>color:#888;font-size:14px;font-weight:bold;border:none;background:transparent;</string>
+                                                                                    <string>color:#333;font-size:14px;font-weight:bold;border:none;background:transparent;</string>
                                                                                 </property>
                                                                                 <property name="text">
                                                                                     <string>A</string>
@@ -2198,7 +2242,7 @@ QGroupBox::title{subcontrol-origin:margin;left:14px;padding:0 8px;}</string>
                                                                                     </size>
                                                                                 </property>
                                                                                 <property name="styleSheet">
-                                                                                    <string>color:#888;font-size:14px;font-weight:bold;border:none;background:transparent;</string>
+                                                                                    <string>color:#333;font-size:14px;font-weight:bold;border:none;background:transparent;</string>
                                                                                 </property>
                                                                                 <property name="text">
                                                                                     <string>Y</string>
@@ -2237,7 +2281,7 @@ QGroupBox::title{subcontrol-origin:margin;left:14px;padding:0 8px;}</string>
                                                                                     </size>
                                                                                 </property>
                                                                                 <property name="styleSheet">
-                                                                                    <string>color:#888;font-size:14px;font-weight:bold;border:none;background:transparent;</string>
+                                                                                    <string>color:#333;font-size:14px;font-weight:bold;border:none;background:transparent;</string>
                                                                                 </property>
                                                                                 <property name="text">
                                                                                     <string>B</string>
@@ -2276,7 +2320,7 @@ QGroupBox::title{subcontrol-origin:margin;left:14px;padding:0 8px;}</string>
                                                                                     </size>
                                                                                 </property>
                                                                                 <property name="styleSheet">
-                                                                                    <string>color:#888;font-size:14px;font-weight:bold;border:none;background:transparent;</string>
+                                                                                    <string>color:#333;font-size:14px;font-weight:bold;border:none;background:transparent;</string>
                                                                                 </property>
                                                                                 <property name="text">
                                                                                     <string>Z</string>
@@ -2315,7 +2359,7 @@ QGroupBox::title{subcontrol-origin:margin;left:14px;padding:0 8px;}</string>
                                                                                     </size>
                                                                                 </property>
                                                                                 <property name="styleSheet">
-                                                                                    <string>color:#888;font-size:14px;font-weight:bold;border:none;background:transparent;</string>
+                                                                                    <string>color:#333;font-size:14px;font-weight:bold;border:none;background:transparent;</string>
                                                                                 </property>
                                                                                 <property name="text">
                                                                                     <string>C</string>
