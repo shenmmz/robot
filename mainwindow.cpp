@@ -2672,8 +2672,6 @@ void MainWindow::showPointAdjustDialog(bool isJoint)
 
     QList<QLineEdit*> spins;
     for (int i = 0; i < 6; ++i) {
-        // 隐藏左侧标签(只要 6 行纯数据,不显示 J0/X 等名称)
-        lblAxis[i]->hide();
         spinAxis[i]->setValidator(new QDoubleValidator(-9999.0, 9999.0, 3, spinAxis[i]));
         spinAxis[i]->setAlignment(Qt::AlignCenter);
         spinAxis[i]->setStyleSheet(QStringLiteral(
