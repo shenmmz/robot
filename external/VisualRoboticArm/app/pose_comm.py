@@ -185,7 +185,9 @@ def _mapped_motor_command(body: dict[str, Any], mapping: MotorMapping) -> dict[s
 
     valid = valid and source_valid
     motion_allowed = valid and source_motion_allowed
-    state = "send" if motion_allowed and mapping.send_enabled else "hold"
+
+    # 每帧始终发送全部有效电机，由 C++ 侧按 J0-J5 勾选决定实际执行哪些轴
+    state = "send" if valid and mapping.send_enabled else "hold"
 
     angle_deg = abs(signed_angle) if (signed_angle is not None and mapping.use_absolute_angle) else signed_angle
 
@@ -356,6 +358,7 @@ class PoseCommClient(QObject):
         self._port = int(port) if port else 0
         self._client_name = client_name.strip() or "visual-arm"
         self._last_peer = ""
+        self._last_vison_items: list = []
 
         self._reconnect_timer = QTimer(self)
         self._reconnect_timer.setInterval(max(250, int(reconnect_interval_ms)))
@@ -455,6 +458,12 @@ class PoseCommClient(QObject):
 
         # 外部主控不需要完整 MediaPipe 字段，只发送紧凑电机 payload。
         compact = build_compact_pose_payload(body, self._client_name)
+        cmds = compact.get("motor_commands", [])
+        if cmds:
+            items = [f"{cmd['motor_id']}:{cmd.get('signed_angle_deg', cmd.get('angle_deg', '?'))}" for cmd in cmds]
+            if items != self._last_vison_items:
+                self._last_vison_items = items
+                print(f"[VISION] frame={frame_id} send {items}", flush=True)
         return self.send_message("pose", payload=compact, msg=compact.get("summary", "mapped motor update"))
 
     def _enabled(self) -> bool:

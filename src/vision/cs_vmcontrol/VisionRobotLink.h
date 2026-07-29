@@ -89,10 +89,6 @@ public slots:
     void onVisionDataEvent(const VisionDataEvent& event);
 
 private:
-    // --- 标定参数 ---
-    double m_offsetX = 84.077;    ///< 视觉 X → 机械臂 X 偏移
-    double m_offsetY = -494.404;  ///< 视觉 Y → 机械臂 Y 偏移
-
     // --- 滤波状态 ---
     int m_warmupFrames = 3;       ///< 启动时丢弃的帧数
     int m_frameCount   = 0;       ///< 已接收的总帧数

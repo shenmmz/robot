@@ -13,12 +13,6 @@ VisionRobotLink::VisionRobotLink(QObject* parent)
 //  配置接口
 // ---------------------------------------------------------------------------
 
-void VisionRobotLink::setOffset(double offsetX, double offsetY)
-{
-    m_offsetX = offsetX;
-    m_offsetY = offsetY;
-}
-
 void VisionRobotLink::setWarmupFrames(int count)
 {
     m_warmupFrames = count;
@@ -99,12 +93,10 @@ void VisionRobotLink::onVisionData(const QString& line)
 
     // ---- 5. 坐标映射 ----
     //
-    // 固定偏移映射：
-    //   robotX = visionX - 33.3   （视觉 X 与机械臂 X 同向）
-    //   robotY = -visionY + 63.7  （视觉 Y 与机械臂 Y 反向）
+    // 视觉坐标已标定对齐机械臂坐标系，直接透传无需偏移。
 
-    double robotX = avgX - 33.3;
-    double robotY = -avgY + 63.7;
+    double robotX = avgX;
+    double robotY = avgY;
 
     // ---- 6. 发射目标坐标 ----
     emit targetReady(robotX, robotY);
@@ -152,8 +144,8 @@ void VisionRobotLink::onVisionDataEvent(const VisionDataEvent& event)
     avgY /= m_yBuf.size();
 
     // ---- 坐标映射 ----
-    double robotX = avgX - 33.3;
-    double robotY = -avgY + 63.7;
+    double robotX = avgX;
+    double robotY = avgY;
 
     // ---- 发射目标坐标 ----
     emit targetReady(robotX, robotY);

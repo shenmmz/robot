@@ -1694,7 +1694,7 @@ void UiController::showTargetEditDialog()
                 "padding:1px 2px;font-size:13px;background:#ffffff;"
                 "selection-background-color:#264f78;selection-color:#ffffff;}"
                 "QLineEdit:focus{border:1px solid #1565c0;}"));
-            auto* aVal = new QDoubleValidator(0.0, 180.0, 0, aEdit);
+            auto* aVal = new QDoubleValidator(30.0, 150.0, 0, aEdit);
             aVal->setNotation(QDoubleValidator::StandardNotation);
             aEdit->setValidator(aVal);
             colLayout->addWidget(aEdit);
@@ -3482,7 +3482,7 @@ void UiController::onProgInsertServo()
     if (!ok) return;
 
     int angle = QInputDialog::getInt(nullptr, QStringLiteral("SERVO - 舵机控制"),
-        QStringLiteral("目标角度 (30-140):"), 90, 30, 140, 1, &ok);
+        QStringLiteral("目标角度 (30-150):"), 90, 30, 150, 1, &ok);
     if (!ok) return;
 
     int timeMs = QInputDialog::getInt(nullptr, QStringLiteral("SERVO - 舵机控制"),

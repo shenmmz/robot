@@ -733,16 +733,15 @@ void MainWindow::on_pushButton_6_clicked()
 }
 
 /**
- * @brief 拿水按钮：视觉连续拍摄 3 次取平均，控制机械臂抓取
+ * @brief 拿水按钮：移动至拍照位 → 视觉定位 → 抓取 → 回拍照位
  *
  * 流程：
- * 1. 防重复点击（禁用按钮）
- * 2. 启动视觉流程连续拍摄（runningPrc）
- * 3. 收集 3 次 VisionRobotLink::targetReady 数据
- * 4. 对 X/Y 取算术平均
- * 5. 停止视觉流程连续拍摄
- * 6. 机械臂三段式移动：过渡点 → 抓取点 → 过渡点
- * 7. 恢复按钮
+ * 1. 防重复点击 + 前置检查
+ * 2. 设置拍照舵机 {49,126,35,126,41,122} + 移动到拍照位 {360,0,650}
+ * 3. 启动视觉连续拍摄 3 次取平均坐标
+ * 4. 安全高度 → 抓取点 → 设抓取舵机 {45,115,118,60,116,52}
+ * 5. 抬升回安全高度 → 回到拍照位
+ * 6. 恢复按钮
  */
 void MainWindow::on_btnGetWater_clicked()
 {
@@ -781,11 +780,27 @@ void MainWindow::on_btnGetWater_clicked()
 
     // 防重复点击
     ui->btnGetWater->setEnabled(false);
-    ui->statusbar->showMessage(QStringLiteral("拿水流程：启动视觉逐帧拍摄..."));
-    if (m_visionLogView) {
-        m_visionLogView->appendPlainText(
-            QStringLiteral("--- 拿水：视觉逐帧拍摄 %1 次 ---").arg(SHOT_COUNT));
+    ui->statusbar->showMessage(QStringLiteral("拿水流程：移动至拍照位置..."));
+
+    // 1. 设置拍照舵机角度（每通道独立时间模式）
+    struct ServoAction { int channel; float angle; int timeMs; };
+    
+    auto* servoCtrl = m_robotController->getServoController();
+    const QList<ServoAction> photoServoActions = {
+        {0, 45, 50}, {1, 125, 100}, {2, 33, 50}, {3, 138, 50}, {4, 33, 50}, {5, 125, 50}//张开手掌
+    };
+    QList<int> channels, times;
+    QList<float> angles, speeds;
+    for (const auto& act : photoServoActions) {
+        channels.append(act.channel);
+        angles.append(act.angle);
+        times.append(act.timeMs);
+        speeds.append(0.0);
     }
+    servoCtrl->setAnglesForScriptMixed(channels, angles, speeds, times);
+
+    // 2. 移动机械臂到拍照位置
+    m_robotController->moveL({360.0, 0.0, 650.000, 0.0, 90.0, 0.000}, 300.0, 300.0, 300.0, 5000);
 
     // 共享采样状态，跨多次回调累积
     struct SampleState {
@@ -848,32 +863,66 @@ void MainWindow::on_btnGetWater_clicked()
                 m_visionLogView->appendPlainText(
                     QStringLiteral("%1次视觉平均: X=%2  Y=%3")
                         .arg(SHOT_COUNT).arg(avgX, 0, 'f', 3).arg(avgY, 0, 'f', 3));
-                // 把视觉原始像素坐标一并打印，方便排查相机/标定问题
-                m_visionLogView->appendPlainText(
-                    QStringLiteral("视觉像素坐标: X=%1  Y=%2")
-                        .arg((state->sumX + SHOT_COUNT * 33.3) / SHOT_COUNT, 0, 'f', 3)
-                        .arg((63.7 - state->sumY) / SHOT_COUNT, 0, 'f', 3));
             }
 
-            const double speed = ui->debugSpeed->text().toDouble();
-            const double accel = ui->debugAccel->text().toDouble();
-            const double decel = ui->debugDecel->text().toDouble();
+            // 3. 移动到抓取安全位置
+            m_robotController->moveL({avgX-120, avgY, 400.000, 0.0, 90.0, 0.000},300.0, 300.0, 300.0, 5000);
+            m_robotController->moveL({avgX-120, avgY, 170.000, 0.0, 90.0, 0.000}, 300.0, 300.0, 300.0, 5000);
 
-            // 三段顺序移动：过渡点(Z=350) → 抓取点(Z=308.047) → 回到过渡点(Z=350)
-            const QList<QList<double>> waypoints = {
-                {avgX, avgY, 350.000, 180.000, 0.008, 180.000},
-                {avgX, avgY, 308.047, 180.000, 0.008, 180.000},
-                {avgX, avgY, 350.000, 180.000, 0.008, 180.000}
-            };
+            // 抓取点位
+            m_robotController->moveL({avgX+10, avgY, 170.000, 0.0, 90.0, 0.000}, 150.0, 100.0, 100.0, 5000);
 
-            for (int i = 0; i < waypoints.size(); ++i) {
-                ui->statusbar->showMessage(QStringLiteral("拿水流程：移动到第 %1 段...").arg(i + 1));
-                m_robotController->moveL(waypoints[i], speed, accel, decel, 5000);
+            auto* servoCtrl = m_robotController->getServoController();
+            // 6. 闭合手掌
+            {
+                const QList<ServoAction> closeActions = {
+                    {0, 45, 50}, {1, 115, 10}, {2, 118, 10}, {3, 60, 10}, {4, 116, 10}, {5, 52, 10}
+                };
+                QList<int> channels, times;
+                QList<float> angles, speeds;
+                for (const auto& act : closeActions) {
+                    channels.append(act.channel);
+                    angles.append(act.angle);
+                    times.append(act.timeMs);
+                    speeds.append(0.0);
+                }
+                servoCtrl->setAnglesForScriptMixed(channels, angles, speeds, times);
             }
 
-            ui->statusbar->showMessage(QStringLiteral("拿水流程：已完成抓取并回到过渡点"));
+            // 7. 抬升回安全高度
+            m_robotController->moveL({avgX, avgY, 400.000, 0.0, 90.0, 0.000}, 200.0, 300.0, 300.0, 5000);
+
+            // 8. 放置点上方
+            m_robotController->moveL({400.0, 80.0, 400.000, 0.0, 90.0, 0.000}, 300.0, 300.0, 300.0, 5000);
+
+            // 9. 放置点
+            m_robotController->moveL({400.0, 80.0, 200.000, 0.0, 90.0, 0.000}, 100.0, 300.0, 300.0, 5000);
+
+            // 10. 张开手掌
+            {
+                const QList<ServoAction> openActions = {
+                    {0, 45, 30}, {1, 125, 30}, {2, 33, 10}, {3, 140, 10}, {4, 33, 10}, {5, 125, 10}
+                };
+                QList<int> channels, times;
+                QList<float> angles, speeds;
+                for (const auto& act : openActions) {
+                    channels.append(act.channel);
+                    angles.append(act.angle);
+                    times.append(act.timeMs);
+                    speeds.append(0.0);
+                }
+                servoCtrl->setAnglesForScriptMixed(channels, angles, speeds, times);
+            }
+
+            // 11. 离开放置点
+            m_robotController->moveL({300.0, 80.0, 250.000, 0.0, 90.0, 0.000}, 300.0, 300.0, 300.0, 5000);
+            m_robotController->moveL({300.0, 80.0, 500.000, 0.0, 90.0, 0.000}, 300.0, 300.0, 300.0, 5000);
+
+            // 12. 回到拍照位置
+            m_robotController->moveL({360.0, 0.0, 650.000, 0.0, 90.0, 0.000}, 300.0, 300.0, 300.0, 5000);
+            ui->statusbar->showMessage(QStringLiteral("拿水流程：已完成抓取并回到拍照位置"));
             if (m_visionLogView) {
-                m_visionLogView->appendPlainText(QStringLiteral("机械臂已完成抓取并回到过渡点"));
+                m_visionLogView->appendPlainText(QStringLiteral("机械臂已完成抓取并回到拍照位置"));
             }
 
             ui->btnGetWater->setEnabled(true);
@@ -888,6 +937,7 @@ void MainWindow::on_btnGetWater_clicked()
     m_visionLink->setFilterWindow(1);
 
     // 启动第一次单帧拍摄
+    ui->statusbar->showMessage(QStringLiteral("拿水流程：启动视觉逐帧拍摄..."));
     m_vmWindow->vmControl()->executeProcedureCommand(ProcMotionType::Run, processName);
 }
 

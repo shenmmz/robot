@@ -21,6 +21,10 @@ from __future__ import annotations
 import argparse
 import os
 import sys
+
+# 抑制 TensorFlow / MediaPipe 内部日志噪音
+os.environ.setdefault("TF_CPP_MIN_LOG_LEVEL", "3")   # 0=all 1=INFO 2=WARNING 3=ERROR
+
 from PySide6.QtWidgets import QApplication
 from app.main_window import MainWindow
 

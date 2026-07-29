@@ -57,9 +57,7 @@ class MainWindow(QMainWindow):
         self.rs485_ports = []
         self.pose_comm = None
         self.inference_log = InferenceLogSession()
-        self.pose_filter = PoseMotionFilter(
-            movement_threshold_deg=float(os.environ.get("VISUAL_ARM_POSE_MOVE_THRESHOLD_DEG", "5.0"))
-        )
+        self.pose_filter = PoseMotionFilter()
 
         self.preview_timer = QTimer(self)
         self.preview_timer.setInterval(400)
