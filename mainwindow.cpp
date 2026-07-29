@@ -734,21 +734,13 @@ void MainWindow::on_pushButton_6_clicked()
 
 /**
  * @brief 拿水按钮：移动至拍照位 → 视觉定位 → 抓取 → 回拍照位
- *
- * 流程：
- * 1. 防重复点击 + 前置检查
- * 2. 设置拍照舵机 {49,126,35,126,41,122} + 移动到拍照位 {360,0,650}
- * 3. 启动视觉连续拍摄 3 次取平均坐标
- * 4. 安全高度 → 抓取点 → 设抓取舵机 {45,115,118,60,116,52}
- * 5. 抬升回安全高度 → 回到拍照位
- * 6. 恢复按钮
  */
 void MainWindow::on_btnGetWater_clicked()
 {
     qDebug() << "[拿水按钮] 被点击";
-
-    if (!checkLoginGate()) {
-        qDebug() << "[拿水按钮] 登录门禁未通过";
+    if (!m_robotController || !m_robotController->isConnected()) {
+        QMessageBox::warning(this, QStringLiteral("视觉拿水"),
+            QStringLiteral("请先连接控制器"));
         return;
     }
 
@@ -761,12 +753,6 @@ void MainWindow::on_btnGetWater_clicked()
     if (!m_visionLink) {
         QMessageBox::warning(this, QStringLiteral("视觉拿水"),
             QStringLiteral("视觉联动模块未初始化"));
-        return;
-    }
-
-    if (!m_robotController || !m_robotController->isConnected()) {
-        QMessageBox::warning(this, QStringLiteral("视觉拿水"),
-            QStringLiteral("请先连接控制器"));
         return;
     }
 
@@ -2378,10 +2364,10 @@ void MainWindow::initManualProgUI()
         });
 
     QPushButton* btnRunStep = new QPushButton(QStringLiteral("单步"));
-    btnRunStep->setMinimumSize(72, 36);
+    btnRunStep->setMinimumSize(52, 32);
     btnRunStep->setStyleSheet(
         QStringLiteral("QPushButton{background:#ede7f6;color:#4527a0;border:1px solid #b39ddb;border-radius:4px;"
-            "padding:2px 10px;font-weight:bold;font-size:13px;}QPushButton:hover{background:#d1c4e9;}"));
+            "padding:2px 5px;font-weight:bold;font-size:12px;}QPushButton:hover{background:#d1c4e9;}"));
     // 单步会话状态：-1 表示尚未开始（或刚被运行/停止清掉），>=0 表示首次点击时的源行号
     auto stepState = std::make_shared<int>(-1);
     connect(btnRunStep, &QPushButton::clicked, this, [this, lastFocusedEditor, codeEditor, stepState] {
@@ -2490,10 +2476,10 @@ void MainWindow::initManualProgUI()
 
     // "点位管理"按钮：弹出当前流程中所有引用点位的编辑对话框
     QPushButton* btnEditTargets = new QPushButton(QStringLiteral("点位管理"));
-    btnEditTargets->setMinimumSize(72, 36);
+    btnEditTargets->setMinimumSize(56, 32);
     btnEditTargets->setStyleSheet(
         QStringLiteral("QPushButton{background:#fff3e0;color:#e65100;border:1px solid #ffcc80;border-radius:4px;"
-            "padding:2px 10px;font-weight:bold;font-size:13px;}QPushButton:hover{background:#ffe0b2;}"));
+            "padding:2px 5px;font-weight:bold;font-size:12px;}QPushButton:hover{background:#ffe0b2;}"));
     connect(btnEditTargets, &QPushButton::clicked, this, [this] {
         if (m_uiController) m_uiController->showTargetEditDialog();
     });

@@ -261,7 +261,7 @@ QPushButton:disabled{color:#555;border-color:#3a3a3a;}</string>
                                         <item>
                                             <widget class="QLabel" name="sideTitle">
                                                 <property name="styleSheet">
-                                                    <string>color:#546e7a;font-size:14px;font-weight:bold;border:none;background:transparent;padding:4px 0 8px 0;</string>
+                                                    <string>color:#546e7a;font-size:12px;font-weight:bold;border:none;background:transparent;padding:4px 0 8px 0;</string>
                                                 </property>
                                                 <property name="text">
                                                     <string>⚙ 导航</string>
@@ -280,7 +280,7 @@ QPushButton:disabled{color:#555;border-color:#3a3a3a;}</string>
                                                     </size>
                                                 </property>
                                                 <property name="styleSheet">
-                                                    <string>QPushButton{background:transparent;color:#b0bec5;border:none;border-left:3px solid transparent;text-align:left;padding:10px 14px 10px 6px;font-size:14px;}
+                                                    <string>QPushButton{background:transparent;color:#b0bec5;border:none;border-left:3px solid transparent;text-align:left;padding:10px 14px 10px 6px;font-size:12px;}
 QPushButton:hover{background:rgba(255,255,255,0.06);color:#cfd8dc;}
 QPushButton:checked{background:rgba(21,101,192,0.18);color:#fff;border-left:3px solid #1565c0;font-weight:bold;}</string>
                                                 </property>
@@ -304,7 +304,7 @@ QPushButton:checked{background:rgba(21,101,192,0.18);color:#fff;border-left:3px 
                                                     </size>
                                                 </property>
                                                 <property name="styleSheet">
-                                                    <string>QPushButton{background:transparent;color:#b0bec5;border:none;border-left:3px solid transparent;text-align:left;padding:10px 14px 10px 6px;font-size:14px;}
+                                                    <string>QPushButton{background:transparent;color:#b0bec5;border:none;border-left:3px solid transparent;text-align:left;padding:10px 14px 10px 6px;font-size:12px;}
 QPushButton:hover{background:rgba(255,255,255,0.06);color:#cfd8dc;}
 QPushButton:checked{background:rgba(21,101,192,0.18);color:#fff;border-left:3px solid #1565c0;font-weight:bold;}</string>
                                                 </property>
@@ -325,7 +325,7 @@ QPushButton:checked{background:rgba(21,101,192,0.18);color:#fff;border-left:3px 
                                                     </size>
                                                 </property>
                                                 <property name="styleSheet">
-                                                    <string>QPushButton{background:transparent;color:#b0bec5;border:none;border-left:3px solid transparent;text-align:left;padding:10px 14px 10px 6px;font-size:14px;}
+                                                    <string>QPushButton{background:transparent;color:#b0bec5;border:none;border-left:3px solid transparent;text-align:left;padding:10px 14px 10px 6px;font-size:12px;}
 QPushButton:hover{background:rgba(255,255,255,0.06);color:#cfd8dc;}
 QPushButton:checked{background:rgba(21,101,192,0.18);color:#fff;border-left:3px solid #1565c0;font-weight:bold;}</string>
                                                 </property>
@@ -346,7 +346,7 @@ QPushButton:checked{background:rgba(21,101,192,0.18);color:#fff;border-left:3px 
                                                     </size>
                                                 </property>
                                                 <property name="styleSheet">
-                                                    <string>QPushButton{background:transparent;color:#b0bec5;border:none;border-left:3px solid transparent;text-align:left;padding:10px 14px 10px 6px;font-size:14px;}
+                                                    <string>QPushButton{background:transparent;color:#b0bec5;border:none;border-left:3px solid transparent;text-align:left;padding:10px 14px 10px 6px;font-size:12px;}
 QPushButton:hover{background:rgba(255,255,255,0.06);color:#cfd8dc;}
 QPushButton:checked{background:rgba(21,101,192,0.18);color:#fff;border-left:3px solid #1565c0;font-weight:bold;}</string>
                                                 </property>
@@ -367,7 +367,7 @@ QPushButton:checked{background:rgba(21,101,192,0.18);color:#fff;border-left:3px 
                                                     </size>
                                                 </property>
                                                 <property name="styleSheet">
-                                                    <string>QPushButton{background:transparent;color:#b0bec5;border:none;border-left:3px solid transparent;text-align:left;padding:10px 14px 10px 6px;font-size:14px;}
+                                                    <string>QPushButton{background:transparent;color:#b0bec5;border:none;border-left:3px solid transparent;text-align:left;padding:10px 14px 10px 6px;font-size:12px;}
 QPushButton:hover{background:rgba(255,255,255,0.06);color:#cfd8dc;}
 QPushButton:checked{background:rgba(21,101,192,0.18);color:#fff;border-left:3px solid #1565c0;font-weight:bold;}</string>
                                                 </property>
@@ -388,7 +388,7 @@ QPushButton:checked{background:rgba(21,101,192,0.18);color:#fff;border-left:3px 
                                                     </size>
                                                 </property>
                                                 <property name="styleSheet">
-                                                    <string>QPushButton{background:transparent;color:#b0bec5;border:none;border-left:3px solid transparent;text-align:left;padding:10px 14px 10px 6px;font-size:14px;}
+                                                    <string>QPushButton{background:transparent;color:#b0bec5;border:none;border-left:3px solid transparent;text-align:left;padding:10px 14px 10px 6px;font-size:12px;}
 QPushButton:hover{background:rgba(255,255,255,0.06);color:#cfd8dc;}
 QPushButton:checked{background:rgba(21,101,192,0.18);color:#fff;border-left:3px solid #1565c0;font-weight:bold;}</string>
                                                 </property>
@@ -409,7 +409,7 @@ QPushButton:checked{background:rgba(21,101,192,0.18);color:#fff;border-left:3px 
                                                     </size>
                                                 </property>
                                                 <property name="styleSheet">
-                                                    <string>QPushButton{background:transparent;color:#b0bec5;border:none;border-left:3px solid transparent;text-align:left;padding:10px 14px 10px 6px;font-size:14px;}
+                                                    <string>QPushButton{background:transparent;color:#b0bec5;border:none;border-left:3px solid transparent;text-align:left;padding:10px 14px 10px 6px;font-size:12px;}
 QPushButton:hover{background:rgba(255,255,255,0.06);color:#cfd8dc;}
 QPushButton:checked{background:rgba(21,101,192,0.18);color:#fff;border-left:3px solid #1565c0;font-weight:bold;}</string>
                                                 </property>
@@ -430,7 +430,7 @@ QPushButton:checked{background:rgba(21,101,192,0.18);color:#fff;border-left:3px 
                                                     </size>
                                                 </property>
                                                 <property name="styleSheet">
-                                                    <string>QPushButton{background:transparent;color:#b0bec5;border:none;border-left:3px solid transparent;text-align:left;padding:10px 14px 10px 6px;font-size:14px;}
+                                                    <string>QPushButton{background:transparent;color:#b0bec5;border:none;border-left:3px solid transparent;text-align:left;padding:10px 14px 10px 6px;font-size:12px;}
 QPushButton:hover{background:rgba(255,255,255,0.06);color:#cfd8dc;}
 QPushButton:checked{background:rgba(21,101,192,0.18);color:#fff;border-left:3px solid #1565c0;font-weight:bold;}</string>
                                                 </property>
@@ -582,7 +582,7 @@ QPushButton:checked{background:rgba(21,101,192,0.18);color:#fff;border-left:3px 
                                                                                                     <item>
                                                                                                         <widget class="QLabel" name="lblPosJ0">
                                                                                                             <property name="styleSheet">
-                                                                                                                <string>color:#1e3a8a;font-size:13px;font-weight:bold;</string>
+                                                                                                                <string>color:#1e3a8a;font-size:12px;font-weight:bold;</string>
                                                                                                             </property>
                                                                                                             <property name="text">
                                                                                                                 <string>0.000</string>
@@ -642,7 +642,7 @@ QPushButton:checked{background:rgba(21,101,192,0.18);color:#fff;border-left:3px 
                                                                                                     <item>
                                                                                                         <widget class="QLabel" name="lblPosJ1">
                                                                                                             <property name="styleSheet">
-                                                                                                                <string>color:#1e3a8a;font-size:13px;font-weight:bold;</string>
+                                                                                                                <string>color:#1e3a8a;font-size:12px;font-weight:bold;</string>
                                                                                                             </property>
                                                                                                             <property name="text">
                                                                                                                 <string>0.000</string>
@@ -702,7 +702,7 @@ QPushButton:checked{background:rgba(21,101,192,0.18);color:#fff;border-left:3px 
                                                                                                     <item>
                                                                                                         <widget class="QLabel" name="lblPosJ2">
                                                                                                             <property name="styleSheet">
-                                                                                                                <string>color:#1e3a8a;font-size:13px;font-weight:bold;</string>
+                                                                                                                <string>color:#1e3a8a;font-size:12px;font-weight:bold;</string>
                                                                                                             </property>
                                                                                                             <property name="text">
                                                                                                                 <string>0.000</string>
@@ -762,7 +762,7 @@ QPushButton:checked{background:rgba(21,101,192,0.18);color:#fff;border-left:3px 
                                                                                                     <item>
                                                                                                         <widget class="QLabel" name="lblPosJ3">
                                                                                                             <property name="styleSheet">
-                                                                                                                <string>color:#1e3a8a;font-size:13px;font-weight:bold;</string>
+                                                                                                                <string>color:#1e3a8a;font-size:12px;font-weight:bold;</string>
                                                                                                             </property>
                                                                                                             <property name="text">
                                                                                                                 <string>0.000</string>
@@ -822,7 +822,7 @@ QPushButton:checked{background:rgba(21,101,192,0.18);color:#fff;border-left:3px 
                                                                                                     <item>
                                                                                                         <widget class="QLabel" name="lblPosJ4">
                                                                                                             <property name="styleSheet">
-                                                                                                                <string>color:#1e3a8a;font-size:13px;font-weight:bold;</string>
+                                                                                                                <string>color:#1e3a8a;font-size:12px;font-weight:bold;</string>
                                                                                                             </property>
                                                                                                             <property name="text">
                                                                                                                 <string>0.000</string>
@@ -882,7 +882,7 @@ QPushButton:checked{background:rgba(21,101,192,0.18);color:#fff;border-left:3px 
                                                                                                     <item>
                                                                                                         <widget class="QLabel" name="lblPosJ5">
                                                                                                             <property name="styleSheet">
-                                                                                                                <string>color:#1e3a8a;font-size:13px;font-weight:bold;</string>
+                                                                                                                <string>color:#1e3a8a;font-size:12px;font-weight:bold;</string>
                                                                                                             </property>
                                                                                                             <property name="text">
                                                                                                                 <string>0.000</string>
@@ -982,7 +982,7 @@ QPushButton:checked{background:rgba(21,101,192,0.18);color:#fff;border-left:3px 
                                                                                                     <item>
                                                                                                         <widget class="QLabel" name="lblPosCartX">
                                                                                                             <property name="styleSheet">
-                                                                                                                <string>color:#1e3a8a;font-size:13px;font-weight:bold;</string>
+                                                                                                                <string>color:#1e3a8a;font-size:12px;font-weight:bold;</string>
                                                                                                             </property>
                                                                                                             <property name="text">
                                                                                                                 <string>0.000</string>
@@ -1042,7 +1042,7 @@ QPushButton:checked{background:rgba(21,101,192,0.18);color:#fff;border-left:3px 
                                                                                                     <item>
                                                                                                         <widget class="QLabel" name="lblPosCartY">
                                                                                                             <property name="styleSheet">
-                                                                                                                <string>color:#1e3a8a;font-size:13px;font-weight:bold;</string>
+                                                                                                                <string>color:#1e3a8a;font-size:12px;font-weight:bold;</string>
                                                                                                             </property>
                                                                                                             <property name="text">
                                                                                                                 <string>0.000</string>
@@ -1102,7 +1102,7 @@ QPushButton:checked{background:rgba(21,101,192,0.18);color:#fff;border-left:3px 
                                                                                                     <item>
                                                                                                         <widget class="QLabel" name="lblPosCartZ">
                                                                                                             <property name="styleSheet">
-                                                                                                                <string>color:#1e3a8a;font-size:13px;font-weight:bold;</string>
+                                                                                                                <string>color:#1e3a8a;font-size:12px;font-weight:bold;</string>
                                                                                                             </property>
                                                                                                             <property name="text">
                                                                                                                 <string>0.000</string>
@@ -1162,7 +1162,7 @@ QPushButton:checked{background:rgba(21,101,192,0.18);color:#fff;border-left:3px 
                                                                                                     <item>
                                                                                                         <widget class="QLabel" name="lblPosCartRx">
                                                                                                             <property name="styleSheet">
-                                                                                                                <string>color:#1e3a8a;font-size:13px;font-weight:bold;</string>
+                                                                                                                <string>color:#1e3a8a;font-size:12px;font-weight:bold;</string>
                                                                                                             </property>
                                                                                                             <property name="text">
                                                                                                                 <string>0.000</string>
@@ -1222,7 +1222,7 @@ QPushButton:checked{background:rgba(21,101,192,0.18);color:#fff;border-left:3px 
                                                                                                     <item>
                                                                                                         <widget class="QLabel" name="lblPosCartRy">
                                                                                                             <property name="styleSheet">
-                                                                                                                <string>color:#1e3a8a;font-size:13px;font-weight:bold;</string>
+                                                                                                                <string>color:#1e3a8a;font-size:12px;font-weight:bold;</string>
                                                                                                             </property>
                                                                                                             <property name="text">
                                                                                                                 <string>0.000</string>
@@ -1282,7 +1282,7 @@ QPushButton:checked{background:rgba(21,101,192,0.18);color:#fff;border-left:3px 
                                                                                                     <item>
                                                                                                         <widget class="QLabel" name="lblPosCartRz">
                                                                                                             <property name="styleSheet">
-                                                                                                                <string>color:#1e3a8a;font-size:13px;font-weight:bold;</string>
+                                                                                                                <string>color:#1e3a8a;font-size:12px;font-weight:bold;</string>
                                                                                                             </property>
                                                                                                             <property name="text">
                                                                                                                 <string>0.000</string>
@@ -1340,7 +1340,7 @@ QPushButton:checked{background:rgba(21,101,192,0.18);color:#fff;border-left:3px 
                                                                                 <item>
                                                                                     <widget class="QLabel" name="lblRunSpeed">
                                                                                         <property name="styleSheet">
-                                                                                            <string>font-family:Consolas,'Microsoft YaHei UI';font-size:13px;color:#1565c0;padding:2px 6px;background:#f0f4ff;border:1px solid #d0d8ee;border-radius:4px;</string>
+                                                                                            <string>font-family:Consolas,'Microsoft YaHei UI';font-size:12px;color:#1565c0;padding:2px 6px;background:#f0f4ff;border:1px solid #d0d8ee;border-radius:4px;</string>
                                                                                         </property>
                                                                                         <property name="text">
                                                                                             <string>0.0 mm/s</string>
@@ -1370,7 +1370,7 @@ QPushButton:checked{background:rgba(21,101,192,0.18);color:#fff;border-left:3px 
                                                                                 <item>
                                                                                     <widget class="QLabel" name="lblRunAccel">
                                                                                         <property name="styleSheet">
-                                                                                            <string>font-family:Consolas,'Microsoft YaHei UI';font-size:13px;color:#2e7d32;padding:2px 6px;background:#f0faf0;border:1px solid #c8e0c8;border-radius:4px;</string>
+                                                                                            <string>font-family:Consolas,'Microsoft YaHei UI';font-size:12px;color:#2e7d32;padding:2px 6px;background:#f0faf0;border:1px solid #c8e0c8;border-radius:4px;</string>
                                                                                         </property>
                                                                                         <property name="text">
                                                                                             <string>0.0 mm/s²</string>
@@ -1400,7 +1400,7 @@ QPushButton:checked{background:rgba(21,101,192,0.18);color:#fff;border-left:3px 
                                                                                 <item>
                                                                                     <widget class="QLabel" name="lblRunDecel">
                                                                                         <property name="styleSheet">
-                                                                                            <string>font-family:Consolas,'Microsoft YaHei UI';font-size:13px;color:#c62828;padding:2px 6px;background:#fff0f0;border:1px solid #e8c8c8;border-radius:4px;</string>
+                                                                                            <string>font-family:Consolas,'Microsoft YaHei UI';font-size:12px;color:#c62828;padding:2px 6px;background:#fff0f0;border:1px solid #e8c8c8;border-radius:4px;</string>
                                                                                         </property>
                                                                                         <property name="text">
                                                                                             <string>0.0 mm/s²</string>
@@ -1430,7 +1430,7 @@ QPushButton:checked{background:rgba(21,101,192,0.18);color:#fff;border-left:3px 
                                                     <item>
                                                         <widget class="QGroupBox" name="controlGroupBox">
                                                             <property name="styleSheet">
-                                                                <string>QGroupBox#controlGroupBox{border:3px solid #204890;border-radius:6px;font-weight:bold;margin-top:18px;background:#ffffff;} QGroupBox#controlGroupBox::title{subcontrol-origin:margin;left:12px;padding:2px 12px;color:#204890;}</string>
+                                                                <string>QGroupBox#controlGroupBox{border:3px solid #204890;border-radius:6px;font-weight:bold;margin-top:18px;background:#ffffff;} QGroupBox#controlGroupBox::title{subcontrol-origin:margin;left:12px;padding:2px 6px;color:#204890;}</string>
                                                             </property>
                                                             <property name="maximumSize">
                                                                 <size>
@@ -1515,7 +1515,7 @@ QPushButton:checked{background:rgba(21,101,192,0.18);color:#fff;border-left:3px 
                                                                                                 <string>QPushButton{icon-size:32px;spacing:12px;font-size:22px;font-weight:bold;min-height:80px;border-radius:4px;background:#fff6f0;color:#d15f0a;border-top:2px solid #fff;border-left:2px solid #fff;border-bottom:3px solid #e67020;border-right:3px solid #e67020;} QPushButton:hover{background:#ffe9d9;} QPushButton:pressed{background:#ffe9d9;color:#d15f0a;border-top:3px solid #e67020;border-left:3px solid #e67020;border-bottom:2px solid #fff;border-right:2px solid #fff;}</string>
                                                                                             </property>
                                                                                             <property name="text">
-                                                                                                <string>⏸ 暂停</string>
+                                                                                                <string>暂停</string>
                                                                                             </property>
                                                                                         </widget>
                                                                                     </item>
@@ -1589,7 +1589,7 @@ QPushButton:checked{background:rgba(21,101,192,0.18);color:#fff;border-left:3px 
                                                                             </size>
                                                                         </property>
                                                                         <property name="styleSheet">
-                                                                            <string>QPushButton{font-size:13px;font-weight:bold;min-width:48px;min-height:48px;max-width:48px;max-height:48px;border-radius:6px;background:#f0f6fc;color:#2c62b3;border-top:2px solid #fff;border-left:2px solid #fff;border-bottom:3px solid #4078c0;border-right:3px solid #4078c0;} QPushButton:hover{background:#e1edfb;} QPushButton:pressed{background:#e1edfb;color:#2c62b3;border-top:3px solid #4078c0;border-left:3px solid #4078c0;border-bottom:2px solid #fff;border-right:2px solid #fff;}</string>
+                                                                            <string>QPushButton{font-size:12px;font-weight:bold;min-width:48px;min-height:48px;max-width:48px;max-height:48px;border-radius:6px;background:#f0f6fc;color:#2c62b3;border-top:2px solid #fff;border-left:2px solid #fff;border-bottom:3px solid #4078c0;border-right:3px solid #4078c0;} QPushButton:hover{background:#e1edfb;} QPushButton:pressed{background:#e1edfb;color:#2c62b3;border-top:3px solid #4078c0;border-left:3px solid #4078c0;border-bottom:2px solid #fff;border-right:2px solid #fff;}</string>
                                                                         </property>
                                                                         <property name="text">
                                                                             <string>登录</string>
@@ -1679,7 +1679,7 @@ QPushButton:checked{background:rgba(21,101,192,0.18);color:#fff;border-left:3px 
                                                                                                         </size>
                                                                                                     </property>
                                                                                                     <property name="styleSheet">
-                                                                                                        <string>QPushButton{font-size:13px;font-weight:bold;min-width:48px;min-height:48px;max-width:48px;max-height:48px;border-radius:6px;background:#f0f6fc;color:#2c62b3;border-top:2px solid #fff;border-left:2px solid #fff;border-bottom:3px solid #4078c0;border-right:3px solid #4078c0;} QPushButton:hover{background:#e1edfb;} QPushButton:pressed{background:#e1edfb;color:#2c62b3;border-top:3px solid #4078c0;border-left:3px solid #4078c0;border-bottom:2px solid #fff;border-right:2px solid #fff;}</string>
+                                                                                                        <string>QPushButton{font-size:12px;font-weight:bold;min-width:48px;min-height:48px;max-width:48px;max-height:48px;border-radius:6px;background:#f0f6fc;color:#2c62b3;border-top:2px solid #fff;border-left:2px solid #fff;border-bottom:3px solid #4078c0;border-right:3px solid #4078c0;} QPushButton:hover{background:#e1edfb;} QPushButton:pressed{background:#e1edfb;color:#2c62b3;border-top:3px solid #4078c0;border-left:3px solid #4078c0;border-bottom:2px solid #fff;border-right:2px solid #fff;}</string>
                                                                                                     </property>
                                                                                                     <property name="text">
                                                                                                         <string>正解</string>
@@ -1695,7 +1695,7 @@ QPushButton:checked{background:rgba(21,101,192,0.18);color:#fff;border-left:3px 
                                                                                                         </size>
                                                                                                     </property>
                                                                                                     <property name="styleSheet">
-                                                                                                        <string>QPushButton{font-size:13px;font-weight:bold;min-width:48px;min-height:48px;max-width:48px;max-height:48px;border-radius:6px;background:#f0f6fc;color:#2c62b3;border-top:2px solid #fff;border-left:2px solid #fff;border-bottom:3px solid #4078c0;border-right:3px solid #4078c0;} QPushButton:hover{background:#e1edfb;} QPushButton:pressed{background:#e1edfb;color:#2c62b3;border-top:3px solid #4078c0;border-left:3px solid #4078c0;border-bottom:2px solid #fff;border-right:2px solid #fff;}</string>
+                                                                                                        <string>QPushButton{font-size:12px;font-weight:bold;min-width:48px;min-height:48px;max-width:48px;max-height:48px;border-radius:6px;background:#f0f6fc;color:#2c62b3;border-top:2px solid #fff;border-left:2px solid #fff;border-bottom:3px solid #4078c0;border-right:3px solid #4078c0;} QPushButton:hover{background:#e1edfb;} QPushButton:pressed{background:#e1edfb;color:#2c62b3;border-top:3px solid #4078c0;border-left:3px solid #4078c0;border-bottom:2px solid #fff;border-right:2px solid #fff;}</string>
                                                                                                     </property>
                                                                                                     <property name="text">
                                                                                                         <string>逆解</string>
@@ -1717,7 +1717,7 @@ QPushButton:checked{background:rgba(21,101,192,0.18);color:#fff;border-left:3px 
                                                                                                         </size>
                                                                                                     </property>
                                                                                                     <property name="styleSheet">
-                                                                                                        <string>QPushButton{font-size:13px;font-weight:bold;min-width:72px;min-height:48px;max-width:72px;max-height:48px;border-radius:6px;background:#f0f6fc;color:#2c62b3;border-top:2px solid #fff;border-left:2px solid #fff;border-bottom:3px solid #4078c0;border-right:3px solid #4078c0;} QPushButton:hover{background:#e1edfb;} QPushButton:pressed{background:#e1edfb;color:#2c62b3;border-top:3px solid #4078c0;border-left:3px solid #4078c0;border-bottom:2px solid #fff;border-right:2px solid #fff;}</string>
+                                                                                                        <string>QPushButton{font-size:12px;font-weight:bold;min-width:72px;min-height:48px;max-width:72px;max-height:48px;border-radius:6px;background:#f0f6fc;color:#2c62b3;border-top:2px solid #fff;border-left:2px solid #fff;border-bottom:3px solid #4078c0;border-right:3px solid #4078c0;} QPushButton:hover{background:#e1edfb;} QPushButton:pressed{background:#e1edfb;color:#2c62b3;border-top:3px solid #4078c0;border-left:3px solid #4078c0;border-bottom:2px solid #fff;border-right:2px solid #fff;}</string>
                                                                                                     </property>
                                                                                                     <property name="text">
                                                                                                         <string>验证建模</string>
@@ -1864,7 +1864,7 @@ QPushButton:pressed{
                                                     <item>
                                                         <widget class="QGroupBox" name="jogJointGroup">
                                                             <property name="styleSheet">
-                                                                <string>QGroupBox{background:#ffffff;border:1px solid #d0d5dd;border-radius:8px;margin-top:14px;padding:16px 12px 16px 12px;font-weight:bold;font-size:13px;color:#1a1a2e;}
+                                                                <string>QGroupBox{background:#ffffff;border:1px solid #d0d5dd;border-radius:8px;margin-top:14px;padding:16px 12px 16px 12px;font-weight:bold;font-size:12px;color:#1a1a2e;}
 QGroupBox::title{subcontrol-origin:margin;left:14px;padding:0 8px;}</string>
                                                             </property>
                                                             <property name="title">
@@ -1888,7 +1888,7 @@ QGroupBox::title{subcontrol-origin:margin;left:14px;padding:0 8px;}</string>
                                                                                     </size>
                                                                                 </property>
                                                                                 <property name="styleSheet">
-                                                                                    <string>color:#333;font-size:14px;font-weight:bold;border:none;background:transparent;</string>
+                                                                                    <string>color:#333;font-size:12px;font-weight:bold;border:none;background:transparent;</string>
                                                                                 </property>
                                                                                 <property name="text">
                                                                                     <string>J0</string>
@@ -1927,7 +1927,7 @@ QGroupBox::title{subcontrol-origin:margin;left:14px;padding:0 8px;}</string>
                                                                                     </size>
                                                                                 </property>
                                                                                 <property name="styleSheet">
-                                                                                    <string>color:#333;font-size:14px;font-weight:bold;border:none;background:transparent;</string>
+                                                                                    <string>color:#333;font-size:12px;font-weight:bold;border:none;background:transparent;</string>
                                                                                 </property>
                                                                                 <property name="text">
                                                                                     <string>J1</string>
@@ -1966,7 +1966,7 @@ QGroupBox::title{subcontrol-origin:margin;left:14px;padding:0 8px;}</string>
                                                                                     </size>
                                                                                 </property>
                                                                                 <property name="styleSheet">
-                                                                                    <string>color:#333;font-size:14px;font-weight:bold;border:none;background:transparent;</string>
+                                                                                    <string>color:#333;font-size:12px;font-weight:bold;border:none;background:transparent;</string>
                                                                                 </property>
                                                                                 <property name="text">
                                                                                     <string>J2</string>
@@ -2005,7 +2005,7 @@ QGroupBox::title{subcontrol-origin:margin;left:14px;padding:0 8px;}</string>
                                                                                     </size>
                                                                                 </property>
                                                                                 <property name="styleSheet">
-                                                                                    <string>color:#333;font-size:14px;font-weight:bold;border:none;background:transparent;</string>
+                                                                                    <string>color:#333;font-size:12px;font-weight:bold;border:none;background:transparent;</string>
                                                                                 </property>
                                                                                 <property name="text">
                                                                                     <string>J3</string>
@@ -2044,7 +2044,7 @@ QGroupBox::title{subcontrol-origin:margin;left:14px;padding:0 8px;}</string>
                                                                                     </size>
                                                                                 </property>
                                                                                 <property name="styleSheet">
-                                                                                    <string>color:#333;font-size:14px;font-weight:bold;border:none;background:transparent;</string>
+                                                                                    <string>color:#333;font-size:12px;font-weight:bold;border:none;background:transparent;</string>
                                                                                 </property>
                                                                                 <property name="text">
                                                                                     <string>J4</string>
@@ -2083,7 +2083,7 @@ QGroupBox::title{subcontrol-origin:margin;left:14px;padding:0 8px;}</string>
                                                                                     </size>
                                                                                 </property>
                                                                                 <property name="styleSheet">
-                                                                                    <string>color:#333;font-size:14px;font-weight:bold;border:none;background:transparent;</string>
+                                                                                    <string>color:#333;font-size:12px;font-weight:bold;border:none;background:transparent;</string>
                                                                                 </property>
                                                                                 <property name="text">
                                                                                     <string>J5</string>
@@ -2140,7 +2140,7 @@ QGroupBox::title{subcontrol-origin:margin;left:14px;padding:0 8px;}</string>
                                                     <item>
                                                         <widget class="QGroupBox" name="jogCartGroup">
                                                             <property name="styleSheet">
-                                                                <string>QGroupBox{background:#ffffff;border:1px solid #d0d5dd;border-radius:8px;margin-top:14px;padding:16px 12px 16px 12px;font-weight:bold;font-size:13px;color:#1a1a2e;}
+                                                                <string>QGroupBox{background:#ffffff;border:1px solid #d0d5dd;border-radius:8px;margin-top:14px;padding:16px 12px 16px 12px;font-weight:bold;font-size:12px;color:#1a1a2e;}
 QGroupBox::title{subcontrol-origin:margin;left:14px;padding:0 8px;}</string>
                                                             </property>
                                                             <property name="title">
@@ -2164,7 +2164,7 @@ QGroupBox::title{subcontrol-origin:margin;left:14px;padding:0 8px;}</string>
                                                                                     </size>
                                                                                 </property>
                                                                                 <property name="styleSheet">
-                                                                                    <string>color:#333;font-size:14px;font-weight:bold;border:none;background:transparent;</string>
+                                                                                    <string>color:#333;font-size:12px;font-weight:bold;border:none;background:transparent;</string>
                                                                                 </property>
                                                                                 <property name="text">
                                                                                     <string>X</string>
@@ -2203,7 +2203,7 @@ QGroupBox::title{subcontrol-origin:margin;left:14px;padding:0 8px;}</string>
                                                                                     </size>
                                                                                 </property>
                                                                                 <property name="styleSheet">
-                                                                                    <string>color:#333;font-size:14px;font-weight:bold;border:none;background:transparent;</string>
+                                                                                    <string>color:#333;font-size:12px;font-weight:bold;border:none;background:transparent;</string>
                                                                                 </property>
                                                                                 <property name="text">
                                                                                     <string>A</string>
@@ -2242,7 +2242,7 @@ QGroupBox::title{subcontrol-origin:margin;left:14px;padding:0 8px;}</string>
                                                                                     </size>
                                                                                 </property>
                                                                                 <property name="styleSheet">
-                                                                                    <string>color:#333;font-size:14px;font-weight:bold;border:none;background:transparent;</string>
+                                                                                    <string>color:#333;font-size:12px;font-weight:bold;border:none;background:transparent;</string>
                                                                                 </property>
                                                                                 <property name="text">
                                                                                     <string>Y</string>
@@ -2281,7 +2281,7 @@ QGroupBox::title{subcontrol-origin:margin;left:14px;padding:0 8px;}</string>
                                                                                     </size>
                                                                                 </property>
                                                                                 <property name="styleSheet">
-                                                                                    <string>color:#333;font-size:14px;font-weight:bold;border:none;background:transparent;</string>
+                                                                                    <string>color:#333;font-size:12px;font-weight:bold;border:none;background:transparent;</string>
                                                                                 </property>
                                                                                 <property name="text">
                                                                                     <string>B</string>
@@ -2320,7 +2320,7 @@ QGroupBox::title{subcontrol-origin:margin;left:14px;padding:0 8px;}</string>
                                                                                     </size>
                                                                                 </property>
                                                                                 <property name="styleSheet">
-                                                                                    <string>color:#333;font-size:14px;font-weight:bold;border:none;background:transparent;</string>
+                                                                                    <string>color:#333;font-size:12px;font-weight:bold;border:none;background:transparent;</string>
                                                                                 </property>
                                                                                 <property name="text">
                                                                                     <string>Z</string>
@@ -2359,7 +2359,7 @@ QGroupBox::title{subcontrol-origin:margin;left:14px;padding:0 8px;}</string>
                                                                                     </size>
                                                                                 </property>
                                                                                 <property name="styleSheet">
-                                                                                    <string>color:#333;font-size:14px;font-weight:bold;border:none;background:transparent;</string>
+                                                                                    <string>color:#333;font-size:12px;font-weight:bold;border:none;background:transparent;</string>
                                                                                 </property>
                                                                                 <property name="text">
                                                                                     <string>C</string>
@@ -2408,7 +2408,7 @@ QGroupBox::title{subcontrol-origin:margin;left:14px;padding:0 8px;}</string>
                                             <item>
                                                 <widget class="QGroupBox" name="jogDebugGroup">
                                                     <property name="styleSheet">
-                                                        <string>QGroupBox{background:#ffffff;border:1px solid #d0d5dd;border-radius:8px;margin-top:14px;padding:14px 12px 10px 12px;font-weight:bold;font-size:13px;color:#1a1a2e;}
+                                                        <string>QGroupBox{background:#ffffff;border:1px solid #d0d5dd;border-radius:8px;margin-top:14px;padding:14px 12px 10px 12px;font-weight:bold;font-size:12px;color:#1a1a2e;}
 QGroupBox::title{subcontrol-origin:margin;left:14px;padding:0 8px;}</string>
                                                     </property>
                                                     <property name="title">
@@ -3177,10 +3177,10 @@ QGroupBox::title{subcontrol-origin:margin;left:14px;padding:0 8px;}</string>
                                                         <item>
                                                             <widget class="QLabel" name="progFileName">
                                                                 <property name="styleSheet">
-                                                                    <string>color:#333;font-size:14px;font-weight:bold;border:none;background:transparent;</string>
+                                                                    <string>color:#333;font-size:12px;font-weight:bold;border:none;background:transparent;</string>
                                                                 </property>
                                                                 <property name="text">
-                                                                    <string>📄 未命名.rbt</string>
+                                                                    <string>未命名.rbt</string>
                                                                 </property>
                                                             </widget>
                                                         </item>
@@ -3188,15 +3188,15 @@ QGroupBox::title{subcontrol-origin:margin;left:14px;padding:0 8px;}</string>
                                                             <widget class="QPushButton" name="btnProgLoad">
                                                                 <property name="minimumSize">
                                                                     <size>
-                                                                        <width>76</width>
-                                                                        <height>36</height>
+                                                                        <width>54</width>
+                                                                        <height>32</height>
                                                                     </size>
                                                                 </property>
                                                                 <property name="styleSheet">
-                                                                    <string>QPushButton{background:#fafafa;color:#555;border:1px solid #d0d0d0;border-radius:4px;padding:2px 8px;font-size:13px;font-weight:bold;}QPushButton:hover{background:#f0f0f0;}</string>
+                                                                    <string>QPushButton{background:#fafafa;color:#555;border:1px solid #d0d0d0;border-radius:4px;padding:2px 5px;font-size:12px;font-weight:bold;}QPushButton:hover{background:#f0f0f0;}</string>
                                                                 </property>
                                                                 <property name="text">
-                                                                    <string>📂 加载</string>
+                                                                    <string>加载</string>
                                                                 </property>
                                                             </widget>
                                                         </item>
@@ -3204,15 +3204,15 @@ QGroupBox::title{subcontrol-origin:margin;left:14px;padding:0 8px;}</string>
                                                             <widget class="QPushButton" name="btnProgNew">
                                                                 <property name="minimumSize">
                                                                     <size>
-                                                                        <width>76</width>
-                                                                        <height>36</height>
+                                                                        <width>54</width>
+                                                                        <height>32</height>
                                                                     </size>
                                                                 </property>
                                                                 <property name="styleSheet">
-                                                                    <string>QPushButton{background:#fafafa;color:#555;border:1px solid #d0d0d0;border-radius:4px;padding:2px 8px;font-size:13px;font-weight:bold;}QPushButton:hover{background:#f0f0f0;}</string>
+                                                                    <string>QPushButton{background:#fafafa;color:#555;border:1px solid #d0d0d0;border-radius:4px;padding:2px 5px;font-size:12px;font-weight:bold;}QPushButton:hover{background:#f0f0f0;}</string>
                                                                 </property>
                                                                 <property name="text">
-                                                                    <string>📄 新建</string>
+                                                                    <string>新建</string>
                                                                 </property>
                                                             </widget>
                                                         </item>
@@ -3220,15 +3220,15 @@ QGroupBox::title{subcontrol-origin:margin;left:14px;padding:0 8px;}</string>
                                                             <widget class="QPushButton" name="btnProgSave">
                                                                 <property name="minimumSize">
                                                                     <size>
-                                                                        <width>76</width>
-                                                                        <height>36</height>
+                                                                        <width>54</width>
+                                                                        <height>32</height>
                                                                     </size>
                                                                 </property>
                                                                 <property name="styleSheet">
-                                                                    <string>QPushButton{background:#fafafa;color:#555;border:1px solid #d0d0d0;border-radius:4px;padding:2px 8px;font-size:13px;font-weight:bold;}QPushButton:hover{background:#f0f0f0;}</string>
+                                                                    <string>QPushButton{background:#fafafa;color:#555;border:1px solid #d0d0d0;border-radius:4px;padding:2px 5px;font-size:12px;font-weight:bold;}QPushButton:hover{background:#f0f0f0;}</string>
                                                                 </property>
                                                                 <property name="text">
-                                                                    <string>💾 保存</string>
+                                                                    <string>保存</string>
                                                                 </property>
                                                             </widget>
                                                         </item>
@@ -3236,15 +3236,15 @@ QGroupBox::title{subcontrol-origin:margin;left:14px;padding:0 8px;}</string>
                                                             <widget class="QPushButton" name="btnProgDeleteLine">
                                                                 <property name="minimumSize">
                                                                     <size>
-                                                                        <width>68</width>
-                                                                        <height>36</height>
+                                                                        <width>48</width>
+                                                                        <height>32</height>
                                                                     </size>
                                                                 </property>
                                                                 <property name="styleSheet">
-                                                                    <string>QPushButton{background:#fafafa;color:#c62828;border:1px solid #ffcdd2;border-radius:4px;padding:2px 8px;font-size:13px;font-weight:bold;}QPushButton:hover{background:#ffebee;}</string>
+                                                                    <string>QPushButton{background:#fafafa;color:#c62828;border:1px solid #ffcdd2;border-radius:4px;padding:2px 5px;font-size:12px;font-weight:bold;}QPushButton:hover{background:#ffebee;}</string>
                                                                 </property>
                                                                 <property name="text">
-                                                                    <string>🗑 删行</string>
+                                                                    <string>删行</string>
                                                                 </property>
                                                             </widget>
                                                         </item>
@@ -3252,15 +3252,15 @@ QGroupBox::title{subcontrol-origin:margin;left:14px;padding:0 8px;}</string>
                                                             <widget class="QPushButton" name="btnProgCopy">
                                                                 <property name="minimumSize">
                                                                     <size>
-                                                                        <width>68</width>
-                                                                        <height>36</height>
+                                                                        <width>48</width>
+                                                                        <height>32</height>
                                                                     </size>
                                                                 </property>
                                                                 <property name="styleSheet">
-                                                                    <string>QPushButton{background:#fafafa;color:#555;border:1px solid #d0d0d0;border-radius:4px;padding:2px 8px;font-size:13px;font-weight:bold;}QPushButton:hover{background:#f0f0f0;}</string>
+                                                                    <string>QPushButton{background:#fafafa;color:#555;border:1px solid #d0d0d0;border-radius:4px;padding:2px 5px;font-size:12px;font-weight:bold;}QPushButton:hover{background:#f0f0f0;}</string>
                                                                 </property>
                                                                 <property name="text">
-                                                                    <string>📋 复制</string>
+                                                                    <string>复制</string>
                                                                 </property>
                                                             </widget>
                                                         </item>
@@ -3268,15 +3268,15 @@ QGroupBox::title{subcontrol-origin:margin;left:14px;padding:0 8px;}</string>
                                                             <widget class="QPushButton" name="btnProgPaste">
                                                                 <property name="minimumSize">
                                                                     <size>
-                                                                        <width>68</width>
-                                                                        <height>36</height>
+                                                                        <width>48</width>
+                                                                        <height>32</height>
                                                                     </size>
                                                                 </property>
                                                                 <property name="styleSheet">
-                                                                    <string>QPushButton{background:#fafafa;color:#555;border:1px solid #d0d0d0;border-radius:4px;padding:2px 8px;font-size:13px;font-weight:bold;}QPushButton:hover{background:#f0f0f0;}</string>
+                                                                    <string>QPushButton{background:#fafafa;color:#555;border:1px solid #d0d0d0;border-radius:4px;padding:2px 5px;font-size:12px;font-weight:bold;}QPushButton:hover{background:#f0f0f0;}</string>
                                                                 </property>
                                                                 <property name="text">
-                                                                    <string>📋 粘贴</string>
+                                                                    <string>粘贴</string>
                                                                 </property>
                                                             </widget>
                                                         </item>
@@ -3297,15 +3297,15 @@ QGroupBox::title{subcontrol-origin:margin;left:14px;padding:0 8px;}</string>
                                                             <widget class="QPushButton" name="btnProgRun">
                                                                 <property name="minimumSize">
                                                                     <size>
-                                                                        <width>84</width>
-                                                                        <height>36</height>
+                                                                        <width>56</width>
+                                                                        <height>32</height>
                                                                     </size>
                                                                 </property>
                                                                 <property name="styleSheet">
-                                                                    <string>QPushButton{background:#e8f5e9;color:#2e7d32;border:1px solid #a5d6a7;border-radius:4px;padding:2px 12px;font-weight:bold;font-size:14px;}QPushButton:hover{background:#c8e6c9;}</string>
+                                                                    <string>QPushButton{background:#e8f5e9;color:#2e7d32;border:1px solid #a5d6a7;border-radius:4px;padding:2px 6px;font-weight:bold;font-size:12px;}QPushButton:hover{background:#c8e6c9;}</string>
                                                                 </property>
                                                                 <property name="text">
-                                                                    <string>▶ 运行</string>
+                                                                    <string>运行</string>
                                                                 </property>
                                                             </widget>
                                                         </item>
@@ -3313,15 +3313,15 @@ QGroupBox::title{subcontrol-origin:margin;left:14px;padding:0 8px;}</string>
                                                             <widget class="QPushButton" name="btnProgStop">
                                                                 <property name="minimumSize">
                                                                     <size>
-                                                                        <width>84</width>
-                                                                        <height>36</height>
+                                                                        <width>56</width>
+                                                                        <height>32</height>
                                                                     </size>
                                                                 </property>
                                                                 <property name="styleSheet">
-                                                                    <string>QPushButton{background:#fff3e0;color:#e65100;border:1px solid #ffcc80;border-radius:4px;padding:2px 12px;font-weight:bold;font-size:14px;}QPushButton:hover{background:#ffe0b2;}</string>
+                                                                    <string>QPushButton{background:#fff3e0;color:#e65100;border:1px solid #ffcc80;border-radius:4px;padding:2px 6px;font-weight:bold;font-size:12px;}QPushButton:hover{background:#ffe0b2;}</string>
                                                                 </property>
                                                                 <property name="text">
-                                                                    <string>⏸ 暂停</string>
+                                                                    <string>暂停</string>
                                                                 </property>
                                                             </widget>
                                                         </item>
@@ -3333,7 +3333,7 @@ QGroupBox::title{subcontrol-origin:margin;left:14px;padding:0 8px;}</string>
                                                     <property name="styleSheet">
                                                         <string>QPlainTextEdit{
   background:#1e1e2e;color:#d4d4d4;border:1px solid #d0d5dd;
-  border-radius:6px;font-family:Consolas,'Microsoft YaHei UI';font-size:13px;
+  border-radius:6px;font-family:Consolas,'Microsoft YaHei UI';font-size:12px;
   padding:8px;selection-background-color:#264f78;
 }</string>
                                                     </property>
@@ -3429,7 +3429,7 @@ PRINT(&quot;轨迹完成&quot;)
                                                     <item>
                                                         <widget class="QGroupBox" name="ioInputGroup">
                                                             <property name="styleSheet">
-                                                                <string>QGroupBox{background:#ffffff;border:1px solid #d0d5dd;border-radius:8px;margin-top:14px;padding:12px 10px 10px 10px;font-weight:bold;font-size:13px;color:#1a1a2e;}
+                                                                <string>QGroupBox{background:#ffffff;border:1px solid #d0d5dd;border-radius:8px;margin-top:14px;padding:12px 10px 10px 10px;font-weight:bold;font-size:12px;color:#1a1a2e;}
 QGroupBox::title{subcontrol-origin:margin;left:14px;padding:0 8px;}</string>
                                                             </property>
                                                             <property name="title">
@@ -4432,7 +4432,7 @@ QGroupBox::title{subcontrol-origin:margin;left:14px;padding:0 8px;}</string>
                                                     <item>
                                                         <widget class="QGroupBox" name="ioOutputGroup">
                                                             <property name="styleSheet">
-                                                                <string>QGroupBox{background:#ffffff;border:1px solid #d0d5dd;border-radius:8px;margin-top:14px;padding:12px 10px 10px 10px;font-weight:bold;font-size:13px;color:#1a1a2e;}
+                                                                <string>QGroupBox{background:#ffffff;border:1px solid #d0d5dd;border-radius:8px;margin-top:14px;padding:12px 10px 10px 10px;font-weight:bold;font-size:12px;color:#1a1a2e;}
 QGroupBox::title{subcontrol-origin:margin;left:14px;padding:0 8px;}</string>
                                                             </property>
                                                             <property name="title">
@@ -5273,7 +5273,7 @@ QGroupBox::title{subcontrol-origin:margin;left:14px;padding:0 8px;}</string>
                                             <item>
                                                 <widget class="QGroupBox" name="ioAnalogGroup">
                                                     <property name="styleSheet">
-                                                        <string>QGroupBox{background:#ffffff;border:1px solid #d0d5dd;border-radius:8px;margin-top:14px;padding:12px 10px 10px 10px;font-weight:bold;font-size:13px;color:#1a1a2e;}
+                                                        <string>QGroupBox{background:#ffffff;border:1px solid #d0d5dd;border-radius:8px;margin-top:14px;padding:12px 10px 10px 10px;font-weight:bold;font-size:12px;color:#1a1a2e;}
 QGroupBox::title{subcontrol-origin:margin;left:14px;padding:0 8px;}</string>
                                                     </property>
                                                     <property name="title">
@@ -5456,7 +5456,7 @@ QHeaderView::section{background:#f5f5f5;color:#666;font-weight:bold;padding:4px 
                                             <item>
                                                 <widget class="QGroupBox" name="settingsHomePos">
                                                     <property name="styleSheet">
-                                                        <string>QGroupBox{background:#ffffff;border:1px solid #d0d5dd;border-radius:8px;margin-top:14px;padding:14px 12px 12px 12px;font-weight:bold;font-size:13px;color:#1a1a2e;}
+                                                        <string>QGroupBox{background:#ffffff;border:1px solid #d0d5dd;border-radius:8px;margin-top:14px;padding:14px 12px 12px 12px;font-weight:bold;font-size:12px;color:#1a1a2e;}
 QGroupBox::title{subcontrol-origin:margin;left:14px;padding:0 8px;}</string>
                                                     </property>
                                                     <property name="title">
@@ -5644,7 +5644,7 @@ QGroupBox::title{subcontrol-origin:margin;left:14px;padding:0 8px;}</string>
                                             <item>
                                                 <widget class="QGroupBox" name="rs485SendGroup">
                                                     <property name="styleSheet">
-                                                        <string>QGroupBox{background:#ffffff;border:1px solid #d0d5dd;border-radius:8px;margin-top:14px;padding:14px 12px 10px 12px;font-weight:bold;font-size:13px;color:#1a1a2e;}
+                                                        <string>QGroupBox{background:#ffffff;border:1px solid #d0d5dd;border-radius:8px;margin-top:14px;padding:14px 12px 10px 12px;font-weight:bold;font-size:12px;color:#1a1a2e;}
 QGroupBox::title{subcontrol-origin:margin;left:14px;padding:0 8px;}</string>
                                                     </property>
                                                     <property name="title">
@@ -5805,7 +5805,7 @@ QPushButton:hover{background:#f0f0f0;border-color:#b0b0b0;}</string>
                                             <item>
                                                 <widget class="QGroupBox" name="rs485RecvGroup">
                                                     <property name="styleSheet">
-                                                        <string>QGroupBox{background:#ffffff;border:1px solid #d0d5dd;border-radius:8px;margin-top:14px;padding:14px 12px 10px 12px;font-weight:bold;font-size:13px;color:#1a1a2e;}
+                                                        <string>QGroupBox{background:#ffffff;border:1px solid #d0d5dd;border-radius:8px;margin-top:14px;padding:14px 12px 10px 12px;font-weight:bold;font-size:12px;color:#1a1a2e;}
 QGroupBox::title{subcontrol-origin:margin;left:14px;padding:0 8px;}</string>
                                                     </property>
                                                     <property name="title">
@@ -5975,7 +5975,7 @@ QPushButton:hover{background:#f0f0f0;border-color:#b0b0b0;}</string>
                                                         <item>
                                                             <widget class="QLabel" name="visionGlobalSpeedLabel">
                                                                 <property name="styleSheet">
-                                                                    <string>color:#37474f;font-size:13px;font-weight:bold;border:none;background:transparent;</string>
+                                                                    <string>color:#37474f;font-size:12px;font-weight:bold;border:none;background:transparent;</string>
                                                                 </property>
                                                                 <property name="text">
                                                                     <string>整体速度 (°/s)：</string>
@@ -5991,7 +5991,7 @@ QPushButton:hover{background:#f0f0f0;border-color:#b0b0b0;}</string>
                                                                     </size>
                                                                 </property>
                                                                 <property name="styleSheet">
-                                                                    <string>QDoubleSpinBox{font-family:Consolas,'Microsoft YaHei UI';font-size:14px;font-weight:bold;color:#1565c0;background:#fff;border:1px solid #1565c0;border-radius:4px;padding:2px 8px;}
+                                                                    <string>QDoubleSpinBox{font-family:Consolas,'Microsoft YaHei UI';font-size:12px;font-weight:bold;color:#1565c0;background:#fff;border:1px solid #1565c0;border-radius:4px;padding:2px 5px;}
 QDoubleSpinBox:focus{border-color:#0d47a1;}
 QDoubleSpinBox::up-button,QDoubleSpinBox::down-button{width:20px;}</string>
                                                                 </property>
@@ -6024,7 +6024,7 @@ QDoubleSpinBox::up-button,QDoubleSpinBox::down-button{width:20px;}</string>
                                                                     </size>
                                                                 </property>
                                                                 <property name="styleSheet">
-                                                                    <string>QPushButton{background:#1565c0;color:#fff;font-size:13px;font-weight:bold;border:none;border-radius:4px;}
+                                                                    <string>QPushButton{background:#1565c0;color:#fff;font-size:12px;font-weight:bold;border:none;border-radius:4px;}
 QPushButton:hover{background:#1976d2;}
 QPushButton:pressed{background:#0d47a1;}</string>
                                                                 </property>
@@ -6130,7 +6130,7 @@ QPushButton:pressed{background:#0d47a1;}</string>
                                             <item>
                                                 <widget class="QGroupBox" name="visionAxisGroup">
                                                     <property name="styleSheet">
-                                                        <string>QGroupBox{background:#ffffff;border:1px solid #d0d5dd;border-radius:8px;margin-top:14px;padding:14px 12px 10px 12px;font-weight:bold;font-size:13px;color:#1a1a2e;}
+                                                        <string>QGroupBox{background:#ffffff;border:1px solid #d0d5dd;border-radius:8px;margin-top:14px;padding:14px 12px 10px 12px;font-weight:bold;font-size:12px;color:#1a1a2e;}
 QGroupBox::title{subcontrol-origin:margin;left:14px;padding:0 8px;}</string>
                                                     </property>
                                                     <property name="title">
@@ -6189,7 +6189,7 @@ QGroupBox::title{subcontrol-origin:margin;left:14px;padding:0 8px;}</string>
                                             <item>
                                                 <widget class="QLabel" name="lblVisionStatus">
                                                     <property name="styleSheet">
-                                                        <string>color:#37474f;font-size:13px;font-weight:bold;border:none;background:transparent;padding:4px 0;</string>
+                                                        <string>color:#37474f;font-size:12px;font-weight:bold;border:none;background:transparent;padding:4px 0;</string>
                                                     </property>
                                                     <property name="text">
                                                         <string>视觉程序：已停止 (点击上方按钮启动)</string>
@@ -6204,7 +6204,7 @@ QGroupBox::title{subcontrol-origin:margin;left:14px;padding:0 8px;}</string>
                                               <item>
                                                <widget class="QLabel" name="lblVisionLogTitle">
                                                 <property name="styleSheet">
-                                                 <string>color:#37474f;font-size:13px;font-weight:bold;border:none;background:transparent;</string>
+                                                 <string>color:#37474f;font-size:12px;font-weight:bold;border:none;background:transparent;</string>
                                                 </property>
                                                 <property name="text">
                                                  <string>视觉输出控制台</string>
@@ -6292,7 +6292,7 @@ QPushButton:pressed{background:#ccc;}</string>
         </widget>
         <widget class="QStatusBar" name="statusbar">
             <property name="styleSheet">
-                <string>QStatusBar{background:#1e2a3a;color:#b0bec5;font-size:12px;padding:2px 12px;border-top:2px solid #1565c0;}
+                <string>QStatusBar{background:#1e2a3a;color:#b0bec5;font-size:12px;padding:2px 6px;border-top:2px solid #1565c0;}
 QStatusBar::item{border:none;}</string>
             </property>
         </widget>
