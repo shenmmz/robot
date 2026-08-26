@@ -1168,6 +1168,173 @@ ZmotionResult ZmotionAPI::setAxisDpos(const QList<int>& axes, const QList<double
     }
 }
 
+/**
+ * @brief setAxisMpos 设置轴的编码器实际位置（MPOS）
+ *
+ * 仅修改控制器内部编码器位置计数器，不产生物理运动。
+ * 使用 ZAux_Direct_SetMpos 实现。
+ */
+ZmotionResult ZmotionAPI::setAxisMpos(const QList<int>& axes, const QList<double>& positions)
+{
+    try {
+        if (!m_initialized || m_handle == NULL) {
+            return ZmotionResult(false, -1, "控制器未连接");
+        }
+        if (axes.size() != positions.size()) {
+            return ZmotionResult(false, -2, "轴号列表与位置列表长度不匹配");
+        }
+
+        for (int i = 0; i < axes.size(); ++i) {
+            int axis = axes.at(i);
+            float pos = static_cast<float>(positions.at(i));
+            int ret = ZAux_Direct_SetMpos(m_handle, axis, pos);
+            if (ret != 0) {
+                return ZmotionResult(false, ret, getErrorDescription(ret));
+            }
+        }
+        return ZmotionResult(true, 0, "MPOS设置成功");
+    }
+    catch (const std::exception& e) {
+        return ZmotionResult(false, -1, QString("异常: ") + e.what());
+    }
+    catch (...) {
+        return ZmotionResult(false, -1, "发生未知异常");
+    }
+}
+
+/*
+ * ===================== 自定义原点（控制器 Flash 持久化）=====================
+ *
+ * 数据格式（Flash 块 0，共 9 个 float）：
+ *   [0] 魔数1 = 9527.0
+ *   [1] 魔数2 = 8341.0
+ *   [2] 轴数  = 6.0
+ *   [3..8] 六轴累计原点偏移（新原点相对传感器原点的距离，传感器坐标系）
+ *
+ * 语义约定：
+ *   - 设置原点时：newOffset = oldOffset + 当前读数（累计叠加）
+ *   - 回零后恢复：DPOS = -offset（传感器处读数为 -offset，新原点处读数为 0）
+ *   - 清除原点：块清零，魔数失效 → 恢复"传感器即原点"
+ */
+
+// Flash 原点记录的魔数与格式常量
+static const uint16 kOriginFlashBlockId = 0;   // 用户 Flash 块号
+static const float kOriginMagic1 = 9527.0f;    // 魔数1（区分有效数据/空块/垃圾数据）
+static const float kOriginMagic2 = 8341.0f;    // 魔数2
+static const int   kOriginAxisCount = 6;       // 原点偏移的轴数
+static const int   kOriginRecordSize = 9;      // 记录总长度：2魔数+1轴数+6偏移
+
+ZmotionResult ZmotionAPI::saveOriginToFlash(const QList<double>& originOffsets)
+{
+    try {
+        if (!m_initialized || m_handle == NULL) {
+            return ZmotionResult(false, -1, QStringLiteral("控制器未连接"));
+        }
+        if (originOffsets.size() != kOriginAxisCount) {
+            return ZmotionResult(false, -2,
+                QStringLiteral("原点偏移列表长度必须为%1，当前为%2")
+                    .arg(kOriginAxisCount).arg(originOffsets.size()));
+        }
+
+        // 组装记录：魔数 + 轴数 + 偏移
+        float buf[kOriginRecordSize] = {0};
+        buf[0] = kOriginMagic1;
+        buf[1] = kOriginMagic2;
+        buf[2] = static_cast<float>(kOriginAxisCount);
+        for (int i = 0; i < kOriginAxisCount; ++i) {
+            buf[3 + i] = static_cast<float>(originOffsets.at(i));
+        }
+
+        int ret = ZAux_FlashWritef(m_handle, kOriginFlashBlockId,
+                                   kOriginRecordSize, buf);
+        if (ret != ERR_SUCCESS) {
+            qWarning() << QStringLiteral("[ZmotionAPI] 原点写入Flash失败，错误码：%1，错误描述：%2")
+                          .arg(ret).arg(getErrorDescription(ret));
+            return ZmotionResult(false, ret,
+                QStringLiteral("写入控制器Flash失败：%1").arg(getErrorDescription(ret)));
+        }
+
+        ZINFO << QStringLiteral("[ZmotionAPI] 原点偏移已写入控制器Flash（断电保持）:")
+              << originOffsets;
+        return ZmotionResult(true, 0, QStringLiteral("原点已保存到控制器Flash"));
+    }
+    catch (const std::exception& e) {
+        return ZmotionResult(false, -1, QString("异常: ") + e.what());
+    }
+    catch (...) {
+        return ZmotionResult(false, -1, QStringLiteral("发生未知异常"));
+    }
+}
+
+ZmotionResult ZmotionAPI::readOriginFromFlash(QList<double>& originOffsets)
+{
+    originOffsets.clear();
+    try {
+        if (!m_initialized || m_handle == NULL) {
+            return ZmotionResult(false, -1, QStringLiteral("控制器未连接"));
+        }
+
+        float buf[kOriginRecordSize] = {0};
+        uint32 readCount = 0;
+        int ret = ZAux_FlashReadf(m_handle, kOriginFlashBlockId,
+                                  kOriginRecordSize, buf, &readCount);
+        if (ret != ERR_SUCCESS) {
+            // 读取失败视为"未设置原点"，不算致命错误
+            qWarning() << QStringLiteral("[ZmotionAPI] 读取原点Flash失败，错误码：%1").arg(ret);
+            return ZmotionResult(false, ret,
+                QStringLiteral("读取控制器Flash失败：%1").arg(getErrorDescription(ret)));
+        }
+
+        // 数据不足（空块）或魔数不匹配 → 未设置过原点
+        if (readCount < kOriginRecordSize ||
+            buf[0] != kOriginMagic1 || buf[1] != kOriginMagic2 ||
+            static_cast<int>(buf[2]) != kOriginAxisCount) {
+            return ZmotionResult(false, 0, QStringLiteral("Flash中未存有自定义原点"));
+        }
+
+        for (int i = 0; i < kOriginAxisCount; ++i) {
+            originOffsets.append(static_cast<double>(buf[3 + i]));
+        }
+
+        ZINFO << QStringLiteral("[ZmotionAPI] 从控制器Flash读到原点偏移:") << originOffsets;
+        return ZmotionResult(true, 0, QStringLiteral("读取原点成功"));
+    }
+    catch (const std::exception& e) {
+        return ZmotionResult(false, -1, QString("异常: ") + e.what());
+    }
+    catch (...) {
+        return ZmotionResult(false, -1, QStringLiteral("发生未知异常"));
+    }
+}
+
+ZmotionResult ZmotionAPI::clearOriginFlash()
+{
+    try {
+        if (!m_initialized || m_handle == NULL) {
+            return ZmotionResult(false, -1, QStringLiteral("控制器未连接"));
+        }
+
+        // 写全零使魔数失效
+        float buf[kOriginRecordSize] = {0};
+        int ret = ZAux_FlashWritef(m_handle, kOriginFlashBlockId,
+                                   kOriginRecordSize, buf);
+        if (ret != ERR_SUCCESS) {
+            qWarning() << QStringLiteral("[ZmotionAPI] 清除原点Flash失败，错误码：%1").arg(ret);
+            return ZmotionResult(false, ret,
+                QStringLiteral("清除控制器Flash失败：%1").arg(getErrorDescription(ret)));
+        }
+
+        ZINFO << "[ZmotionAPI] 控制器Flash中的自定义原点已清除";
+        return ZmotionResult(true, 0, QStringLiteral("自定义原点已清除"));
+    }
+    catch (const std::exception& e) {
+        return ZmotionResult(false, -1, QString("异常: ") + e.what());
+    }
+    catch (...) {
+        return ZmotionResult(false, -1, QStringLiteral("发生未知异常"));
+    }
+}
+
 /*
  * @brief 获取单轴位置
  * 

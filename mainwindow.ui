@@ -2124,6 +2124,22 @@ QGroupBox::title{subcontrol-origin:margin;left:14px;padding:0 8px;}</string>
                                                                         </property>
                                                                     </widget>
                                                                 </item>
+                                                                <item row="4" column="0" colspan="2">
+                                                                    <widget class="QPushButton" name="btnSetOrigin">
+                                                                        <property name="minimumSize">
+                                                                            <size>
+                                                                                <width>0</width>
+                                                                                <height>40</height>
+                                                                            </size>
+                                                                        </property>
+                                                                        <property name="styleSheet">
+                                                                            <string>QPushButton{background:#2e7d32;color:#fff;border:1px solid #1b5e20;border-radius:6px;font-weight:bold;font-size:14px;padding:6px 16px;}QPushButton:hover{background:#1b5e20;}QPushButton:pressed{background:#145218;}</string>
+                                                                        </property>
+                                                                        <property name="text">
+                                                                            <string>原点设置</string>
+                                                                        </property>
+                                                                    </widget>
+                                                                </item>
                                                             </layout>
                                                         </widget>
                                                     </item>

@@ -323,6 +323,54 @@ public:
     ZmotionResult setAxisDpos(const QList<int>& axes, const QList<double>& positions);
 
     /*
+     * @brief setAxisMpos 设置轴的编码器实际位置（MPOS）
+     *
+     * 仅修改控制器内部编码器位置计数器，不产生物理运动。
+     * 使用 ZAux_Direct_SetMpos 实现。
+     * 回零后恢复自定义原点时，需同时设置 DPOS 与 MPOS 为同一偏移值，
+     * 否则闭环系统会因 DPOS/MPOS 不一致而驱动电机转动。
+     *
+     * @param axes 轴号列表
+     * @param positions 目标实际位置值列表，与axes一一对应
+     * @return ZmotionResult 执行结果
+     */
+    ZmotionResult setAxisMpos(const QList<int>& axes, const QList<double>& positions);
+
+    /********************* 自定义原点（控制器 Flash 持久化）*******************/
+    /*
+     * @brief saveOriginToFlash 将原点偏移写入控制器用户 Flash（断电保持）
+     *
+     * 将 6 轴累计原点偏移写入控制器用户 Flash 块 0，
+     * 数据格式：[魔数1, 魔数2, 轴数, 偏移0..偏移5]，共 9 个 float。
+     * 断电后数据仍在，下次回零完成后由 readOriginFromFlash 读出并恢复。
+     *
+     * @param originOffsets 原点偏移列表（6 个元素，单位与轴坐标一致）
+     * @return ZmotionResult 执行结果
+     * @note Flash 写入有寿命限制（约10万次），仅在用户点击"原点设置"时调用
+     */
+    ZmotionResult saveOriginToFlash(const QList<double>& originOffsets);
+
+    /*
+     * @brief readOriginFromFlash 从控制器用户 Flash 读取原点偏移
+     *
+     * 读取 Flash 块 0 并校验魔数，校验通过则返回 6 轴累计原点偏移。
+     *
+     * @param originOffsets 输出参数，读取到的原点偏移列表
+     * @return ZmotionResult success=true 表示 Flash 中存有有效原点数据
+     *         （success=false 表示未设置过原点或数据无效，originOffsets 为空）
+     */
+    ZmotionResult readOriginFromFlash(QList<double>& originOffsets);
+
+    /*
+     * @brief clearOriginFlash 清除控制器用户 Flash 中的原点偏移
+     *
+     * 将 Flash 块 0 清零（魔数失效），恢复为"传感器原点"模式。
+     *
+     * @return ZmotionResult 执行结果
+     */
+    ZmotionResult clearOriginFlash();
+
+    /*
      * @brief 获取单轴位置
      * 
      * 该函数用于获取单个轴的当前位置，使用ZAux_Direct_GetDpos API实现。

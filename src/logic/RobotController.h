@@ -116,6 +116,30 @@ public:
     // jogCart: 笛卡尔空间点动，Cancel → Move → 立即返回，不等待
     bool jogCart(const QList<double>& cartTarget, double speed, double accel, double decel);
 
+    // ===== 原点管理（Flash 断电保持）=====
+    /**
+     * @brief 将当前6轴DPOS设为自定义原点，写入控制器Flash
+     *
+     * 用户在点动控制中手动调整好机械臂位置后调用，
+     * 将当前各轴DPOS作为"新原点"持久化到Flash，断电不丢失。
+     *
+     * @return true=成功，false=失败
+     */
+    bool setOriginFromCurrentPos();
+
+    /**
+     * @brief 获取原点位置（Flash优先，config兜底）
+     *
+     * 从控制器Flash读取自定义原点位置；
+     * 如果Flash中无数据，返回robot_config.json中的homePosition默认值。
+     *
+     * @return 6轴原点位置列表
+     */
+    QList<double> getOriginPosition();
+
+    // 注意：清除自定义原点的功能已移除。如需恢复出厂默认原点，
+    // 请重新执行"回零"流程，会自动走 kDefaultHomePosition 作为初始位置。
+
     // ===== 正逆解模式控制 =====
     bool switchToCartesianMode();      // 切换到笛卡尔空间控制（逆解模式）
     bool switchToJointMode();          // 切换到关节空间控制（正解模式）
@@ -169,6 +193,15 @@ private:
 
     // 内部辅助方法
     void connectSignals();
+
+    /**
+     * @brief 确保Flash中已有出厂默认原点
+     *
+     * 在首次连接成功后调用：若Flash为空（无有效原点），
+     * 将出厂默认原点 [84.999, 68.62, -51.944, 4.229, 71, 90] 写入Flash，
+     * 使Flash永远持有一个有效home；已有原点则不覆盖（保留用户最新设置）。
+     */
+    void ensureOriginInitialized();
 };
 
 #endif // ROBOTCONTROLLER_H

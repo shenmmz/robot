@@ -17,6 +17,7 @@
 #include "../../ZmotionAPI/ZmotionAPI.h"
 #include <QDebug>
 #include <QTimer>
+#include <cmath>
 
 /**
  * @brief RobotController 构造函数
@@ -160,7 +161,12 @@ bool RobotController::connectHardware(const QString& ipAddr)
         m_config->setControllerIP(ipAddr);
     }
 
-    return m_motionController->connect(ipAddr);
+    bool ok = m_motionController->connect(ipAddr);
+    if (ok) {
+        // 首次连接成功：若Flash为空，写入出厂默认原点，使Flash始终持有一个有效home
+        ensureOriginInitialized();
+    }
+    return ok;
     // 注意：失败时 MotionController::connect() 会发射 connectionError 信号，
     // connectSignals() 中已将其路由到 hardwareConnectionFailed
 }
@@ -815,21 +821,30 @@ void RobotController::connectSignals()
 
     if (m_homingController) {
         connect(m_homingController, &HomingController::homingCompleted, this, [this]() {
-            // 回零完成后，移动到配置的homePosition
-            QList<double> homePos = m_config->getHomePosition();
-            if (homePos.size() >= 6) {
+            // 回零完成后，移动到原点位置（Flash优先，config兜底）
+            QList<double> originPos = getOriginPosition();
+            if (originPos.size() >= 6) {
                 QList<float> positions;
                 for (int i = 0; i < 6; ++i) {
-                    positions.append(static_cast<float>(homePos[i]));
+                    positions.append(static_cast<float>(originPos[i]));
                 }
                 float speed = static_cast<float>(m_config->getHomeMoveSpeed());
                 float accel = static_cast<float>(m_config->getHomeMoveAccel());
                 float decel = static_cast<float>(m_config->getHomeMoveDecel());
                 m_homingController->moveAllAxesToPositions(positions, speed, accel, decel);
 
-                // 等待所有轴到达homePosition后再继续后续流程
+                // 等待所有轴到达原点位置后再继续后续流程
                 ZmotionAPI* api = getMotionController()->getZmotionAPI();
                 api->waitForAxesIdle({0, 1, 2, 3, 4, 5}, 15000);
+
+                // 物理已移动到原点位置 P，把 DPOS 与 MPOS 同时清 0，
+                // 使 DPOS=0 ↔ 处于 Flash 原点。维持"原点设置"公式所需的
+                // "DPOS 是相对当前 Flash 原点的偏移"不变量，避免先回零再设原点时双倍计数。
+                // 必须同时清 DPOS+MPOS（闭环伺服两者不一致会瞬冲）。
+                ZmotionResult zeroRet = api->clearAxisPosition({0, 1, 2, 3, 4, 5});
+                if (!zeroRet.success) {
+                    qWarning() << "[RobotController] 回零后清零 DPOS/MPOS 失败:" << zeroRet.errorMessage;
+                }
             }
             emit operationCompleted(QStringLiteral("回零"));
         });
@@ -904,6 +919,131 @@ void RobotController::onMotionCompleted(int axisIndex)
 void RobotController::onStatusUpdated()
 {
     emit robotStatusChanged(getRobotStatusStr());
+}
+
+// ==================== 原点管理（Flash 断电保持）====================
+
+/**
+ * @brief 将当前姿态设为自定义原点，写入控制器Flash
+ *
+ * 新原点绝对姿态 = "Flash 中当前已保存的原点" + 当前 6 轴 DPOS。
+ *
+ * 语义：以**当前生效的原点**为基线，加上本次示教产生的 DPOS 增量。
+ * 这样用户多次设置原点时，第二次保存的是"在第一次基础上又调整了多少"，
+ * 不会因为基线是出厂 homePosition 而被反复覆盖回滚。
+ *
+ * - 首次保存：Flash 为空（或 ensureOriginInitialized 刚 seed 的默认 home），
+ *   等价于 "homePosition + DPOS"，符合出厂基准。
+ * - 后续保存：基线 = Flash 已有值，DPOS 是相对该基线的偏移，因此是真正的
+ *   "在原基础上做调整"。
+ *
+ * 写入前把每个角度 round 到 3 位小数，避免 float 存储把不必要的位占满。
+ *
+ * 仅在用户主动点击"原点设置"按钮时调用，避免 Flash 写入寿命消耗。
+ *
+ * @return true=写入成功，false=未连接/读取失败/写入失败
+ */
+bool RobotController::setOriginFromCurrentPos()
+{
+    if (!isConnected()) {
+        emit operationFailed(QStringLiteral("原点设置"), QStringLiteral("控制器未连接"));
+        return false;
+    }
+
+    ZmotionAPI* api = m_motionController->getZmotionAPI();
+
+    // 读取当前 6 轴 DPOS（相对"当前生效原点"的偏移）
+    QList<double> dpos;
+    for (int i = 0; i < 6; ++i) {
+        ZmotionResult ret = api->getAxisPosition(i);
+        if (!ret.success) {
+            emit operationFailed(QStringLiteral("原点设置"),
+                QStringLiteral("读取轴%1位置失败: %2").arg(i).arg(ret.errorMessage));
+            return false;
+        }
+        dpos.append(static_cast<double>(ret.axisPosition));
+    }
+
+    // 取"当前生效的原点"作为基线：
+    //   - 优先读 Flash 中上一次保存的原点
+    //   - Flash 为空时回退到 config 的 homePosition（与 ensureOriginInitialized 一致）
+    QList<double> baseOrigin = getOriginPosition();
+
+    // 在基线上叠加本次 DPOS 增量，并 round 到 3 位小数
+    QList<double> newOrigin(6, 0.0);
+    for (int i = 0; i < 6; ++i) {
+        const double base = (i < baseOrigin.size()) ? baseOrigin[i] : 0.0;
+        double v = base + dpos[i];
+        v = std::round(v * 1000.0) / 1000.0;
+        newOrigin[i] = v;
+    }
+
+    qInfo() << "[RobotController] 原点设置，baseOrigin =" << baseOrigin
+            << "+ DPOS =" << dpos << "= newOrigin" << newOrigin;
+
+    ZmotionResult flashRet = api->saveOriginToFlash(newOrigin);
+    if (!flashRet.success) {
+        emit operationFailed(QStringLiteral("原点设置"), flashRet.errorMessage);
+        return false;
+    }
+
+    emit operationCompleted(QStringLiteral("原点设置"));
+    return true;
+}
+
+/**
+ * @brief 获取原点位置（Flash优先，config兜底）
+ *
+ * 从控制器Flash读取用户自定义的原点绝对位置；
+ * Flash中无数据时返回robot_config.json中的homePosition默认值。
+ *
+ * @return 原点位置列表（6个元素）
+ */
+QList<double> RobotController::getOriginPosition()
+{
+    if (isConnected()) {
+        ZmotionAPI* api = m_motionController->getZmotionAPI();
+        QList<double> flashPos;
+        ZmotionResult readRet = api->readOriginFromFlash(flashPos);
+        if (readRet.success && flashPos.size() == 6) {
+            qInfo() << "[RobotController] 从Flash读取原点位置:" << flashPos;
+            return flashPos;
+        }
+    }
+
+    // Flash为空或未连接，使用配置文件默认值
+    QList<double> homePos = m_config->getHomePosition();
+    qInfo() << "[RobotController] Flash无数据，使用配置homePosition:" << homePos;
+    return homePos;
+}
+
+/**
+ * @brief 确保Flash中已有出厂默认原点
+ *
+ * 首次连接成功后调用。若Flash中无有效原点（空块/魔数校验失败），
+ * 将出厂默认原点写入Flash；若已有原点则直接返回，绝不覆盖用户设置。
+ */
+void RobotController::ensureOriginInitialized()
+{
+    if (!isConnected()) {
+        return;
+    }
+    ZmotionAPI* api = m_motionController->getZmotionAPI();
+    QList<double> dummy;
+    ZmotionResult readRet = api->readOriginFromFlash(dummy);
+    if (readRet.success && dummy.size() == 6) {
+        // Flash中已有有效原点（出厂默认或用户自定义），无需写入
+        qInfo() << "[RobotController] Flash中已有原点，跳过默认seed:" << dummy;
+        return;
+    }
+    // Flash为空，把配置文件中的出厂默认原点直接写入Flash；之后一律以Flash为基准
+    QList<double> seedHome = m_config->getHomePosition();
+    ZmotionResult writeRet = api->saveOriginToFlash(seedHome);
+    if (writeRet.success) {
+        qInfo() << "[RobotController] Flash为空，已写入出厂默认原点:" << seedHome;
+    } else {
+        qWarning() << "[RobotController] 写入出厂默认原点失败:" << writeRet.errorMessage;
+    }
 }
 
 /**

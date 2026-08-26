@@ -97,11 +97,11 @@
     "homeMoveSpeed": 60,
     "homePosition": [
         84.999,
-        68.62,
+        68.620,
         -51.944,
         4.229,
-        71,
-        90
+        71.000,
+        90.000
     ],
     "robotName": "Robot_R06",
     "stateUpdateIntervalMs": 100

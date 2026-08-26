@@ -1204,6 +1204,62 @@ void MainWindow::onSendCartMove()
 }
 
 /**
+ * @brief 原点设置按钮点击
+ *
+ * 将当前6轴DPOS作为自定义原点写入控制器Flash（断电保持）。
+ * 操作前弹出确认对话框，防止误操作。
+ */
+void MainWindow::onSetOrigin()
+{
+    if (!m_robotController || !m_robotController->isConnected()) {
+        ui->statusbar->showMessage(QStringLiteral("请先连接控制器"));
+        return;
+    }
+
+    // 安全检查：任一轴仍在运动时不允许设置原点（避免把过渡姿态误存为原点）
+    ZmotionAPI* api = m_robotController->getMotionController()->getZmotionAPI();
+    for (int i = 0; i < 6; ++i) {
+        ZmotionResult idle = api->getIfIdle2(i);
+        if (!idle.success || idle.axisHomeStatus == 0) {
+            QMessageBox::warning(this, QStringLiteral("原点设置"),
+                QStringLiteral("轴 %1 仍在运动中，请先停止机械臂再设置原点。").arg(i));
+            ui->statusbar->showMessage(QStringLiteral("原点设置取消：存在运动中的轴"));
+            return;
+        }
+    }
+
+    // 弹出确认对话框
+    QMessageBox::StandardButton reply = QMessageBox::question(
+        this,
+        QStringLiteral("原点设置"),
+        QStringLiteral("确认将当前位置设为机械臂原点？\n\n"
+                       "设置后每次回零将以此位置为基准。\n"
+                       "此操作会写入控制器Flash（断电保持）。"),
+        QMessageBox::Yes | QMessageBox::No,
+        QMessageBox::No);
+
+    if (reply != QMessageBox::Yes) {
+        return;
+    }
+
+    bool ok = m_robotController->setOriginFromCurrentPos();
+    if (ok) {
+        // 设原点后复位 homing 标志，允许再次点击"回零"移动到新原点并验证
+        m_homingDone = false;
+        ui->statusbar->showMessage(QStringLiteral("原点已写入Flash，请点击\"回零\"使新原点生效"));
+        // 明确提示：Flash 数据已更改，必须重新回零后才会生效（机械臂才会移动到新原点）
+        QMessageBox::information(this, QStringLiteral("原点设置"),
+            QStringLiteral("原点已写入控制器Flash（断电保持）！\n\n"
+                           "⚠ 新原点需要重新回零后才会生效。\n"
+                           "请点击主界面「回零」按钮，机械臂将移动到新原点位置。"));
+    } else {
+        ui->statusbar->showMessage(QStringLiteral("原点设置失败"));
+        QMessageBox::warning(this, QStringLiteral("原点设置"),
+            QStringLiteral("原点设置失败，请检查控制器连接状态。"));
+    }
+}
+
+/**
  * @brief 获取当前关节位置并插入 MOVEJ 指令
  */
 void MainWindow::onGetJoints()
@@ -2101,6 +2157,9 @@ void MainWindow::initManualProgUI()
     });
     jogMainLay->addWidget(btnOpenPointAdjust, 0, Qt::AlignHCenter);
 
+    // ★ 原点设置按钮已移至"调节"弹窗内的关节模式界面（showPointAdjustDialog 中），
+    //   此处不再放置。请打开调节弹窗并切换到【正解（关节）】模式后即可看到该按钮。
+
     // 调试模式控制点动可用性
     auto setJogEnabled = [this, jogMergedGroup](bool enabled) {
         for (QLineEdit* sp : jogMergedGroup->findChildren<QLineEdit*>())
@@ -2573,13 +2632,62 @@ void MainWindow::showPointAdjustDialog(bool isJoint)
     // ★ 提前声明 lblAxis(供 updateModeButton lambda 捕获,刷新标签文字)
     QLabel* lblAxis[6] = {ui.lblAxis0, ui.lblAxis1, ui.lblAxis2, ui.lblAxis3, ui.lblAxis4, ui.lblAxis5};
 
-    // 刷新按钮文本/颜色 + 同步刷新轴标签
-    auto updateModeButton = [this, btnToggleMode, lblAxis] {
+    // ★ 原点设置按钮（仅在关节模式（正解）下显示，笛卡尔模式隐藏）
+    QPushButton* btnSetOriginInDialog = new QPushButton(QStringLiteral("原点设置"), &dlg);
+    btnSetOriginInDialog->setFixedHeight(40);
+    btnSetOriginInDialog->setCursor(Qt::PointingHandCursor);
+    btnSetOriginInDialog->setToolTip(QStringLiteral(
+        "将当前 6 轴位置写入控制器 Flash 作为自定义原点（断电保持）。\n"
+        "后续一键回零将以该位置为基准进行绝对姿态恢复。"));
+    btnSetOriginInDialog->setStyleSheet(QStringLiteral(
+        "QPushButton{background:#2e7d32;color:#fff;border:1px solid #1b5e20;"
+        "border-radius:6px;font-weight:bold;font-size:14px;padding:4px 16px;}"
+        "QPushButton:hover{background:#1b5e20;}"
+        "QPushButton:pressed{background:#144e14;}"
+    ));
+    // ★ 只读显示：Flash 中当前保存的原点数据（6 个关节轴）
+    QLabel* lblFlashOrigin = new QLabel(&dlg);
+    lblFlashOrigin->setAlignment(Qt::AlignCenter);
+    lblFlashOrigin->setWordWrap(true);
+    lblFlashOrigin->setStyleSheet(QStringLiteral(
+        "QLabel{font-family:Consolas,'Microsoft YaHei UI';font-size:13px;"
+        "color:#555;background:#f5f5f5;border:1px solid #e0e0e0;"
+        "border-radius:4px;padding:4px 8px;}"));
+    lblFlashOrigin->setText(QStringLiteral("机械原点：—"));
+
+    // 从控制器 Flash 读取原点并格式化为字符串（未连接/无数据给出占位）
+    auto refreshFlashOrigin = [this]() -> QString {
+        if (!m_robotController || !m_robotController->isConnected()) {
+            return QStringLiteral("(未连接)");
+        }
+        QList<double> origin = m_robotController->getOriginPosition();
+        if (origin.size() < 6) {
+            return QStringLiteral("(无数据)");
+        }
+        return QStringLiteral("J0=%1  J1=%2  J2=%3  J3=%4  J4=%5  J5=%6")
+            .arg(origin[0], 0, 'f', 3).arg(origin[1], 0, 'f', 3)
+            .arg(origin[2], 0, 'f', 3).arg(origin[3], 0, 'f', 3)
+            .arg(origin[4], 0, 'f', 3).arg(origin[5], 0, 'f', 3);
+    };
+
+    connect(btnSetOriginInDialog, &QPushButton::clicked, &dlg, [this, &dlg, refreshFlashOrigin, lblFlashOrigin] {
+        // 复用 MainWindow::onSetOrigin（含轴停止检查 + 确认对话框 + 写 Flash）
+        onSetOrigin();
+        // 写完后刷新一次下方 Flash 原点显示（onSetOrigin 内的确认框是模态阻塞的，返回即已写入）
+        QTimer::singleShot(0, &dlg, [refreshFlashOrigin, lblFlashOrigin] {
+            if (lblFlashOrigin) lblFlashOrigin->setText(QStringLiteral("机械原点：") + refreshFlashOrigin());
+        });
+    });
+
+    // 刷新按钮文本/颜色 + 同步刷新轴标签 + 切换"原点设置"按钮/Flash原点显示可见性
+    auto updateModeButton = [this, btnToggleMode, btnSetOriginInDialog, lblFlashOrigin, refreshFlashOrigin, lblAxis] {
         if (!m_robotController) {
             btnToggleMode->setText(QStringLiteral("未连接"));
             btnToggleMode->setStyleSheet(QStringLiteral(
                 "QPushButton{background:#9e9e9e;color:#fff;border:none;"
                 "border-radius:3px;font-size:11px;padding:2px 8px;}"));
+            btnSetOriginInDialog->setVisible(false);  // 未连接，隐藏原点设置
+            lblFlashOrigin->setVisible(false);        // 未连接，隐藏 Flash 原点
             return;
         }
         const bool isCart = m_robotController->isCartesianMode();
@@ -2593,6 +2701,9 @@ void MainWindow::showPointAdjustDialog(bool isJoint)
             // 逆解模式:标签 X Y Z A B C
             const QString cartLabels[6] = {"X", "Y", "Z", "A", "B", "C"};
             for (int i = 0; i < 6; ++i) lblAxis[i]->setText(cartLabels[i]);
+            // 笛卡尔模式:隐藏"原点设置"与 Flash 原点(只对关节坐标 J0~J5 有意义)
+            btnSetOriginInDialog->setVisible(false);
+            lblFlashOrigin->setVisible(false);
         } else {
             // 当前正解
             btnToggleMode->setText(QStringLiteral("正解 (关节) ▾"));
@@ -2603,9 +2714,32 @@ void MainWindow::showPointAdjustDialog(bool isJoint)
             // 正解模式:标签 J0..J5
             const QString jointLabels[6] = {"J0", "J1", "J2", "J3", "J4", "J5"};
             for (int i = 0; i < 6; ++i) lblAxis[i]->setText(jointLabels[i]);
+            // 关节模式:显示"原点设置"按钮 + Flash 原点数据（写在关节轴下的"关节这个界面中"）
+            btnSetOriginInDialog->setVisible(true);
+            lblFlashOrigin->setVisible(true);
+            lblFlashOrigin->setText(QStringLiteral("机械原点：") + refreshFlashOrigin());
         }
     };
     updateModeButton();
+
+    // 把"原点设置"按钮 + "Flash 原点"显示插入到 groupBox 和 buttonLayout 之间（关节模式可见）
+    if (QVBoxLayout* mainLay = qobject_cast<QVBoxLayout*>(dlg.layout())) {
+        int idx = mainLay->indexOf(ui.groupBox);
+        if (idx >= 0) {
+            // 原点设置按钮：水平居中容器包一下，避免贴边
+            QHBoxLayout* originRow = new QHBoxLayout();
+            originRow->setContentsMargins(0, 6, 0, 0);
+            originRow->addStretch();
+            originRow->addWidget(btnSetOriginInDialog);
+            originRow->addStretch();
+            mainLay->insertLayout(idx + 1, originRow);
+            // Flash 原点只读显示：紧跟在按钮下方（占满整行）
+            mainLay->insertWidget(idx + 2, lblFlashOrigin);
+        } else {
+            mainLay->addWidget(btnSetOriginInDialog);
+            mainLay->addWidget(lblFlashOrigin);
+        }
+    }
 
     // 插入到 dialog 最顶部
     if (QVBoxLayout* mainLay = qobject_cast<QVBoxLayout*>(dlg.layout())) {
@@ -3391,6 +3525,27 @@ void MainWindow::onMotionParamsReceived(const DrawMotionParams &params)
              << "blend=" << params.blendMode;
 }
 
+/**
+ * @brief 处理画板轨迹点位，执行机器人绘制运动
+ *
+ * 从画板组件接收点位数据，控制机械臂沿指定轨迹运动。函数执行以下流程：
+ * - 检查控制器连接状态，未连接则直接返回
+ * - 统计并打印轨迹组数和总点数
+ * - 切换到笛卡尔（逆解）模式
+ * - 设置虚拟轴和关节轴的运动参数
+ * - 逐组执行轨迹，支持两种运动模式：
+ *   - Merge 连续模式：启用速度融合，适合平滑轨迹绘制
+ *   - 逐点模式：每个点执行一次定位，轨迹精确但速度有停顿
+ * - 组间自动抬笔避障（抬升10mm）
+ * - 执行完成后归位到最后一个轨迹点上方
+ *
+ * @param pointGroups 三维点位组，外层列表表示轨迹分组，内层列表为组内连续点位
+ * @param rx 末端执行器绕X轴旋转角度（弧度）
+ * @param ry 末端执行器绕Y轴旋转角度（弧度）
+ * @param rz 末端执行器绕Z轴旋转角度（弧度）
+ * @note 运动速度、加速度等参数从 m_motionParams 成员获取
+ * @note 关节轴速度使用固定值 200.0，不受画板参数影响
+ */
 void MainWindow::onDrawingPointsReceived(const QVector<QVector<QVector3D>> &pointGroups,
                                           double rx, double ry, double rz)
 {
@@ -3502,6 +3657,17 @@ void MainWindow::onDrawingPointsReceived(const QVector<QVector<QVector3D>> &poin
     qDebug() << "[画板] 轨迹执行完成，已归位到最后一个轨迹点上方";
 }
 
+/**
+ * @brief 处理接收到的圆形绘制请求
+ *
+ * 将圆形离散化为采样点集，并使用工件坐标系姿态执行绘制。
+ *
+ * @param centers 圆心坐标数组，包含所有圆形的 3D 坐标
+ * @param radii 半径数组，与 centers 对应每个圆形的半径
+ *
+ * @note 每个圆形将被离散化为 72 个采样点（N=72）
+ * @note 使用 m_workPieceCoord 获取工件坐标系姿态参数（rx, ry, rz）
+ */
 void MainWindow::onDrawingCirclesReceived(const QVector<QVector3D> &centers,
                                            const QVector<double> &radii)
 {
@@ -3530,6 +3696,16 @@ void MainWindow::onDrawingCirclesReceived(const QVector<QVector3D> &centers,
     onDrawingPointsReceived(pointGroups, rx, ry, rz);
 }
 
+/**
+ * @brief 处理画板弧线数据，转换为点集后执行运动
+ *
+ * 使用 de Casteljau 二次贝塞尔算法逼近圆弧，将每条弧线离散为 72 个采样点，
+ * 坐标经过工件坐标系转换后调用 onDrawingPointsReceived 执行轨迹运动。
+ *
+ * @param starts 弧线起点集合
+ * @param mids   弧线中点集合
+ * @param ends   弧线终点集合
+ */
 void MainWindow::onDrawingArcsReceived(const QVector<QVector3D> &starts,
                                         const QVector<QVector3D> &mids,
                                         const QVector<QVector3D> &ends)
@@ -3564,6 +3740,21 @@ void MainWindow::onDrawingArcsReceived(const QVector<QVector3D> &starts,
     onDrawingPointsReceived(pointGroups, rx, ry, rz);
 }
 
+/**
+ * 工件坐标系设置对话框
+ *
+ * 打开工件坐标系设置窗口，允许用户通过三点法（原点、X轴方向点、XY平面点）
+ * 定义工件坐标系。功能包括：
+ * - 三个坐标点的6自由度（X, Y, Z, RX, RY, RZ）参数设置
+ * - 获取机器人当前位置到指定点位
+ * - 点位运行：移动机器人到指定位置
+ * - 保存坐标系配置到JSON文件
+ * - 从JSON文件加载已有坐标系
+ * - 确认后激活工件坐标系并在绘图窗口显示
+ *
+ * @note 函数内部会验证机器人控制器连接状态，未连接时提示用户
+ * @note 坐标系文件保存在程序目录下的"../坐标系管理文件"文件夹中
+ */
 void MainWindow::onWorkpieceCoordAction()
 {
     if (!m_robotController || !m_robotController->isConnected()) {

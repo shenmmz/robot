@@ -83,6 +83,7 @@ private slots:
     void updatePositionDisplay();                // 刷新位置显示（定时更新关节/笛卡尔坐标）
     void onSendJointMove();                      // 发送关节运动指令（关节点动）
     void onSendCartMove();                       // 发送笛卡尔运动指令（笛卡尔点动）
+    void onSetOrigin();                          // 原点设置按钮（将当前位置写入Flash作为自定义原点；该按钮放置在调节弹窗的关节模式界面中）
 
     // 运行页面
     void onBtnStop();                            // 急停按钮（立即停止所有运动）
