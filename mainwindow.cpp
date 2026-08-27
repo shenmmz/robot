@@ -135,7 +135,8 @@ MainWindow::MainWindow(QWidget *parent)
     m_navGroup->addButton(ui->btnNavSettings, 4);// 设置页（第 4 个导航页）
     m_navGroup->addButton(ui->btnNavRs485, 5);// RS485 测试页（第 5 个导航页）
     m_navGroup->addButton(ui->btnNavVision, 6);      // 视觉运动（第 7 个导航页）
-    m_navGroup->addButton(ui->btnNavDraw, 7);  // 画板页
+    m_navGroup->addButton(ui->btnNavOperator, 7); // 操作者界面页（对应 contentStack 静态页 index 7）
+    m_navGroup->addButton(ui->btnNavDraw, 8);  // 画板页（动态页，索引 8）
 
     // 默认显示"运行"页 (UI文件设置的是index=6，需纠正)
     ui->contentStack->setCurrentIndex(0);
@@ -1132,6 +1133,12 @@ void MainWindow::initPositionDisplay()
     // 运行页面：关机按钮
     connect(ui->btnShutdown, &QPushButton::clicked, this, &MainWindow::onBtnShutdown);
 
+    // 操作者界面：4 个大按钮显式映射到运行页同功能槽（不依赖 on_ 自动连接）
+    connect(ui->btnOpHome, &QPushButton::clicked, this, &MainWindow::onHomingClicked);
+    connect(ui->btnOpStop, &QPushButton::clicked, this, &MainWindow::onBtnStop);
+    connect(ui->btnOpShutdown, &QPushButton::clicked, this, &MainWindow::onBtnShutdown);
+    connect(ui->btnOpNail, &QPushButton::clicked, this, &MainWindow::on_btnNail_clicked);
+
     // 运行页面：模式切换单选按钮
     connect(ui->radioJoint, &QRadioButton::toggled, this, [this](bool checked) {
         if (checked) onRadioModeChanged();
@@ -1340,12 +1347,14 @@ void MainWindow::onGetCart()
  */
 void MainWindow::onNavButtonClicked(int index)
 {
-    ui->contentStack->setCurrentIndex(index);
-    const QString names[] = {"运行", "程序编程", "IO 监控", "报警日志", "设置", "通信", "视觉运动", "画板"};
-    if (index >= 0 && index < 8)
+    // 画板为动态页：首次点击前 contentStack 暂无该索引，越界时跳过系统切换（画板分支后续用 setCurrentWidget 定位）
+    if (index < ui->contentStack->count())
+        ui->contentStack->setCurrentIndex(index);
+    const QString names[] = {"运行", "程序编程", "IO 监控", "报警日志", "设置", "通信", "视觉运动", "操作者", "画板"};
+    if (index >= 0 && index < 9)
         ui->statusbar->showMessage(QStringLiteral("切换到: %1").arg(names[index]));
 
-    if (index == 7) {
+    if (index == 8) {
         if (!m_drawingWindow) {
             m_drawingWindow = new DrawingWindow(this);
             ui->contentStack->addWidget(m_drawingWindow);

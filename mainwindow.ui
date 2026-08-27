@@ -443,6 +443,27 @@ QPushButton:checked{background:rgba(21,101,192,0.18);color:#fff;border-left:3px 
                                             </widget>
                                         </item>
                                         <item>
+                                            <widget class="QPushButton" name="btnNavOperator">
+                                                <property name="minimumSize">
+                                                    <size>
+                                                        <width>0</width>
+                                                        <height>56</height>
+                                                    </size>
+                                                </property>
+                                                <property name="styleSheet">
+                                                    <string>QPushButton{background:transparent;color:#b0bec5;border:none;border-left:3px solid transparent;text-align:left;padding:10px 14px 10px 6px;font-size:12px;}
+QPushButton:hover{background:rgba(255,255,255,0.06);color:#cfd8dc;}
+QPushButton:checked{background:rgba(21,101,192,0.18);color:#fff;border-left:3px solid #1565c0;font-weight:bold;}</string>
+                                                </property>
+                                                <property name="text">
+                                                    <string>操作者</string>
+                                                </property>
+                                                <property name="checkable">
+                                                    <bool>true</bool>
+                                                </property>
+                                            </widget>
+                                        </item>
+                                        <item>
                                             <spacer name="sideSpacer">
                                                 <property name="orientation">
                                                     <enum>Qt::Orientation::Vertical</enum>
@@ -6344,6 +6365,210 @@ QPushButton:pressed{background:#ccc;}</string>
                                                     </property>
                                                 </widget>
                                             </item></layout>
+                                    </widget>
+                                    <widget class="QWidget" name="pageOperator">
+                                        <property name="styleSheet">
+                                            <string>background:#E8ECF0;</string>
+                                        </property>
+                                        <layout class="QVBoxLayout" name="pageOperatorLayout">
+                                            <property name="spacing">
+                                                <number>0</number>
+                                            </property>
+                                            <property name="margin" stdset="0">
+                                                <number>24</number>
+                                            </property>
+                                            <item>
+                                                <widget class="QLabel" name="breadcrumbOperator">
+                                                    <property name="styleSheet">
+                                                        <string>color:#888;font-size:11px;border:none;background:transparent;font-weight:normal;</string>
+                                                    </property>
+                                                    <property name="text">
+                                                        <string>操作者界面 &gt; 常用功能</string>
+                                                    </property>
+                                                </widget>
+                                            </item>
+                                            <item>
+                                                <spacer name="opTopSpacer">
+                                                    <property name="orientation">
+                                                        <enum>Qt::Orientation::Vertical</enum>
+                                                    </property>
+                                                    <property name="sizeHint" stdset="0">
+                                                        <size>
+                                                            <width>0</width>
+                                                            <height>0</height>
+                                                        </size>
+                                                    </property>
+                                                </spacer>
+                                            </item>
+                                            <item>
+                                                <layout class="QHBoxLayout" name="opBtnWrap">
+                                                    <property name="spacing">
+                                                        <number>0</number>
+                                                    </property>
+                                                    <item>
+                                                        <spacer name="opLeftSpacer">
+                                                            <property name="orientation">
+                                                                <enum>Qt::Orientation::Horizontal</enum>
+                                                            </property>
+                                                            <property name="sizeHint" stdset="0">
+                                                                <size>
+                                                                    <width>0</width>
+                                                                    <height>0</height>
+                                                                </size>
+                                                            </property>
+                                                        </spacer>
+                                                    </item>
+                                                    <item>
+                                                        <layout class="QHBoxLayout" name="opBtnCol">
+                                                            <property name="spacing">
+                                                                <number>24</number>
+                                                            </property>
+                                                            <property name="margin" stdset="0">
+                                                                <number>0</number>
+                                                            </property>
+                                                            <item>
+                                                                <widget class="QPushButton" name="btnOpHome">
+                                                                    <property name="sizePolicy">
+                                                                        <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+                                                                            <horstretch>0</horstretch>
+                                                                            <verstretch>0</verstretch>
+                                                                        </sizepolicy>
+                                                                    </property>
+                                                                    <property name="minimumSize">
+                                                                        <size>
+                                                                            <width>280</width>
+                                                                            <height>148</height>
+                                                                        </size>
+                                                                    </property>
+                                                                    <property name="maximumSize">
+                                                                        <size>
+                                                                            <width>280</width>
+                                                                            <height>148</height>
+                                                                        </size>
+                                                                    </property>
+                                                                    <property name="styleSheet">
+                                                                        <string>QPushButton{font-size:40px;font-weight:bold;border-radius:16px;background:#FFFFFF;color:#2563EB;border:2px solid #2563EB;} QPushButton:hover{background:#EFF4FF;} QPushButton:pressed{background:#DBEAFE;color:#1D4ED8;}</string>
+                                                                    </property>
+                                                                    <property name="text">
+                                                                        <string>回零</string>
+                                                                    </property>
+                                                                </widget>
+                                                            </item>
+                                                            <item>
+                                                                <widget class="QPushButton" name="btnOpStop">
+                                                                    <property name="sizePolicy">
+                                                                        <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+                                                                            <horstretch>0</horstretch>
+                                                                            <verstretch>0</verstretch>
+                                                                        </sizepolicy>
+                                                                    </property>
+                                                                    <property name="minimumSize">
+                                                                        <size>
+                                                                            <width>280</width>
+                                                                            <height>148</height>
+                                                                        </size>
+                                                                    </property>
+                                                                    <property name="maximumSize">
+                                                                        <size>
+                                                                            <width>280</width>
+                                                                            <height>148</height>
+                                                                        </size>
+                                                                    </property>
+                                                                    <property name="styleSheet">
+                                                                        <string>QPushButton{font-size:40px;font-weight:bold;border-radius:21px;background:#FEF3C7;color:#EA580C;border:2px solid #EA580C;} QPushButton:hover{background:#FDE68A;} QPushButton:pressed{background:#FCD34D;color:#C2410C;}</string>
+                                                                    </property>
+                                                                    <property name="text">
+                                                                        <string>暂停</string>
+                                                                    </property>
+                                                                </widget>
+                                                            </item>
+                                                            <item>
+                                                                <widget class="QPushButton" name="btnOpShutdown">
+                                                                    <property name="sizePolicy">
+                                                                        <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+                                                                            <horstretch>0</horstretch>
+                                                                            <verstretch>0</verstretch>
+                                                                        </sizepolicy>
+                                                                    </property>
+                                                                    <property name="minimumSize">
+                                                                        <size>
+                                                                            <width>280</width>
+                                                                            <height>148</height>
+                                                                        </size>
+                                                                    </property>
+                                                                    <property name="maximumSize">
+                                                                        <size>
+                                                                            <width>280</width>
+                                                                            <height>148</height>
+                                                                        </size>
+                                                                    </property>
+                                                                    <property name="styleSheet">
+                                                                        <string>QPushButton{font-size:40px;font-weight:bold;border-radius:16px;background:#FEE2E2;color:#DC2626;border:2px solid #DC2626;} QPushButton:hover{background:#FECACA;} QPushButton:pressed{background:#FCA5A5;color:#B91C1C;}</string>
+                                                                    </property>
+                                                                    <property name="text">
+                                                                        <string>关机</string>
+                                                                    </property>
+                                                                </widget>
+                                                            </item>
+                                                            <item>
+                                                                <widget class="QPushButton" name="btnOpNail">
+                                                                    <property name="sizePolicy">
+                                                                        <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+                                                                            <horstretch>0</horstretch>
+                                                                            <verstretch>0</verstretch>
+                                                                        </sizepolicy>
+                                                                    </property>
+                                                                    <property name="minimumSize">
+                                                                        <size>
+                                                                            <width>280</width>
+                                                                            <height>148</height>
+                                                                        </size>
+                                                                    </property>
+                                                                    <property name="maximumSize">
+                                                                        <size>
+                                                                            <width>280</width>
+                                                                            <height>148</height>
+                                                                        </size>
+                                                                    </property>
+                                                                    <property name="styleSheet">
+                                                                        <string>QPushButton{font-size:48px;font-weight:bold;border-radius:27px;background:qlineargradient(x1:0,y1:0,x2:0,y2:1,stop:0 #F59E0B,stop:1 #DC2626);color:#fff;border:none;} QPushButton:hover{background:qlineargradient(x1:0,y1:0,x2:0,y2:1,stop:0 #FBBF24,stop:1 #EF4444);} QPushButton:pressed{background:qlineargradient(x1:0,y1:0,x2:0,y2:1,stop:0 #D97706,stop:1 #B91C1C);color:#FEF2F2;}</string>
+                                                                    </property>
+                                                                    <property name="text">
+                                                                        <string>打钉子</string>
+                                                                    </property>
+                                                                </widget>
+                                                            </item>
+                                                        </layout>
+                                                    </item>
+                                                    <item>
+                                                        <spacer name="opRightSpacer">
+                                                            <property name="orientation">
+                                                                <enum>Qt::Orientation::Horizontal</enum>
+                                                            </property>
+                                                            <property name="sizeHint" stdset="0">
+                                                                <size>
+                                                                    <width>0</width>
+                                                                    <height>0</height>
+                                                                </size>
+                                                            </property>
+                                                        </spacer>
+                                                    </item>
+                                                </layout>
+                                            </item>
+                                            <item>
+                                                <spacer name="opBottomSpacer">
+                                                    <property name="orientation">
+                                                        <enum>Qt::Orientation::Vertical</enum>
+                                                    </property>
+                                                    <property name="sizeHint" stdset="0">
+                                                        <size>
+                                                            <width>0</width>
+                                                            <height>0</height>
+                                                        </size>
+                                                    </property>
+                                                </spacer>
+                                            </item>
+                                        </layout>
                                     </widget>
                                 </widget>
                             </item>
