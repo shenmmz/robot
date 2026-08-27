@@ -739,11 +739,12 @@ void MainWindow::on_pushButton_6_clicked()
  * 防重入规则：
  *   1. 点击一次 → 执行一次固定流程（UiController::runScriptFile 直接读磁盘
  *      task/test.rbt，与编辑器当前加载的任意流程完全解耦）；
- *   2. 流程执行中再次点击 → 直接忽略（不重启、不停止）；
- *   3. 等待流程跑完后，下一次点击才生效。
+ *   2. 按下 = 输出口 DO0 高电平，松开 = DO0 低电平（电平跟随按钮），
+ *      脚本 WHILE 循环以 WAIT_DO(0,1) 阻塞捕获按下时刻，松开复位不中断已进入的流程；
+ *   3. 监听循环未运行时，按下会先自动启动脚本。
  * 无传感器方案：流程内部用 SET_DO + DELAY 固定脉宽触发钉枪，不依赖输入口。
  */
-void MainWindow::on_btnNail_clicked()
+void MainWindow::on_btnNail_pressed()
 {
     if (!m_robotController || !m_robotController->isConnected()) {
         QMessageBox::warning(this, QStringLiteral("打钉子"),
@@ -773,19 +774,35 @@ void MainWindow::on_btnNail_clicked()
         }
     }
 
-    // 点击 = 置位上位机输出口 DO0=1，作为打钉触发信号（脚本 WHILE 循环阻塞等待 DO0 变 1）
+    // 按下 = 置位上位机输出口 DO0=1，作为电平触发信号（松开时由 released 复位为 0）
     ZmotionAPI* api = m_robotController->getMotionController()->getZmotionAPI();
     if (!api) {
         ui->statusbar->showMessage(QStringLiteral("打钉子：控制器接口不可用"));
         return;
     }
     ZmotionResult r = api->setOp(0, 1);
-    qDebug() << "[打钉子] 置位 DO0=1，触发信号成功=" << r.success;
+    qDebug() << "[打钉子] 按下置位 DO0=1，成功=" << r.success;
     if (r.success) {
-        ui->statusbar->showMessage(QStringLiteral("打钉子：已置位 DO0=1，触发打钉流程"));
+        ui->statusbar->showMessage(QStringLiteral("打钉子：按下，DO0=1"));
     } else {
         ui->statusbar->showMessage(QStringLiteral("打钉子：置位 DO0=1 失败 (%1)").arg(r.errorMessage));
     }
+}
+
+/**
+ * @brief 打钉子按钮松开：输出口 DO0 复位为低电平（0）
+ */
+void MainWindow::on_btnNail_released()
+{
+    if (!m_robotController || !m_robotController->isConnected()) {
+        return;
+    }
+    ZmotionAPI* api = m_robotController->getMotionController()->getZmotionAPI();
+    if (!api) {
+        return;
+    }
+    ZmotionResult r = api->setOp(0, 0);
+    qDebug() << "[打钉子] 松开复位 DO0=0，成功=" << r.success;
 }
 
 /**
@@ -1137,7 +1154,9 @@ void MainWindow::initPositionDisplay()
     connect(ui->btnOpHome, &QPushButton::clicked, this, &MainWindow::onHomingClicked);
     connect(ui->btnOpStop, &QPushButton::clicked, this, &MainWindow::onBtnStop);
     connect(ui->btnOpShutdown, &QPushButton::clicked, this, &MainWindow::onBtnShutdown);
-    connect(ui->btnOpNail, &QPushButton::clicked, this, &MainWindow::on_btnNail_clicked);
+    // 操作者页打钉子按钮：按下置位 DO0=1、松开复位 DO0=0（电平跟随按钮）
+    connect(ui->btnOpNail, &QPushButton::pressed, this, &MainWindow::on_btnNail_pressed);
+    connect(ui->btnOpNail, &QPushButton::released, this, &MainWindow::on_btnNail_released);
 
     // 运行页面：模式切换单选按钮
     connect(ui->radioJoint, &QRadioButton::toggled, this, [this](bool checked) {
