@@ -72,6 +72,7 @@ private slots:
 
     // 视觉取放水
     void on_btnGetWater_clicked();//拿水按钮点击事件
+    void on_btnNail_clicked();//打钉子按钮点击事件
 
     // VisionMaster 验证（CS-VMC-Dome 桥接）
     void onBtnVerifyVision();                     // 执行验证按钮：启动/关闭 CS-VMC-Dome.exe

@@ -46,6 +46,15 @@ public slots:
 
     /// 运行单行文本（单步调试）
     void runText(const QString& fullText, const QString& sourceLine);
+    /// 编程"运行"按钮回调：解析编辑器脚本并交给 TaskExecutor 执行。
+    /// MainWindow 的快捷流程按钮（如打钉子）也调用它复用整段执行链路。
+    void onProgRun();
+
+    /// 运行指定路径的脚本文件（直接读磁盘，绕过编辑器当前内容）。
+    /// 供"打钉子"等固定流程按钮调用：读取 .rbt 全文，按 "\n---\n"
+    /// 拆分点位区/程序区后复用 runText() 链路执行；任务执行中调用会被忽略。
+    /// 返回是否成功启动。
+    bool runScriptFile(const QString& filePath);
 
     /// 退出单步会话（在"运行"/"停止"按钮回调里调用，使 finish 后走正常分支）
     void exitStepMode() { m_stepMode = false; }
@@ -68,6 +77,7 @@ public slots:
     void onProgInsertDelay();
     void onProgInsertSetDO();
     void onProgInsertWaitDI();
+    void onProgInsertWaitDO();
     void onProgInsertPrint();
     void onProgInsertComment();
     void onProgInsertCall();
@@ -137,7 +147,6 @@ private slots:
     void onClearAlarms();
 
     // === 编程-运行/停止/文件操作 ===
-    void onProgRun();
     void onProgStop();
     void onProgSave();
     void onProgLoad();

@@ -34,6 +34,17 @@ set(PROJECT_SOURCES
     src/vision/cs_vmcontrol/vmwindow/VmWindow.ui
 )
 
+# ============================================================
+# Windows 应用图标
+# resources/robot.rc 引用 resources/robot.ico，把图标嵌入 exe 的 .rsrc 段，
+# 资源管理器/任务栏/Alt-Tab 都会用这个图标。
+# 仅 Windows 生效（.rc 是 Windows 资源文件）。
+# 如需更换图标：用 tools/make_icon.py 重新生成 robot.ico（源图 config/robot.jpeg）。
+# ============================================================
+if(WIN32)
+    list(APPEND PROJECT_SOURCES resources/robot.rc)
+endif()
+
 
 if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)
     qt_add_executable(Robot_R06

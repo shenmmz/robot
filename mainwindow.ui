@@ -1793,6 +1793,46 @@ QPushButton:pressed{
                                                                     </widget>
                                                                 </item>
                                                                 <item>
+                                                                    <widget class="QPushButton" name="btnNail">
+                                                                        <property name="minimumSize">
+                                                                            <size>
+                                                                                <width>130</width>
+                                                                                <height>52</height>
+                                                                            </size>
+                                                                        </property>
+                                                                        <property name="font">
+                                                                            <font>
+                                                                                <family>Microsoft YaHei UI</family>
+                                                                                <pointsize>14</pointsize>
+                                                                                <bold>true</bold>
+                                                                            </font>
+                                                                        </property>
+                                                                        <property name="cursor">
+                                                                            <cursorShape>PointingHandCursor</cursorShape>
+                                                                        </property>
+                                                                        <property name="styleSheet">
+                                                                            <string>QPushButton{
+    background:qlineargradient(x1:0,y1:0,x2:0,y2:1,stop:0 #ffa726,stop:1 #e65100);
+    color:#fff;
+    border:1px solid #bf360c;
+    border-radius:8px;
+    padding:8px 16px;
+}
+QPushButton:hover{
+    background:qlineargradient(x1:0,y1:0,x2:0,y2:1,stop:0 #ffb74d,stop:1 #ef6c00);
+}
+QPushButton:pressed{
+    background:qlineargradient(x1:0,y1:0,x2:0,y2:1,stop:0 #ef6c00,stop:1 #bf360c);
+    padding-top:10px;
+    padding-bottom:6px;
+}</string>
+                                                                        </property>
+                                                                        <property name="text">
+                                                                            <string>🔨 打钉子</string>
+                                                                        </property>
+                                                                    </widget>
+                                                                </item>
+                                                                <item>
                                                                     <spacer name="funcBottomSpacer">
                                                                         <property name="orientation">
                                                                             <enum>Qt::Vertical</enum>
@@ -2923,6 +2963,22 @@ QGroupBox::title{subcontrol-origin:margin;left:14px;padding:0 8px;}</string>
                                                                 </property>
                                                                 <property name="text">
                                                                     <string>WAIT_DI</string>
+                                                                </property>
+                                                            </widget>
+                                                        </item>
+                                                        <item>
+                                                            <widget class="QPushButton" name="btnProgWaitDO">
+                                                                <property name="minimumSize">
+                                                                    <size>
+                                                                        <width>48</width>
+                                                                        <height>24</height>
+                                                                    </size>
+                                                                </property>
+                                                                <property name="styleSheet">
+                                                                    <string>QPushButton{background:#e8eaf6;color:#283593;border:1px solid #9fa8da;border-radius:3px;padding:2px 5px;font-weight:bold;font-size:10px;font-family:Consolas;}QPushButton:hover{background:#c5cae9;}</string>
+                                                                </property>
+                                                                <property name="text">
+                                                                    <string>WAIT_DO</string>
                                                                 </property>
                                                             </widget>
                                                         </item>

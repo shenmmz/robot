@@ -1,0 +1,8 @@
+// robot.rc - Windows 资源文件，把 robot.ico 嵌入 Robot_R06.exe 作为应用图标
+// 资源编译器（RC.exe / windres）会把 ICON 资源写进 exe 的 .rsrc 段，
+// Windows 资源管理器、任务栏、Alt-Tab 切换器都会读取这个图标。
+//
+// 多尺寸（16/24/32/48/64/128/256）由 Pillow 在生成 .ico 时打包好了，
+// 系统按 DPI/场景自动选最合适的那张。
+
+IDI_ICON1 ICON "robot.ico"

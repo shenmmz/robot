@@ -193,6 +193,7 @@ void UiController::init()
     // IO 类
     connProgBtn(QStringLiteral("btnProgSetDO"),    &UiController::onProgInsertSetDO);
     connProgBtn(QStringLiteral("btnProgWaitDI"),   &UiController::onProgInsertWaitDI);
+    connProgBtn(QStringLiteral("btnProgWaitDO"),   &UiController::onProgInsertWaitDO);
     // 输出类
     connProgBtn(QStringLiteral("btnProgPrint"),    &UiController::onProgInsertPrint);
     connProgBtn(QStringLiteral("btnProgComment"),  &UiController::onProgInsertComment);
@@ -2405,6 +2406,61 @@ void UiController::runText(const QString& text, const QString& sourceLine)
 }
 
 /**
+ * @brief 运行指定路径的脚本文件（直接读磁盘，绕过编辑器当前内容）。
+ *
+ * 与 onProgRun 复用同一执行链路（parseScript → TaskExecutor::start），
+ * 不同点：
+ *   1. 脚本来源是磁盘上的 .rbt 文件，而非编辑器两个区域拼出的文本；
+ *   2. 任务执行中调用直接忽略，不具备 onProgRun 的"运行/停止两态切换"；
+ *   3. 不修改编辑器打开状态与 m_currentScriptPath（临时指向文件，runText 后恢复）。
+ * 供"打钉子"等固定流程按钮使用，避免误跑到编辑器正在编辑的其他流程。
+ */
+bool UiController::runScriptFile(const QString& filePath)
+{
+    // 防重入：任务已在执行/暂停时直接忽略，不切换、不停止
+    if (m_taskExecutor && (m_taskExecutor->isRunning() || m_taskExecutor->isPaused()))
+        return false;
+    if (!m_robotController || !m_robotController->isConnected()) {
+        QMessageBox::warning(nullptr, QStringLiteral("未连接"),
+                             QStringLiteral("请先连接控制器"));
+        return false;
+    }
+
+    QFile file(filePath);
+    if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
+        QMessageBox::warning(nullptr, QStringLiteral("运行脚本"),
+                             QStringLiteral("无法打开脚本文件:\n%1").arg(filePath));
+        return false;
+    }
+    QTextStream stream(&file);
+    QString content = stream.readAll();
+    file.close();
+
+    // 与 onProgLoad 一致：按 "\n---\n" 拆"点位区 + 程序区"后合并为完整脚本文本
+    QString text;
+    int sep = content.indexOf(QStringLiteral("\n---\n"));
+    if (sep >= 0) {
+        text  = content.left(sep).trimmed();
+        text += QStringLiteral("\n") + content.mid(sep + 5).trimmed();
+    } else {
+        text = content.trimmed();
+    }
+    if (text.isEmpty()) {
+        QMessageBox::warning(nullptr, QStringLiteral("运行脚本"),
+                             QStringLiteral("脚本文件内容为空:\n%1").arg(filePath));
+        return false;
+    }
+
+    // 临时把"当前脚本路径"指向磁盘文件（供日志文件名与 CALL 子脚本同目录解析），
+    // runText 内部已把路径传给 TaskExecutor，此处恢复不影响执行。
+    const QString savedPath = m_currentScriptPath;
+    m_currentScriptPath = filePath;
+    runText(text, QString());
+    m_currentScriptPath = savedPath;
+    return true;
+}
+
+/**
  * @brief 单步执行：解析整脚本，设置指令队列，然后调用 TaskExecutor::stepOnce()。
  *
  * 行为：
@@ -2556,10 +2612,11 @@ ScriptCommand UiController::parseParamSet(ScriptCmdType type, int prefixLen, con
 }
 
 /**
- * @brief 解析 IF/SET_DO/WAIT_DI/WHILE_DI 指令
+ * @brief 解析 IF/SET_DO/WAIT_DI/WAIT_DO/WHILE_DI 指令
  *   - IF(DI/DO, io, val)        → IfIO
  *   - SET_DO(io, val)             → SetDO
  *   - WAIT_DI(io, val, timeout)   → WaitDI  (三参,多一个 ioTimeout)
+ *   - WAIT_DO(io, val, timeout)   → WaitDO  (三参,多一个 ioTimeout)
  *   - WHILE_DI(io, val)           → WhileDI
  */
 ScriptCommand UiController::parseIO(ScriptCmdType type, int prefixLen, const QString& line,
@@ -2577,7 +2634,7 @@ ScriptCommand UiController::parseIO(ScriptCmdType type, int prefixLen, const QSt
         cmd.ioIndex = parts[0].trimmed().toInt();
         cmd.ioValue = parts[1].trimmed().toInt();
     }
-    if (type == ScriptCmdType::WaitDI && parts.size() >= 3)
+    if ((type == ScriptCmdType::WaitDI || type == ScriptCmdType::WaitDO) && parts.size() >= 3)
         cmd.ioTimeout = parts[2].trimmed().toInt();
     return cmd;
 }
@@ -2644,6 +2701,7 @@ ScriptCommand UiController::parseOffCmd(ScriptCmdType type, const QString& line,
  *   - DELAY(ms)                                 → 延时（毫秒）
  *   - SET_DO(io, val)                           → 写数字输出
  *   - WAIT_DI(io, val, timeout)                 → 等待 DI 状态
+ *   - WAIT_DO(io, val, timeout)                 → 等待 DO 状态
  *   - PRINT("text")                             → 打印文本到控制台
  *   - CALL("file.rbt")                          → 调用子脚本（子脚本由外部解析）
  *   - # 注释                                    → 整行注释，忽略
@@ -2853,6 +2911,8 @@ QList<ScriptCommand> UiController::parseScript(const QString& text)
             result.append(parseIO(ScriptCmdType::SetDO, 7, line, defSpd, defAcc, defDecel, defTimeout));
         } else if (line.startsWith(QStringLiteral("WAIT_DI("), Qt::CaseInsensitive)) {
             result.append(parseIO(ScriptCmdType::WaitDI, 8, line, defSpd, defAcc, defDecel, defTimeout));
+        } else if (line.startsWith(QStringLiteral("WAIT_DO("), Qt::CaseInsensitive)) {
+            result.append(parseIO(ScriptCmdType::WaitDO, 8, line, defSpd, defAcc, defDecel, defTimeout));
         } else if (line.startsWith(QStringLiteral("PRINT(\""), Qt::CaseInsensitive)) {
             ScriptCommand c = parseQuoted(ScriptCmdType::Print, line, defSpd, defAcc, defDecel, defTimeout);
             c.sourceLine = line; c.sourceLineNo = srcLineNo;
@@ -3248,6 +3308,26 @@ void UiController::onProgInsertWaitDI()
         QStringLiteral("超时 (毫秒):"), 5000, 0, 60000, 100, &ok);
     if (ok)
         insertAtCursor(QStringLiteral("WAIT_DI(%1, %2, %3)").arg(idx).arg(exp).arg(timeout));
+}
+
+/**
+ * @brief "插入 WAIT_DO"按钮回调：等待指定 DO 变为期望电平（带超时）
+ *
+ * 三次弹窗依次输入：DO 编号 / 期望值 / 超时毫秒数。
+ */
+void UiController::onProgInsertWaitDO()
+{
+    bool ok = false;
+    int idx = QInputDialog::getInt(nullptr, QStringLiteral("WAIT_DO"),
+        QStringLiteral("DO 编号 (0-19):"), 0, 0, 19, 1, &ok);
+    if (!ok) return;
+    int exp = QInputDialog::getInt(nullptr, QStringLiteral("WAIT_DO"),
+        QStringLiteral("期望值 (0=低电平触发, 1=高电平):"), 0, 0, 1, 1, &ok);
+    if (!ok) return;
+    int timeout = QInputDialog::getInt(nullptr, QStringLiteral("WAIT_DO"),
+        QStringLiteral("超时 (毫秒):"), 5000, 0, 60000, 100, &ok);
+    if (ok)
+        insertAtCursor(QStringLiteral("WAIT_DO(%1, %2, %3)").arg(idx).arg(exp).arg(timeout));
 }
 
 /**

@@ -59,3 +59,10 @@ Desktop.ini
 # Git 澶囦唤鐩綍
 .git_backup_*/
 # Claude 工具缓存目录.claude/
+
+# 新增忽略：Claude 配置与 task 临时副本
+.claude/
+*copy*.rbt
+*副本*.rbt
+test_*.rbt
+

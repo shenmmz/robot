@@ -733,6 +733,61 @@ void MainWindow::on_pushButton_6_clicked()
 }
 
 /**
+ * @brief 打钉子按钮：固定运行打钉子专用流程 task/test.rbt。
+ *
+ * 防重入规则：
+ *   1. 点击一次 → 执行一次固定流程（UiController::runScriptFile 直接读磁盘
+ *      task/test.rbt，与编辑器当前加载的任意流程完全解耦）；
+ *   2. 流程执行中再次点击 → 直接忽略（不重启、不停止）；
+ *   3. 等待流程跑完后，下一次点击才生效。
+ * 无传感器方案：流程内部用 SET_DO + DELAY 固定脉宽触发钉枪，不依赖输入口。
+ */
+void MainWindow::on_btnNail_clicked()
+{
+    if (!m_robotController || !m_robotController->isConnected()) {
+        QMessageBox::warning(this, QStringLiteral("打钉子"),
+            QStringLiteral("请先连接控制器"));
+        return;
+    }
+
+    // 若监听循环（task/test.rbt 的 WHILE TRUE）尚未运行，先启动它；
+    // 已在运行（任务执行中）时跳过启动，仅置位 DO0=1 作为触发信号（防重入）。
+    const bool listening = (m_uiController != nullptr) && m_uiController->isTaskRunning();
+    if (!listening) {
+        // 固定定位可执行程序旁的 task/test.rbt（exe 位于 build 子目录时上跳一级到工程根）
+        QString nailScript;
+        const QString exeDir = QCoreApplication::applicationDirPath();
+        if (QFileInfo::exists(exeDir + QStringLiteral("/task/test.rbt")))
+            nailScript = exeDir + QStringLiteral("/task/test.rbt");
+        else if (QFileInfo::exists(exeDir + QStringLiteral("/../task/test.rbt")))
+            nailScript = exeDir + QStringLiteral("/../task/test.rbt");
+        if (nailScript.isEmpty() || !m_uiController) {
+            QMessageBox::warning(this, QStringLiteral("打钉子"),
+                QStringLiteral("未找到打钉子流程文件 task/test.rbt，请确认工程目录结构"));
+            return;
+        }
+        if (!m_uiController->runScriptFile(nailScript)) {
+            ui->statusbar->showMessage(QStringLiteral("打钉子：监听循环未能启动"));
+            return;
+        }
+    }
+
+    // 点击 = 置位上位机输出口 DO0=1，作为打钉触发信号（脚本 WHILE 循环阻塞等待 DO0 变 1）
+    ZmotionAPI* api = m_robotController->getMotionController()->getZmotionAPI();
+    if (!api) {
+        ui->statusbar->showMessage(QStringLiteral("打钉子：控制器接口不可用"));
+        return;
+    }
+    ZmotionResult r = api->setOp(0, 1);
+    qDebug() << "[打钉子] 置位 DO0=1，触发信号成功=" << r.success;
+    if (r.success) {
+        ui->statusbar->showMessage(QStringLiteral("打钉子：已置位 DO0=1，触发打钉流程"));
+    } else {
+        ui->statusbar->showMessage(QStringLiteral("打钉子：置位 DO0=1 失败 (%1)").arg(r.errorMessage));
+    }
+}
+
+/**
  * @brief 拿水按钮：移动至拍照位 → 视觉定位 → 抓取 → 回拍照位
  */
 void MainWindow::on_btnGetWater_clicked()
@@ -1744,6 +1799,7 @@ void MainWindow::initManualProgUI()
         lay->addWidget(s1);
         migrateBtn(ui->btnProgSetDO, lay);  ui->btnProgSetDO->setText(QStringLiteral("设输出"));
         migrateBtn(ui->btnProgWaitDI, lay); ui->btnProgWaitDI->setText(QStringLiteral("等输入"));
+        migrateBtn(ui->btnProgWaitDO, lay); ui->btnProgWaitDO->setText(QStringLiteral("等DO"));
         QFrame* s2 = new QFrame(); s2->setFrameShape(QFrame::VLine);
         s2->setStyleSheet(QStringLiteral("color:#e0e0e0;"));
         lay->addWidget(s2);
@@ -1755,7 +1811,7 @@ void MainWindow::initManualProgUI()
         migrateBtn(ui->btnProgSet, lay);    ui->btnProgSet->setText(QStringLiteral("赋值"));
         // 统一逻辑按钮样式
         for (QPushButton* b : {ui->btnProgWaitIdle, ui->btnProgDelay, ui->btnProgSetDO,
-                                ui->btnProgWaitDI, ui->btnProgIfIO, ui->btnProgElse, ui->btnProgSet}) {
+                                ui->btnProgWaitDI, ui->btnProgWaitDO, ui->btnProgIfIO, ui->btnProgElse, ui->btnProgSet}) {
             b->setMinimumSize(76, 36);
             b->setFont(QFont(b->font().family(), 11, QFont::Bold));
             b->setStyleSheet(QStringLiteral(

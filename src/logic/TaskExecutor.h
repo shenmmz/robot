@@ -2,7 +2,7 @@
  * @file TaskExecutor.h
  * @brief 任务执行器——管理脚本指令队列的逐步执行、暂停、恢复与停止。
  *
- * 支持 MOVEJ/MOVEL/WAIT_IDLE/DELAY/SET_DO/WAIT_DI/PRINT/CALL 等指令。
+ * 支持 MOVEJ/MOVEL/WAIT_IDLE/DELAY/SET_DO/WAIT_DI/WAIT_DO/PRINT/CALL 等指令。
  * 每步执行完成后通过信号通知进度，支持暂停（急停+保留队列）、恢复（继续）、停止（清空）。
  */
 #ifndef TASKEXECUTOR_H

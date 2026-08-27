@@ -578,6 +578,25 @@ bool TaskExecutor::executeCommand(const ScriptCommand& cmd)
             .arg(cmd.ioIndex).arg(cmd.ioTimeout));
         return true;  // 超时不算失败，继续执行
     }
+    case ScriptCmdType::WaitDO: {
+        // 与 WAIT_DI 对称：轮询输出口 DO 电平（getDO），阻塞等待 cmd.ioValue
+        int waited = 0;
+        while (waited < cmd.ioTimeout) {
+            if (m_state != Running) return false;
+            int val = api->getDO(cmd.ioIndex);
+            if (val == cmd.ioValue) {
+                emit consoleOutput(QStringLiteral("[INFO] WAIT_DO %1 → %2 匹配 (%3ms)")
+                    .arg(cmd.ioIndex).arg(cmd.ioValue).arg(waited));
+                return true;
+            }
+            QCoreApplication::processEvents();
+            QThread::msleep(30);
+            waited += 30;
+        }
+        emit consoleOutput(QStringLiteral("[WARN] WAIT_DO %1 超时 (%2ms)")
+            .arg(cmd.ioIndex).arg(cmd.ioTimeout));
+        return true;  // 超时不算失败，继续执行
+    }
     case ScriptCmdType::Print: {
         emit consoleOutput(QStringLiteral("[PRINT] %1").arg(cmd.printText));
         return true;
@@ -839,6 +858,10 @@ bool TaskExecutor::executeCommand(const ScriptCommand& cmd)
                 if (parts.size() >= 2) { sub.ioIndex = parts[0].trimmed().toInt(); sub.ioValue = parts[1].trimmed().toInt(); }
             } else if (trimmed.startsWith(QStringLiteral("WAIT_DI("), Qt::CaseInsensitive)) {
                 sub.type = ScriptCmdType::WaitDI;
+                auto parts = trimmed.mid(8, trimmed.indexOf(QChar::fromLatin1(')')) - 8).split(QChar::fromLatin1(','));
+                if (parts.size() >= 3) { sub.ioIndex = parts[0].trimmed().toInt(); sub.ioValue = parts[1].trimmed().toInt(); sub.ioTimeout = parts[2].trimmed().toInt(); }
+            } else if (trimmed.startsWith(QStringLiteral("WAIT_DO("), Qt::CaseInsensitive)) {
+                sub.type = ScriptCmdType::WaitDO;
                 auto parts = trimmed.mid(8, trimmed.indexOf(QChar::fromLatin1(')')) - 8).split(QChar::fromLatin1(','));
                 if (parts.size() >= 3) { sub.ioIndex = parts[0].trimmed().toInt(); sub.ioValue = parts[1].trimmed().toInt(); sub.ioTimeout = parts[2].trimmed().toInt(); }
             } else if (trimmed.startsWith(QStringLiteral("PRINT(\""), Qt::CaseInsensitive)) {
@@ -1161,6 +1184,7 @@ void TaskExecutor::printMoveCommand(const ScriptCommand& cmd, int idx, int total
     case ScriptCmdType::Delay:   prefix = QStringLiteral("DELAY"); break;
     case ScriptCmdType::SetDO:   prefix = QStringLiteral("SET_DO"); break;
     case ScriptCmdType::WaitDI:  prefix = QStringLiteral("WAIT_DI"); break;
+    case ScriptCmdType::WaitDO:  prefix = QStringLiteral("WAIT_DO"); break;
     case ScriptCmdType::WaitIdle:prefix = QStringLiteral("WAIT_IDLE"); break;
     case ScriptCmdType::Print:   prefix = QStringLiteral("PRINT"); break;
     case ScriptCmdType::ReadPos: prefix = QStringLiteral("READ_POS"); break;

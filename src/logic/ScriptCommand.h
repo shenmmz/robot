@@ -19,6 +19,7 @@ enum class ScriptCmdType {
     Delay,      // 延时毫秒
     SetDO,      // 设置数字输出
     WaitDI,     // 等待数字输入
+    WaitDO,     // 等待数字输出
     ReadPos,    // 读取当前位置到控制台
     Print,      // 打印到控制台
     Call,       // 调用子脚本文件
