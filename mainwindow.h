@@ -33,6 +33,7 @@ class VmWindow;            // 视觉方案操作窗口（从 CS-VMC-Dome 集成�
 class QCheckBox;         // 复选框控件（如六轴使能勾选）
 class QDoubleSpinBox;    // 双精度数值输入框（角度/速度等参数）
 class ServoTestWidget;   // 舵机设置界面
+class QWidget;
 
 QT_BEGIN_NAMESPACE
 namespace Ui {
@@ -49,6 +50,7 @@ public:
     ~MainWindow();
 
     static QString findConfigFile();
+    void updateOpOverlayProgress(int current, int total);  // 更新暂停覆盖层的进度信息
 
 private slots:
     void onScanClicked();                           // 扫描控制器
@@ -88,9 +90,13 @@ void on_btnNail_released();//打钉子按钮：松开复位 DO0=0
     void onSetOrigin();                          // 原点设置按钮（将当前位置写入Flash作为自定义原点；该按钮放置在调节弹窗的关节模式界面中）
 
     // 运行页面
-    void onBtnStop();                            // 急停按钮（立即停止所有运动）
+    void onBtnStop();                            // 停止按钮（暂停/停止任务）
     void onBtnShutdown();                        // 关机按钮（安全停止 + 禁用轴）
     void onRadioModeChanged();                   // 运行模式切换（关节/笛卡尔/视觉等）
+
+    // 操作者界面
+    void onBtnOpPause();                         // 暂停按钮（输入口 IN10：暂停/恢复切换）
+    void onBtnOpEStop();                         // 急停按钮（输入口 IN9：急停/解除并重新执行）
 
     // 编程页面
     void onGetJoints();                          // 获取当前关节角度（写入编程块）
@@ -200,5 +206,16 @@ private:
     bool checkLoginGate();                       // 检查登录状态（返回 true 表示已登录或弹窗已处理）
     QString getAccountConfigPath() const;        // 获取账号配置文件路径
     bool m_loggedIn = false;                     // 是否已登录开发者账号
+
+    // ===== 操作者界面 暂停/急停（对应输入口 IN10/IN9）=====
+    bool m_opEStop = false;                      // 输入口 IN9 电平：false=0(急停解除) / true=1(急停激活)
+    bool m_opPause = false;                      // 输入口 IN10 电平：false=0(未暂停) / true=1(暂停中)
+    QString m_opScriptPath;                      // 操作界面当前流程脚本路径（急停解除后重新执行）
+    QWidget* m_opOverlay = nullptr;              // 暂停/急停 大提示覆盖层
+
+    void showOpOverlay(const QString& text, bool isEStop);  // 显示半透明遮罩 + 居中提示面板（isEStop=true 急停态 false 暂停态）
+    void closeOpOverlay();                       // 关闭状态提示覆盖层
+    QString locateOpScript() const;              // 定位操作界面流程脚本 task/test.rbt
+    void restartOpScript();                      // 急停解除后重新执行流程脚本
 };
 #endif // MAINWINDOW_H

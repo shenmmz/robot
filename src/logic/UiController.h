@@ -18,24 +18,35 @@ class QPlainTextEdit;
 class QPushButton;
 class RobotController;
 class TaskExecutor;
+class MainWindow;
 
 class UiController : public QObject
 {
     Q_OBJECT
 
 public:
-    explicit UiController(QWidget* mainWindow, RobotController* robotCtrl, QObject* parent = nullptr);
+    explicit UiController(MainWindow* mainWindow, RobotController* robotCtrl, QObject* parent = nullptr);
     ~UiController();
 
     void init();
 
 signals:
     void jogCompleted();
+    void opPauseTriggered();    // 物理按钮 IN10 下降沿 → 请求暂停/恢复
+    void opEStopTriggered();   // 物理按钮 IN9 下降沿 → 请求急停/解除
 
 public slots:
     void runTestPoints();
     void pauseOrResumeTask();
     bool isTaskRunning() const;
+
+    // ===== 操作界面 暂停/急停 按钮专用（对应输入口 IN10/IN9）=====
+    /// 暂停任务：仅当任务运行中时暂停（IN10 置位语义）
+    void pauseTask();
+    /// 恢复任务：仅当任务暂停中时从断点继续（IN10 复位语义）
+    void resumeTask();
+    /// 停止任务：彻底结束当前 rbt 流程并停机（IN9 置位语义）
+    void stopTask();
 
     // 编程-插入指令（供 MainWindow 调用）
     void onProgInsertMoveJ();
@@ -171,7 +182,7 @@ private slots:
     void onDebugModeToggled(bool checked);
 
 private:
-    QWidget* m_mainWindow;
+    MainWindow* m_mainWindow;
     RobotController* m_robotController;
     TaskExecutor* m_taskExecutor = nullptr;
     QWidget* m_centralWidget = nullptr;

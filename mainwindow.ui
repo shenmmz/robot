@@ -456,7 +456,7 @@ QPushButton:hover{background:rgba(255,255,255,0.06);color:#cfd8dc;}
 QPushButton:checked{background:rgba(21,101,192,0.18);color:#fff;border-left:3px solid #1565c0;font-weight:bold;}</string>
                                                 </property>
                                                 <property name="text">
-                                                    <string>操作者</string>
+                                                    <string>操作界面</string>
                                                 </property>
                                                 <property name="checkable">
                                                     <bool>true</bool>
@@ -6383,7 +6383,7 @@ QPushButton:pressed{background:#ccc;}</string>
                                                         <string>color:#888;font-size:11px;border:none;background:transparent;font-weight:normal;</string>
                                                     </property>
                                                     <property name="text">
-                                                        <string>操作者界面 &gt; 常用功能</string>
+                                                        <string>操作界面 &gt; 常用功能</string>
                                                     </property>
                                                 </widget>
                                             </item>
@@ -6436,18 +6436,18 @@ QPushButton:pressed{background:#ccc;}</string>
                                                                     </property>
                                                                     <property name="minimumSize">
                                                                         <size>
-                                                                            <width>280</width>
-                                                                            <height>148</height>
+                                                                            <width>220</width>
+                                                                            <height>120</height>
                                                                         </size>
                                                                     </property>
                                                                     <property name="maximumSize">
                                                                         <size>
-                                                                            <width>280</width>
-                                                                            <height>148</height>
+                                                                            <width>220</width>
+                                                                            <height>120</height>
                                                                         </size>
                                                                     </property>
                                                                     <property name="styleSheet">
-                                                                        <string>QPushButton{font-size:40px;font-weight:bold;border-radius:16px;background:#FFFFFF;color:#2563EB;border:2px solid #2563EB;} QPushButton:hover{background:#EFF4FF;} QPushButton:pressed{background:#DBEAFE;color:#1D4ED8;}</string>
+                                                                        <string>QPushButton{font-size:36px;font-weight:bold;border-radius:16px;background:#FFFFFF;color:#2563EB;border:2px solid #2563EB;} QPushButton:hover{background:#EFF4FF;} QPushButton:pressed{background:#DBEAFE;color:#1D4ED8;}</string>
                                                                     </property>
                                                                     <property name="text">
                                                                         <string>回零</string>
@@ -6464,18 +6464,18 @@ QPushButton:pressed{background:#ccc;}</string>
                                                                     </property>
                                                                     <property name="minimumSize">
                                                                         <size>
-                                                                            <width>280</width>
-                                                                            <height>148</height>
+                                                                            <width>220</width>
+                                                                            <height>120</height>
                                                                         </size>
                                                                     </property>
                                                                     <property name="maximumSize">
                                                                         <size>
-                                                                            <width>280</width>
-                                                                            <height>148</height>
+                                                                            <width>220</width>
+                                                                            <height>120</height>
                                                                         </size>
                                                                     </property>
                                                                     <property name="styleSheet">
-                                                                        <string>QPushButton{font-size:40px;font-weight:bold;border-radius:21px;background:#FEF3C7;color:#EA580C;border:2px solid #EA580C;} QPushButton:hover{background:#FDE68A;} QPushButton:pressed{background:#FCD34D;color:#C2410C;}</string>
+                                                                        <string>QPushButton{font-size:36px;font-weight:bold;border-radius:21px;background:#FEF3C7;color:#EA580C;border:2px solid #EA580C;} QPushButton:hover{background:#FDE68A;} QPushButton:pressed{background:#FCD34D;color:#C2410C;}</string>
                                                                     </property>
                                                                     <property name="text">
                                                                         <string>暂停</string>
@@ -6483,7 +6483,35 @@ QPushButton:pressed{background:#ccc;}</string>
                                                                 </widget>
                                                             </item>
                                                             <item>
-                                                                <widget class="QPushButton" name="btnOpShutdown">
+                                    <widget class="QPushButton" name="btnOpStopAll">
+                                        <property name="sizePolicy">
+                                            <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+                                                <horstretch>0</horstretch>
+                                                <verstretch>0</verstretch>
+                                            </sizepolicy>
+                                        </property>
+                                        <property name="minimumSize">
+                                            <size>
+                                                <width>220</width>
+                                                <height>120</height>
+                                            </size>
+                                        </property>
+                                        <property name="maximumSize">
+                                            <size>
+                                                <width>220</width>
+                                                <height>120</height>
+                                            </size>
+                                        </property>
+                                        <property name="styleSheet">
+                                            <string>QPushButton{font-size:36px;font-weight:bold;border-radius:16px;background:#DC2626;color:#FFFFFF;border:2px solid #7F1D1D;} QPushButton:hover{background:#B91C1C;} QPushButton:pressed{background:#991B1B;color:#FECACA;}</string>
+                                        </property>
+                                        <property name="text">
+                                            <string>急停</string>
+                                        </property>
+                                    </widget>
+                                </item>
+<item>
+<widget class="QPushButton" name="btnOpShutdown">
                                                                     <property name="sizePolicy">
                                                                         <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
                                                                             <horstretch>0</horstretch>
@@ -6492,18 +6520,18 @@ QPushButton:pressed{background:#ccc;}</string>
                                                                     </property>
                                                                     <property name="minimumSize">
                                                                         <size>
-                                                                            <width>280</width>
-                                                                            <height>148</height>
+                                                                            <width>220</width>
+                                                                            <height>120</height>
                                                                         </size>
                                                                     </property>
                                                                     <property name="maximumSize">
                                                                         <size>
-                                                                            <width>280</width>
-                                                                            <height>148</height>
+                                                                            <width>220</width>
+                                                                            <height>120</height>
                                                                         </size>
                                                                     </property>
                                                                     <property name="styleSheet">
-                                                                        <string>QPushButton{font-size:40px;font-weight:bold;border-radius:16px;background:#FEE2E2;color:#DC2626;border:2px solid #DC2626;} QPushButton:hover{background:#FECACA;} QPushButton:pressed{background:#FCA5A5;color:#B91C1C;}</string>
+                                                                        <string>QPushButton{font-size:36px;font-weight:bold;border-radius:16px;background:#FEE2E2;color:#DC2626;border:2px solid #DC2626;} QPushButton:hover{background:#FECACA;} QPushButton:pressed{background:#FCA5A5;color:#B91C1C;}</string>
                                                                     </property>
                                                                     <property name="text">
                                                                         <string>关机</string>
@@ -6520,18 +6548,18 @@ QPushButton:pressed{background:#ccc;}</string>
                                                                     </property>
                                                                     <property name="minimumSize">
                                                                         <size>
-                                                                            <width>280</width>
-                                                                            <height>148</height>
+                                                                            <width>220</width>
+                                                                            <height>120</height>
                                                                         </size>
                                                                     </property>
                                                                     <property name="maximumSize">
                                                                         <size>
-                                                                            <width>280</width>
-                                                                            <height>148</height>
+                                                                            <width>220</width>
+                                                                            <height>120</height>
                                                                         </size>
                                                                     </property>
                                                                     <property name="styleSheet">
-                                                                        <string>QPushButton{font-size:48px;font-weight:bold;border-radius:27px;background:qlineargradient(x1:0,y1:0,x2:0,y2:1,stop:0 #F59E0B,stop:1 #DC2626);color:#fff;border:none;} QPushButton:hover{background:qlineargradient(x1:0,y1:0,x2:0,y2:1,stop:0 #FBBF24,stop:1 #EF4444);} QPushButton:pressed{background:qlineargradient(x1:0,y1:0,x2:0,y2:1,stop:0 #D97706,stop:1 #B91C1C);color:#FEF2F2;}</string>
+                                                                        <string>QPushButton{font-size:40px;font-weight:bold;border-radius:27px;background:qlineargradient(x1:0,y1:0,x2:0,y2:1,stop:0 #F59E0B,stop:1 #DC2626);color:#fff;border:none;} QPushButton:hover{background:qlineargradient(x1:0,y1:0,x2:0,y2:1,stop:0 #FBBF24,stop:1 #EF4444);} QPushButton:pressed{background:qlineargradient(x1:0,y1:0,x2:0,y2:1,stop:0 #D97706,stop:1 #B91C1C);color:#FEF2F2;}</string>
                                                                     </property>
                                                                     <property name="text">
                                                                         <string>打钉子</string>

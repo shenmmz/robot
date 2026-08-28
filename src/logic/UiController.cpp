@@ -75,7 +75,7 @@
  * @param robotCtrl   机械臂核心业务控制器，用于下发运动指令和读取状态
  * @param parent      Qt 父对象
  */
-UiController::UiController(QWidget* mainWindow, RobotController* robotCtrl, QObject* parent)
+UiController::UiController(MainWindow* mainWindow, RobotController* robotCtrl, QObject* parent)
     : QObject(parent)
     , m_mainWindow(mainWindow)
     , m_robotController(robotCtrl)
@@ -328,10 +328,33 @@ void UiController::refreshIO()
     }
 
     // 读取 DI 状态（NPN型，低电平=触发=active），共 24 个（DI0~DI23）
+    // DI 使能掩码：DI0-8 接原点/限位传感器，DI9 接急停按钮，DI10 接暂停按钮
+    // DI11-23 未接传感器，端子悬空会读到低电平导致误显示为绿色，强制白色
+    // DI9/DI10 接的是常闭型(NC)按钮：松开=0V(低)，按下=24V(高)，需反转显示
+    static const QSet<int> enabledDIs = {0,1,2,3,4,5,6,7,8,9,10};
     for (int i = 0; i < 24; ++i) {
-        int val = api->getDI(i);
-        setIOIndicator(QStringLiteral("di%1").arg(i), (val == 0));
+        if (enabledDIs.contains(i)) {
+            int val = api->getDI(i);
+            if (i == 9 || i == 10) {
+                // NC型按钮：按下=1(高电平)→绿色，松开=0(低电平)→白色
+                setIOIndicator(QStringLiteral("di%1").arg(i), (val == 1));
+            } else {
+                setIOIndicator(QStringLiteral("di%1").arg(i), (val == 0));
+            }
+        } else {
+            setIOIndicator(QStringLiteral("di%1").arg(i), false);
+        }
     }
+
+    // IN9/IN10 物理按钮边沿检测（NC型：按下=1高电平，松开=0低电平，检测上升沿=按下）
+    bool in9Active = (api->getDI(9) == 1);
+    bool in10Active = (api->getDI(10) == 1);
+    bool prevIn9 = m_ioStateCache.value(QStringLiteral("IN9"), false);
+    bool prevIn10 = m_ioStateCache.value(QStringLiteral("IN10"), false);
+    if (in9Active && !prevIn9) emit opEStopTriggered();
+    if (in10Active && !prevIn10) emit opPauseTriggered();
+    m_ioStateCache[QStringLiteral("IN9")] = in9Active;
+    m_ioStateCache[QStringLiteral("IN10")] = in10Active;
 
     // 读取 DO 状态（输出=1 视为 active），共 20 个（DO0~DO19）
     for (int i = 0; i < 20; ++i) {
@@ -358,10 +381,10 @@ void UiController::setIOIndicator(const QString& frameName, bool active)
 
     if (active) {
         frame->setStyleSheet(QStringLiteral(
-            "QFrame{background:#c8e6c9;border:1px solid #a5d6a7;border-radius:6px;}"));
+            "QFrame{background:#4caf50;border:1px solid #388e3c;border-radius:6px;color:white;font-weight:bold;}"));
     } else {
         frame->setStyleSheet(QStringLiteral(
-            "QFrame{background:#f5f5f5;border:1px solid #ddd;border-radius:6px;}"));
+            "QFrame{background:#ffffff;border:1px solid #ccc;border-radius:6px;}"));
     }
 }
 
@@ -3872,6 +3895,42 @@ void UiController::pauseOrResumeTask()
 }
 
 /**
+ * @brief 暂停当前任务（操作界面暂停按钮，对应输入口 IN10 置位）
+ *
+ * 仅当任务运行中时暂停；任务空闲/已暂停时不产生副作用。
+ */
+void UiController::pauseTask()
+{
+    if (m_taskExecutor && m_taskExecutor->isRunning()) {
+        m_taskExecutor->pause();
+    }
+}
+
+/**
+ * @brief 恢复当前任务（操作界面暂停按钮，对应输入口 IN10 复位）
+ *
+ * 仅当任务暂停中时从断点继续执行；其余状态忽略。
+ */
+void UiController::resumeTask()
+{
+    if (m_taskExecutor && m_taskExecutor->isPaused()) {
+        m_taskExecutor->resume();
+    }
+}
+
+/**
+ * @brief 彻底停止当前任务（操作界面急停按钮，对应输入口 IN9 置位）
+ *
+ * 无论任务当前处于运行/暂停状态，一律结束 rbt 流程并使机械臂停下。
+ */
+void UiController::stopTask()
+{
+    if (m_taskExecutor) {
+        m_taskExecutor->stop();
+    }
+}
+
+/**
  * @brief 判断任务是否正在运行或暂停中（供 UI 判断按钮状态）
  */
 bool UiController::isTaskRunning() const
@@ -3894,9 +3953,10 @@ void UiController::onTaskProgress(int current, int total)
 }
 
 /**
- * @brief 任务暂停回调：弹出对话框，让用户选择"继续执行"或"结束任务"
+ * @brief 任务暂停回调：更新操作界面暂停覆盖层的进度信息
  *
- * 选择"结束任务"时会二次确认，避免误操作。
+ * 不再弹出独立的 QMessageBox，"恢复运行"和"结束任务"按钮
+ * 已集成到 MainWindow::showOpOverlay 覆盖层中。
  */
 void UiController::onTaskPaused(int current, int total)
 {
@@ -3904,31 +3964,8 @@ void UiController::onTaskPaused(int current, int total)
     if (auto* btn = m_mainWindow->findChild<QPushButton*>(QStringLiteral("btnProgRun")))
         btn->setText(QStringLiteral("▶ 恢复"));
 
-    QMessageBox msgBox;
-    msgBox.setWindowTitle(QStringLiteral("设备暂停中"));
-    msgBox.setText(QStringLiteral("设备已暂停\n\n当前进度: %1 / %2").arg(current).arg(total));
-    msgBox.setIcon(QMessageBox::Information);
-    QPushButton* btnResume = msgBox.addButton(QStringLiteral("继续执行"), QMessageBox::AcceptRole);
-    msgBox.addButton(QStringLiteral("结束任务"), QMessageBox::DestructiveRole);
-    msgBox.setDefaultButton(btnResume);
-    msgBox.exec();
-
-    if (msgBox.clickedButton() == btnResume) {
-        m_taskExecutor->resume();
-    } else {
-        // 二次确认
-        QMessageBox confirmBox;
-        confirmBox.setWindowTitle(QStringLiteral("确认停止"));
-        confirmBox.setText(QStringLiteral("确定要结束任务吗？\n\n机械臂将保持在当前位置不动。"));
-        confirmBox.setIcon(QMessageBox::Warning);
-        confirmBox.setStandardButtons(QMessageBox::Yes | QMessageBox::No);
-        confirmBox.setDefaultButton(QMessageBox::No);
-        if (confirmBox.exec() == QMessageBox::Yes) {
-            m_taskExecutor->stop();
-            if (auto* sb = m_mainWindow->findChild<QStatusBar*>(QStringLiteral("statusbar")))
-                sb->showMessage(QStringLiteral("是否取消当前任务"));
-        }
-    }
+    // 更新覆盖层进度信息（覆盖层由 onBtnOpPause → showOpOverlay 创建）
+    m_mainWindow->updateOpOverlayProgress(current, total);
 }
 
 /**

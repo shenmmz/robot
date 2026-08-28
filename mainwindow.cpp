@@ -118,6 +118,11 @@ MainWindow::MainWindow(QWidget *parent)
     // 点动完成时立即刷新位置标签
     connect(m_uiController, &UiController::jogCompleted,
             this, &MainWindow::updatePositionDisplay);
+    // 物理按钮 IN10/IN9 → 暂停/急停（下降沿触发，复用 UI 按钮逻辑）
+    connect(m_uiController, &UiController::opPauseTriggered,
+            this, &MainWindow::onBtnOpPause);
+    connect(m_uiController, &UiController::opEStopTriggered,
+            this, &MainWindow::onBtnOpEStop);
 
     // 初始化连接面板
     initConnectionUI();
@@ -756,13 +761,7 @@ void MainWindow::on_btnNail_pressed()
     // 已在运行（任务执行中）时跳过启动，仅置位 DO0=1 作为触发信号（防重入）。
     const bool listening = (m_uiController != nullptr) && m_uiController->isTaskRunning();
     if (!listening) {
-        // 固定定位可执行程序旁的 task/test.rbt（exe 位于 build 子目录时上跳一级到工程根）
-        QString nailScript;
-        const QString exeDir = QCoreApplication::applicationDirPath();
-        if (QFileInfo::exists(exeDir + QStringLiteral("/task/test.rbt")))
-            nailScript = exeDir + QStringLiteral("/task/test.rbt");
-        else if (QFileInfo::exists(exeDir + QStringLiteral("/../task/test.rbt")))
-            nailScript = exeDir + QStringLiteral("/../task/test.rbt");
+        const QString nailScript = locateOpScript();
         if (nailScript.isEmpty() || !m_uiController) {
             QMessageBox::warning(this, QStringLiteral("打钉子"),
                 QStringLiteral("未找到打钉子流程文件 task/test.rbt，请确认工程目录结构"));
@@ -772,6 +771,8 @@ void MainWindow::on_btnNail_pressed()
             ui->statusbar->showMessage(QStringLiteral("打钉子：监听循环未能启动"));
             return;
         }
+        // 记录当前流程脚本路径，供急停解除后"重新执行"复用
+        m_opScriptPath = nailScript;
     }
 
     // 按下 = 置位上位机输出口 DO0=1，作为电平触发信号（松开时由 released 复位为 0）
@@ -1118,6 +1119,254 @@ void MainWindow::onBtnShutdown()
 }
 
 /**
+ * @brief 操作界面 暂停按钮：输入口 IN10 电平切换
+ *
+ * 点击一次 → IN10 置位=1，当前运行的 rbt 流程暂停（机械臂停止运动），
+ *           弹出大提示框「机械臂处于暂停状态」；
+ * 再次点击 → IN10 复位=0，任务从断点继续执行尚未完成的代码，关闭提示框。
+ */
+void MainWindow::onBtnOpPause()
+{
+    if (!m_robotController || !m_robotController->isConnected()) {
+        ui->statusbar->showMessage(QStringLiteral("暂停：控制器未连接"));
+        return;
+    }
+
+    if (m_opPause) {
+        // 已暂停 → 恢复（IN10 复位=0）
+        m_opPause = false;
+        closeOpOverlay();
+        if (m_uiController) m_uiController->resumeTask();
+        qDebug() << "[操作界面] 暂停解除：输入口 IN10 复位=0，任务继续执行";
+        ui->statusbar->showMessage(QStringLiteral("已恢复，任务继续执行"));
+    } else {
+        // 未暂停 → 暂停（IN10 置位=1）
+        m_opPause = true;
+        showOpOverlay(QStringLiteral("机械臂处于暂停状态"), false);
+        if (m_uiController) m_uiController->pauseTask();
+        qDebug() << "[操作界面] 已暂停：输入口 IN10 置位=1";
+        ui->statusbar->showMessage(QStringLiteral("已暂停（IN10=1）"));
+    }
+}
+
+/**
+ * @brief 操作界面 急停按钮：输入口 IN9 电平切换
+ *
+ * 点击一次 → IN9 置位=1，正在执行的 rbt 流程立即结束、机械臂停下，
+ *           弹出大提示框「机械臂处于急停状态」；
+ * 再次点击 → IN9 复位=0，解除急停并重新执行程序（重跑同一流程脚本）。
+ */
+void MainWindow::onBtnOpEStop()
+{
+    if (!m_robotController || !m_robotController->isConnected()) {
+        ui->statusbar->showMessage(QStringLiteral("急停：控制器未连接"));
+        return;
+    }
+
+    if (m_opEStop) {
+        // 已急停 → 解除急停并重新执行（IN9 复位=0）
+        m_opEStop = false;
+        closeOpOverlay();
+        qDebug() << "[操作界面] 急停解除：输入口 IN9 复位=0，程序重新执行";
+        ui->statusbar->showMessage(QStringLiteral("急停解除，程序重新执行"));
+        restartOpScript();
+    } else {
+        // 未急停 → 结束当前流程并停机（IN9 置位=1）
+        m_opEStop = true;
+        if (m_uiController) m_uiController->stopTask();
+        if (m_robotController) m_robotController->stopMotion();
+        showOpOverlay(QStringLiteral("机械臂处于急停状态"), true);
+        qDebug() << "[操作界面] 已急停：输入口 IN9 置位=1，rbt 流程结束，机械臂停止";
+        ui->statusbar->showMessage(QStringLiteral("急停中（IN9=1）"));
+    }
+}
+
+/**
+ * @brief 显示"急停/暂停 状态提示弹窗"
+ *
+ * 不再使用铺满主窗口的半透明遮罩，改为一个居中、固定尺寸、无边框的小弹窗
+ * （460x240），不屏蔽底层界面、用户随时可操作；弹窗内包含：
+ *   - 右上角关闭按钮（✕）：仅关闭提示弹窗，不改变急停/暂停状态；
+ *   - 底部主操作按钮：执行与"再次点击对应按钮"完全一致的逻辑，
+ *     保证不重复触发、不改变底层状态机语义：
+ *       - 急停态：调用 onBtnOpEStop()（解除急停 IN9 复位 + 重新执行流程脚本）
+ *       - 暂停态：调用 onBtnOpPause()（恢复运行 IN10 复位 + resumeTask）
+ *
+ * @param text     状态文案（如「机械臂处于急停状态」）
+ * @param isEStop  true=急停态（按钮文案「解除急停」）；false=暂停态（按钮文案「恢复运行」）
+ */
+void MainWindow::showOpOverlay(const QString& text, bool isEStop)
+{
+    closeOpOverlay();
+    auto* dlg = new QDialog(this);
+    dlg->setModal(false);                                   // 非模态：不屏蔽底层界面操作
+    dlg->setWindowFlags(Qt::Dialog | Qt::FramelessWindowHint); // 无边框，样式与整体界面统一
+    dlg->setObjectName(QStringLiteral("opOverlayDlg"));
+    dlg->setFixedSize(460, isEStop ? 240 : 280);
+    dlg->setStyleSheet(QStringLiteral(
+        "QDialog#opOverlayDlg{background-color:#232a3a;border:2px solid #3d4658;border-radius:12px;}"
+        "QLabel#opTitle{color:#98a2b3;font-size:16px;font-weight:bold;background:transparent;border:none;}"
+        "QLabel#opText{color:#FFFFFF;font-size:28px;font-weight:bold;background:transparent;border:none;}"
+        "QLabel#opProgress{color:#98a2b3;font-size:20px;font-weight:bold;background:transparent;border:none;}"
+        "QPushButton#opClose{background-color:transparent;color:#98a2b3;font-size:18px;font-weight:bold;"
+        "border:none;min-width:30px;min-height:30px;}"
+        "QPushButton#opClose:hover{color:#FFFFFF;background-color:#3d4658;border-radius:6px;}"
+        "QPushButton#opAction{background-color:%1;color:#FFFFFF;font-size:22px;font-weight:bold;"
+        "border:none;border-radius:10px;min-width:170px;min-height:56px;}"
+        "QPushButton#opAction:hover{background-color:%2;}"
+        "QPushButton#opEnd{background-color:#e74c3c;color:#FFFFFF;font-size:22px;font-weight:bold;"
+        "border:none;border-radius:10px;min-width:170px;min-height:56px;}"
+        "QPushButton#opEnd:hover{background-color:#c0392b;}")
+        .arg(isEStop ? QStringLiteral("#e67e22") : QStringLiteral("#27ae60"),
+             isEStop ? QStringLiteral("#f39c12") : QStringLiteral("#2ecc71")));
+
+    auto* root = new QVBoxLayout(dlg);
+    root->setContentsMargins(0, 0, 0, 0);
+    root->setSpacing(0);
+
+    // 顶部：状态标题 + 关闭按钮
+    auto* topBar = new QWidget(dlg);
+    topBar->setStyleSheet(QStringLiteral("background:transparent;"));
+    auto* topLayout = new QHBoxLayout(topBar);
+    topLayout->setContentsMargins(20, 10, 10, 0);
+    auto* title = new QLabel(isEStop ? QStringLiteral("急停状态") : QStringLiteral("暂停状态"), topBar);
+    title->setObjectName(QStringLiteral("opTitle"));
+    auto* closeBtn = new QPushButton(QStringLiteral("×"), topBar);   // 仅关闭提示，不改变状态
+    closeBtn->setObjectName(QStringLiteral("opClose"));
+    closeBtn->setToolTip(QStringLiteral("关闭提示（不改变当前状态）"));
+    topLayout->addWidget(title);
+    topLayout->addStretch();
+    topLayout->addWidget(closeBtn);
+    root->addWidget(topBar);
+
+    // 中部：状态文案 + 进度信息（暂停态）
+    auto* body = new QWidget(dlg);
+    body->setStyleSheet(QStringLiteral("background:transparent;"));
+    auto* bodyLayout = new QVBoxLayout(body);
+    bodyLayout->setContentsMargins(24, 12, 24, 8);
+    auto* lbl = new QLabel(text, body);
+    lbl->setObjectName(QStringLiteral("opText"));
+    lbl->setAlignment(Qt::AlignCenter);
+    bodyLayout->addWidget(lbl);
+    if (!isEStop) {
+        auto* progressLbl = new QLabel(QStringLiteral("等待进度..."), body);
+        progressLbl->setObjectName(QStringLiteral("opProgress"));
+        progressLbl->setAlignment(Qt::AlignCenter);
+        bodyLayout->addWidget(progressLbl);
+    }
+    root->addWidget(body, 1);
+
+    // 底部：操作按钮（暂停态含"结束任务"）
+    auto* footer = new QWidget(dlg);
+    footer->setStyleSheet(QStringLiteral("background:transparent;"));
+    auto* footerLayout = new QHBoxLayout(footer);
+    footerLayout->setContentsMargins(20, 8, 20, 20);
+    footerLayout->setSpacing(20);
+    auto* actionBtn = new QPushButton(isEStop ? QStringLiteral("解除急停")
+                                              : QStringLiteral("恢复运行"), footer);
+    actionBtn->setObjectName(QStringLiteral("opAction"));
+    footerLayout->addWidget(actionBtn);
+    if (!isEStop) {
+        auto* endBtn = new QPushButton(QStringLiteral("结束任务"), footer);
+        endBtn->setObjectName(QStringLiteral("opEnd"));
+        footerLayout->addWidget(endBtn);
+        connect(endBtn, &QPushButton::clicked, this, [this]() {
+            QMessageBox confirmBox;
+            confirmBox.setWindowTitle(QStringLiteral("确认停止"));
+            confirmBox.setText(QStringLiteral("确定要结束任务吗？\n\n机械臂将保持在当前位置不动。"));
+            confirmBox.setIcon(QMessageBox::Warning);
+            confirmBox.setStandardButtons(QMessageBox::Yes | QMessageBox::No);
+            confirmBox.setDefaultButton(QMessageBox::No);
+            if (confirmBox.exec() == QMessageBox::Yes) {
+                if (m_uiController) m_uiController->stopTask();
+                m_opPause = false;
+                closeOpOverlay();
+            }
+        });
+    } else {
+        footerLayout->addStretch();
+    }
+    root->addWidget(footer);
+
+    // 右上角 ✕ / ESC：仅关闭提示弹窗，不改变急停/暂停状态
+    connect(closeBtn, &QPushButton::clicked, dlg, &QDialog::reject);
+    // 主操作按钮 = 再次点击对应按钮：复用 onBtnOpEStop / onBtnOpPause 既有急停/恢复逻辑
+    connect(actionBtn, &QPushButton::clicked, this, [this, isEStop]() {
+        if (isEStop)
+            onBtnOpEStop();   // 急停态：解除急停（IN9 复位=0）并重新执行流程脚本
+        else
+            onBtnOpPause();   // 暂停态：恢复运行（IN10 复位=0）并 resumeTask
+    });
+    // 任何关闭路径（reject / ESC）统一清理弹窗对象
+    connect(dlg, &QDialog::finished, this, [this, dlg]() {
+        if (m_opOverlay == dlg) {
+            m_opOverlay->deleteLater();
+            m_opOverlay = nullptr;
+        }
+    });
+
+    // 居中显示于主窗口中央
+    dlg->move(this->rect().center().x() - dlg->width() / 2,
+              this->rect().center().y() - dlg->height() / 2);
+    dlg->show();
+    m_opOverlay = dlg;
+}
+
+/**
+ * @brief 更新暂停覆盖层的进度信息（由 UiController::onTaskPaused 调用）
+ */
+void MainWindow::updateOpOverlayProgress(int current, int total)
+{
+    if (!m_opOverlay) return;
+    auto* lbl = m_opOverlay->findChild<QLabel*>(QStringLiteral("opProgress"));
+    if (lbl)
+        lbl->setText(QStringLiteral("当前进度: %1 / %2").arg(current).arg(total));
+}
+
+/**
+ * @brief 关闭状态提示覆盖层
+ */
+void MainWindow::closeOpOverlay()
+{
+    if (m_opOverlay) {
+        m_opOverlay->deleteLater();
+        m_opOverlay = nullptr;
+    }
+}
+
+/**
+ * @brief 定位操作界面流程脚本 task/test.rbt（exe 位于 build 子目录时上跳一级到工程根）
+ */
+QString MainWindow::locateOpScript() const
+{
+    const QString exeDir = QCoreApplication::applicationDirPath();
+    if (QFileInfo::exists(exeDir + QStringLiteral("/task/test.rbt")))
+        return exeDir + QStringLiteral("/task/test.rbt");
+    if (QFileInfo::exists(exeDir + QStringLiteral("/../task/test.rbt")))
+        return exeDir + QStringLiteral("/../task/test.rbt");
+    if (QFileInfo::exists(exeDir + QStringLiteral("/../../task/test.rbt")))
+        return exeDir + QStringLiteral("/../../task/test.rbt");
+    return QString();
+}
+
+/**
+ * @brief 急停解除后重新执行程序：优先重跑记录的操作界面流程脚本，
+ *        否则按默认定位逻辑加载 task/test.rbt。
+ */
+void MainWindow::restartOpScript()
+{
+    QString script = m_opScriptPath;
+    if (script.isEmpty()) script = locateOpScript();
+    if (script.isEmpty() || !m_uiController) {
+        ui->statusbar->showMessage(QStringLiteral("急停解除：未找到流程脚本，无法重新执行"));
+        return;
+    }
+    if (!m_uiController->runScriptFile(script)) {
+        ui->statusbar->showMessage(QStringLiteral("急停解除：程序未能重新启动"));
+    }
+}
+
+/**
  * @brief 正解/逆解模式切换回调
  *
  * 根据 radioCart/radioJoint 状态切换控制模式并刷新位置显示。
@@ -1150,9 +1399,12 @@ void MainWindow::initPositionDisplay()
     // 运行页面：关机按钮
     connect(ui->btnShutdown, &QPushButton::clicked, this, &MainWindow::onBtnShutdown);
 
-    // 操作者界面：4 个大按钮显式映射到运行页同功能槽（不依赖 on_ 自动连接）
+    // 操作者界面：5 个大按钮显式映射到专用槽（不依赖 on_ 自动连接）
     connect(ui->btnOpHome, &QPushButton::clicked, this, &MainWindow::onHomingClicked);
-    connect(ui->btnOpStop, &QPushButton::clicked, this, &MainWindow::onBtnStop);
+    // 暂停按钮：输入口 IN10，点一次暂停、再点恢复
+    connect(ui->btnOpStop, &QPushButton::clicked, this, &MainWindow::onBtnOpPause);
+    // 急停按钮：输入口 IN9，点一次急停（结束流程+停机）、再点解除并重新执行
+    connect(ui->btnOpStopAll, &QPushButton::clicked, this, &MainWindow::onBtnOpEStop);
     connect(ui->btnOpShutdown, &QPushButton::clicked, this, &MainWindow::onBtnShutdown);
     // 操作者页打钉子按钮：按下置位 DO0=1、松开复位 DO0=0（电平跟随按钮）
     connect(ui->btnOpNail, &QPushButton::pressed, this, &MainWindow::on_btnNail_pressed);
@@ -1369,7 +1621,7 @@ void MainWindow::onNavButtonClicked(int index)
     // 画板为动态页：首次点击前 contentStack 暂无该索引，越界时跳过系统切换（画板分支后续用 setCurrentWidget 定位）
     if (index < ui->contentStack->count())
         ui->contentStack->setCurrentIndex(index);
-    const QString names[] = {"运行", "程序编程", "IO 监控", "报警日志", "设置", "通信", "视觉运动", "操作者", "画板"};
+    const QString names[] = {"运行", "程序编程", "IO 监控", "报警日志", "设置", "通信", "视觉运动", "操作界面", "画板"};
     if (index >= 0 && index < 9)
         ui->statusbar->showMessage(QStringLiteral("切换到: %1").arg(names[index]));
 
@@ -2806,21 +3058,22 @@ void MainWindow::showPointAdjustDialog(bool isJoint)
     };
     updateModeButton();
 
-    // 把"原点设置"按钮 + "Flash 原点"显示插入到 groupBox 和 buttonLayout 之间（关节模式可见）
+    // ★ 原点设置按钮：移入底部按钮行（获取当前点位 / 运行）最左侧，
+    //   即界面左下角红框位置（原 hSpacer 弹性空白区），与"获取当前点位"同行。
+    //   仅在按钮行可用时插入，否则回退到 groupBox 下方独立摆放。
+    if (QHBoxLayout* btnLay = ui.buttonLayout) {
+        btnSetOriginInDialog->setFixedSize(120, 40);   // 与"获取当前点位"等宽，融入按钮行
+        btnLay->insertWidget(0, btnSetOriginInDialog); // 插到行首（hSpacer 之前），占据左下角
+    }
+    // Flash 原点只读显示：紧跟在 groupBox 下方（占满整行），位于按钮行上方
     if (QVBoxLayout* mainLay = qobject_cast<QVBoxLayout*>(dlg.layout())) {
         int idx = mainLay->indexOf(ui.groupBox);
         if (idx >= 0) {
-            // 原点设置按钮：水平居中容器包一下，避免贴边
-            QHBoxLayout* originRow = new QHBoxLayout();
-            originRow->setContentsMargins(0, 6, 0, 0);
-            originRow->addStretch();
-            originRow->addWidget(btnSetOriginInDialog);
-            originRow->addStretch();
-            mainLay->insertLayout(idx + 1, originRow);
-            // Flash 原点只读显示：紧跟在按钮下方（占满整行）
-            mainLay->insertWidget(idx + 2, lblFlashOrigin);
+            mainLay->insertWidget(idx + 1, lblFlashOrigin);
         } else {
-            mainLay->addWidget(btnSetOriginInDialog);
+            if (!ui.buttonLayout) {
+                mainLay->addWidget(btnSetOriginInDialog);
+            }
             mainLay->addWidget(lblFlashOrigin);
         }
     }

@@ -206,56 +206,28 @@ endif()
 
 # ============================================================
 # 构建后自动部署 Qt 运行时依赖（仅 Windows + Qt6）
-# 采用确定性复制：直接从 Qt 安装目录拷贝 DLL 与插件到输出目录
-# 不依赖 windeployqt 的动态分析，删除 build 重建后自动恢复
+# 使用 Qt 官方 windeployqt 工具自动拷贝 DLL、插件、翻译等
+# 删除 build 重建后自动恢复
 # ============================================================
-if(WIN32 AND QT_VERSION_MAJOR EQUAL 6)
+if(WIN32)
     get_filename_component(_qt6_cmake_dir "${Qt6_DIR}" DIRECTORY)
     get_filename_component(_qt6_lib_dir "${_qt6_cmake_dir}" DIRECTORY)
     get_filename_component(_qt6_prefix "${_qt6_lib_dir}" DIRECTORY)
     set(_qt6_bin "${_qt6_prefix}/bin")
 
-    # 1) 复制核心 Qt 运行库 DLL
-    set(_QT_DEPLOY_DLLS
-        Qt6Core.dll Qt6Gui.dll Qt6Widgets.dll Qt6Network.dll Qt6Svg.dll
-        opengl32sw.dll D3Dcompiler_47.dll
+    find_program(WINDEPLOYQT_EXECUTABLE windeployqt
+        HINTS "${_qt6_bin}"
     )
-    foreach(_dll IN LISTS _QT_DEPLOY_DLLS)
-        if(EXISTS "${_qt6_bin}/${_dll}")
-            add_custom_command(TARGET Robot_R06 POST_BUILD
-                COMMAND ${CMAKE_COMMAND} -E copy_if_different
-                    "${_qt6_bin}/${_dll}"
-                    "$<TARGET_FILE_DIR:Robot_R06>/${_dll}"
-                COMMENT "Deploying ${_dll}"
-            )
-        else()
-            message(WARNING "Qt DLL not found: ${_qt6_bin}/${_dll}")
-        endif()
-    endforeach()
 
-    # 2) 复制 Qt 插件目录（含 platforms/styles/imageformats/tls 等）
-    set(_QT_DEPLOY_PLUGINS
-        platforms styles imageformats tls generic iconengines networkinformation
-    )
-    foreach(_plugin IN LISTS _QT_DEPLOY_PLUGINS)
-        if(EXISTS "${_qt6_prefix}/plugins/${_plugin}")
-            add_custom_command(TARGET Robot_R06 POST_BUILD
-                COMMAND ${CMAKE_COMMAND} -E copy_directory
-                    "${_qt6_prefix}/plugins/${_plugin}"
-                    "$<TARGET_FILE_DIR:Robot_R06>/${_plugin}"
-                COMMENT "Deploying plugins/${_plugin}"
-            )
-        else()
-            message(WARNING "Qt plugin dir not found: ${_qt6_prefix}/plugins/${_plugin}")
-        endif()
-    endforeach()
-
-    # 3) 生成 qt.conf（最小部署：插件根目录为 exe 所在目录）
-    file(WRITE "${CMAKE_BINARY_DIR}/qt.conf" "[Paths]\nPlugins = .\n")
-    add_custom_command(TARGET Robot_R06 POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E copy_if_different
-            "${CMAKE_BINARY_DIR}/qt.conf"
-            "$<TARGET_FILE_DIR:Robot_R06>/qt.conf"
-        COMMENT "Deploying qt.conf"
-    )
+    if(WINDEPLOYQT_EXECUTABLE)
+        add_custom_command(TARGET Robot_R06 POST_BUILD
+            COMMAND "${WINDEPLOYQT_EXECUTABLE}"
+                --no-translations
+                "$<TARGET_FILE:Robot_R06>"
+            COMMENT "Running windeployqt to deploy Qt runtime dependencies..."
+        )
+        message(STATUS "windeployqt found: ${WINDEPLOYQT_EXECUTABLE}")
+    else()
+        message(WARNING "windeployqt not found in ${_qt6_bin}. Qt runtime will not be deployed.")
+    endif()
 endif()
