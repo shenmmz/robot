@@ -32,8 +32,8 @@ public:
 
 signals:
     void jogCompleted();
-    void opPauseTriggered();    // 物理按钮 IN10 下降沿 → 请求暂停/恢复
-    void opEStopTriggered();   // 物理按钮 IN9 下降沿 → 请求急停/解除
+    void opPauseTriggered();    // 物理按钮 IN10 上升沿 → 请求暂停
+    void opRunTriggered();     // 物理按钮 IN9 上升沿 → 请求运行/恢复流程
 
 public slots:
     void runTestPoints();

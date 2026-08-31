@@ -16,6 +16,7 @@
 #include <QStringList>
 #include "zauxdll2.h"
 #include "zmotion.h"
+#include "src/models/RobotModelId.h"   // 机械臂型号枚举（Flash 只存其整数值）
 
 /*
  * @brief ZmotionResults核心返回结构体，用于API调用的统一返回格式
@@ -369,6 +370,32 @@ public:
      * @return ZmotionResult 执行结果
      */
     ZmotionResult clearOriginFlash();
+
+    /********************* 机械臂型号（控制器 Flash 持久化）*******************/
+    /*
+     * @brief saveModelToFlash 将机械臂型号 ID 写入控制器用户 Flash（断电保持）
+     *
+     * 写入独立 Flash 块（kModelFlashBlockId，默认 100），格式 4 个 float：
+     *   [modelMagic, version, modelId, axisCount]
+     * 控制器上只存型号标签（小数字），完整参数在代码侧 RobotModelSpec 注册表。
+     * 断电后数据仍在，上位机启动时由 readModelFromFlash 读出并自动识别机型。
+     *
+     * @param id 型号枚举（Unknown 不会被写入，视为无效）
+     * @return ZmotionResult 执行结果
+     * @note Flash 写入有寿命限制（约10万次），仅在出厂/换臂"写入机型"时调用一次
+     */
+    ZmotionResult saveModelToFlash(RobotModelId id);
+
+    /*
+     * @brief readModelFromFlash 从控制器用户 Flash 读取机械臂型号 ID
+     *
+     * 读取型号块并校验魔数 + 版本，校验通过则输出型号枚举。
+     *
+     * @param id 输出参数，读取到的型号枚举（未设置/损坏/未知时输出 Unknown）
+     * @return ZmotionResult success=true 表示 Flash 中存有有效机型
+     *         （success=false 表示未设置过或数据无效，id 置为 Unknown）
+     */
+    ZmotionResult readModelFromFlash(RobotModelId& id);
 
     /*
      * @brief 获取单轴位置

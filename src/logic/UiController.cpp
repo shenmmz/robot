@@ -294,6 +294,53 @@ void UiController::init()
             if (!m_syncTargetsBusy) targetSyncTimer->start();
         });
     connect(targetSyncTimer, &QTimer::timeout, this, &UiController::onTargetEditorChanged);
+
+    // === 启动时自动加载 test.rbt 到编辑流程 ===
+    QTimer::singleShot(200, this, [this]() {
+        // 查找 task/test.rbt（与 locateOpScript 同级查找逻辑）
+        QString scriptPath;
+        QStringList searchPaths = {
+            QStringLiteral("task/test.rbt"),
+            QStringLiteral("../task/test.rbt"),
+            QStringLiteral("../../task/test.rbt"),
+            QStringLiteral("../../../task/test.rbt")
+        };
+        for (const auto& p : searchPaths) {
+            if (QFileInfo::exists(p)) { scriptPath = p; break; }
+        }
+        if (scriptPath.isEmpty()) return;
+
+        QFile file(scriptPath);
+        if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) return;
+        QString content = QTextStream(&file).readAll();
+        file.close();
+
+        auto* editor = getEditor();
+        if (!editor) return;
+        m_currentScriptPath = scriptPath;
+
+        auto* targetEd = getTargetEditor();
+        int sep = content.indexOf(QStringLiteral("\n---\n"));
+        if (sep >= 0 && targetEd) {
+            targetEd->setPlainText(content.left(sep).trimmed());
+            editor->setPlainText(content.mid(sep + 5).trimmed());
+        } else {
+            if (targetEd) targetEd->clear();
+            editor->setPlainText(content.trimmed());
+        }
+
+        m_targets.clear();
+        m_targetMotion.clear();
+        m_targetCounter = 0;
+        parseScript(content);
+        if (m_taskExecutor)
+            m_taskExecutor->setTargetMotion(m_targetMotion);
+
+        if (auto* lbl = m_mainWindow->findChild<QLabel*>(QStringLiteral("progFileName")))
+            lbl->setText(QStringLiteral("📄 %1").arg(QFileInfo(scriptPath).fileName()));
+        if (auto* sb = m_mainWindow->findChild<QStatusBar*>(QStringLiteral("statusbar")))
+            sb->showMessage(QStringLiteral("已加载: %1").arg(scriptPath));
+    });
 }
 
 // ==================== IO 监控 ====================
@@ -328,7 +375,7 @@ void UiController::refreshIO()
     }
 
     // 读取 DI 状态（NPN型，低电平=触发=active），共 24 个（DI0~DI23）
-    // DI 使能掩码：DI0-8 接原点/限位传感器，DI9 接急停按钮，DI10 接暂停按钮
+    // DI 使能掩码：DI0-8 接原点/限位传感器，DI9 接运行/恢复按钮，DI10 接暂停按钮
     // DI11-23 未接传感器，端子悬空会读到低电平导致误显示为绿色，强制白色
     // DI9/DI10 接的是常闭型(NC)按钮：松开=0V(低)，按下=24V(高)，需反转显示
     static const QSet<int> enabledDIs = {0,1,2,3,4,5,6,7,8,9,10};
@@ -347,11 +394,12 @@ void UiController::refreshIO()
     }
 
     // IN9/IN10 物理按钮边沿检测（NC型：按下=1高电平，松开=0低电平，检测上升沿=按下）
+    // IN9 = 运行/恢复流程，IN10 = 暂停流程
     bool in9Active = (api->getDI(9) == 1);
     bool in10Active = (api->getDI(10) == 1);
     bool prevIn9 = m_ioStateCache.value(QStringLiteral("IN9"), false);
     bool prevIn10 = m_ioStateCache.value(QStringLiteral("IN10"), false);
-    if (in9Active && !prevIn9) emit opEStopTriggered();
+    if (in9Active && !prevIn9) emit opRunTriggered();
     if (in10Active && !prevIn10) emit opPauseTriggered();
     m_ioStateCache[QStringLiteral("IN9")] = in9Active;
     m_ioStateCache[QStringLiteral("IN10")] = in10Active;
@@ -3623,7 +3671,12 @@ void UiController::onLoadSettings()
 }
 
 /**
- * @brief "保存设置"按钮回调：采集回零原点位置，写回 JSON 配置文件
+ * @brief "保存设置"按钮回调：采集回零原点位置，更新内存中的配置种子。
+ *
+ * 注意：配置不再写 robot_config.json。回零原点的断电持久化由"原点设置"
+ * （RobotController::setOriginFromCurrentPos，写入控制器 Flash）负责；
+ * 此处仅更新内存中的 homePosition 种子（Flash 为空时 ensureOriginInitialized
+ * 会把它写入 Flash）。
  */
 void UiController::onSaveSettings()
 {
@@ -3646,7 +3699,7 @@ void UiController::onSaveSettings()
     }
     config->setHomePosition(homePos);
 
-    Logger::info(QStringLiteral("正在保存配置，回零原点位置: [%1, %2, %3, %4, %5, %6]")
+    Logger::info(QStringLiteral("已更新回零原点位置（内存）: [%1, %2, %3, %4, %5, %6]")
                      .arg(homePos[0], 0, 'f', 2)
                      .arg(homePos[1], 0, 'f', 2)
                      .arg(homePos[2], 0, 'f', 2)
@@ -3654,24 +3707,10 @@ void UiController::onSaveSettings()
                      .arg(homePos[4], 0, 'f', 2)
                      .arg(homePos[5], 0, 'f', 2));
 
-    QString configPath = MainWindow::findConfigFile();
-    if (config->saveToJson(configPath)) {
-        QString msg = QStringLiteral("配置已保存 [%1, %2, %3, %4, %5, %6]")
-                          .arg(homePos[0], 0, 'f', 2)
-                          .arg(homePos[1], 0, 'f', 2)
-                          .arg(homePos[2], 0, 'f', 2)
-                          .arg(homePos[3], 0, 'f', 2)
-                          .arg(homePos[4], 0, 'f', 2)
-                          .arg(homePos[5], 0, 'f', 2);
-        Logger::info(msg);
-        appendConsole(QStringLiteral("✔ %1").arg(msg));
-        if (statusbar) statusbar->showMessage(msg);
-    } else {
-        const QString errMsg = QStringLiteral("配置保存失败 (路径: %1)").arg(configPath);
-        Logger::error(errMsg);
-        appendConsole(QStringLiteral("✘ %1").arg(errMsg));
-        if (statusbar) statusbar->showMessage(QStringLiteral("配置保存失败"));
-    }
+    const QString msg = QStringLiteral("回零原点已更新（内存）。断电持久化请在运行中用\"原点设置\"写入 Flash");
+    Logger::info(msg);
+    appendConsole(QStringLiteral("✔ %1").arg(msg));
+    if (statusbar) statusbar->showMessage(msg);
 }
 
 // ==================== 手动点动 ====================

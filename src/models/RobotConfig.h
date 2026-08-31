@@ -1,18 +1,19 @@
 /*
  * @file RobotConfig.h
- * @brief 声明机械臂配置数据模型及其配置文件读写接口。
+ * @brief 声明机械臂配置数据模型。配置由机型规格（RobotModelRegistry）构建，
+ *        不再从 robot_config.json 读取/保存。
  *
  * 本文件定义 RobotConfig 类，用于存储机械臂的:
  * - 轴数、命名、控制器地址
  * - 各轴速度/加速度/限位参数
- * - 配置文件加载与保存方法
+ * - 由机型规格初始化的全部字段
  */
 #ifndef ROBOTCONFIG_H
 #define ROBOTCONFIG_H
 
 #include <QString>
 #include <QList>
-#include <QJsonObject>
+#include "src/models/RobotModelId.h"   // 机型枚举（initializeFromModel 参数）
 
 /**
  * @brief 机械臂配置数据模型
@@ -23,10 +24,8 @@
  * - 各轴的软件限位
  * - 机械臂的DH参数
  * 
- * 使用说明：
- * 1. 这些参数通常从config.json文件加载
- * 2. 运行过程中可以动态修改，但需要重新校准
- * 3. 修改后应该保存到配置文件
+ * 配置来源：通过 initializeFromModel(RobotModelId) 从代码侧注册表
+ * （RobotModels.cpp）按机型规格填充，单一数据源，不依赖外部 JSON 文件。
  */
 class RobotConfig
 {
@@ -71,18 +70,17 @@ public:
     QList<double> getAxisUnitsList() const;        // 获取轴单位列表
 
     // ===== Setter =====
-    void setAxisCount(int count);    // 设置轴数
     void setRobotName(const QString& name) { m_robotName = name; }    // 设置机械臂名称
     void setControllerIP(const QString& ip) { m_controllerIP = ip; }    // 设置控制器IP地址
     void setStateUpdateInterval(int intervalMs) { m_stateUpdateIntervalMs = intervalMs; }    // 设置状态更新间隔(ms)
     void setAxisConfig(int axisIndex, const AxisConfig& config);    // 设置指定轴的配置
 
-    // ===== 文件操作 =====
-    bool loadFromJson(const QString& filePath);    // 从 JSON 文件加载配置
-    bool saveToJson(const QString& filePath) const;    // 保存配置到 JSON 文件
+    // ===== 机型规格初始化 =====
+    // 由 RobotModelRegistry 的指定机型规格填充全部字段（单一数据源，不再依赖 JSON 文件）
+    void initializeFromModel(RobotModelId id);
 
     // ===== 工具方法 =====
-    QString toString() const;    // 保存配置到 JSON 字符串表示
+    QString toString() const;    // 配置信息字符串表示（调试用）
 
 private:
     int m_axisCount;                    // 轴数
@@ -91,13 +89,11 @@ private:
     int m_stateUpdateIntervalMs;        // 状态更新间隔（毫秒）
 
     QList<AxisConfig> m_axisConfigs;    // 各轴配置
-    QList<double> m_axisUnits;          // 各轴脉冲当量（脉冲/度）
+    RobotModelId m_modelId = RobotModelId::Unknown;  // 当前机型 ID（Unknown 回退后存 R01）
     QList<double> m_homePosition;       // 回零后目标位置（6轴关节角度）
     double m_homeMoveSpeed;             // 回零后移动速度(°/s)
     double m_homeMoveAccel;             // 回零后移动加速度(°/s²)
     double m_homeMoveDecel;             // 回零后移动减速度(°/s²)
-
-    void initializeDefaultConfigs();    // 初始化默认配置
 };
 
 #endif // ROBOTCONFIG_H

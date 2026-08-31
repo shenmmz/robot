@@ -68,15 +68,16 @@ RobotController::~RobotController()
 }
 
 /**
- * @brief 通过配置文件初始化
+ * @brief 按机型规格初始化
  *
- * 从指定的JSON配置文件加载机器人配置，然后初始化控制器。
- * 若配置文件加载失败，将使用默认配置继续初始化。
+ * 按指定机型枚举从代码侧注册表（RobotModelRegistry）构建 RobotConfig，
+ * 不再从 robot_config.json 读取配置。随后调用 initialize(RobotConfig*) 完成
+ * 状态对象、运动控制器等子模块的创建与信号槽连接。
  *
- * @param configFile 配置文件完整路径
+ * @param modelId 机型枚举，缺省 R01（当前唯一实装机型）
  * @return true 初始化成功，false 初始化失败
  */
-bool RobotController::initialize(const QString& configFile)
+bool RobotController::initialize(RobotModelId modelId)
 {
     if (m_config) {
         delete m_config;
@@ -84,11 +85,8 @@ bool RobotController::initialize(const QString& configFile)
     }
     m_config = new RobotConfig();
 
-    // 从文件加载配置
-    if (!m_config->loadFromJson(configFile)) {
-        qWarning() << "无法加载配置文件:" << configFile;
-        // 继续使用默认配置
-    }
+    // 按机型规格填充配置（替代 JSON 加载，单一数据源在 RobotModels.cpp）
+    m_config->initializeFromModel(modelId);
 
     return initialize(m_config);
 }
@@ -252,9 +250,7 @@ bool RobotController::initRobotModel()
     }
 
     // ===== 2. 生成并写入 TABLE =====
-    RobotKinematics kinematics;
-    kinematics.setAxisUnits(axisUnits);
-    QVector<float> tableData = kinematics.toControllerTable();
+    QVector<float> tableData = RobotKinematics::buildFrame6Table(axisUnits);
 
     ret = api->setTable(0, 25, tableData);
     if (!ret.success) {
@@ -995,7 +991,7 @@ bool RobotController::setOriginFromCurrentPos()
  * @brief 获取原点位置（Flash优先，config兜底）
  *
  * 从控制器Flash读取用户自定义的原点绝对位置；
- * Flash中无数据时返回robot_config.json中的homePosition默认值。
+ * Flash中无数据时返回 RobotConfig 的 homePosition 默认值（来自机型规格）。
  *
  * @return 原点位置列表（6个元素）
  */

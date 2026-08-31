@@ -19,6 +19,7 @@
 #include <QSet>
 #include <QPlainTextEdit>
 #include <QVariantMap>
+#include "src/models/RobotModelId.h"            // 机械臂型号枚举（Flash 型号管理）
 #include "src/draw/drawing_window.h"
 #include "src/draw/WorkPieceCoord.h"
 
@@ -49,7 +50,7 @@ public:
     MainWindow(QWidget *parent = nullptr);
     ~MainWindow();
 
-    static QString findConfigFile();
+    static QString findConfigDir();
     void updateOpOverlayProgress(int current, int total);  // 更新暂停覆盖层的进度信息
 
 private slots:
@@ -96,7 +97,8 @@ void on_btnNail_released();//打钉子按钮：松开复位 DO0=0
 
     // 操作者界面
     void onBtnOpPause();                         // 暂停按钮（输入口 IN10：暂停/恢复切换）
-    void onBtnOpEStop();                         // 急停按钮（输入口 IN9：急停/解除并重新执行）
+    void onBtnOpRun();                           // 运行/恢复按钮（输入口 IN9：运行流程或从暂停恢复）
+    void onBtnOpEStop();                         // 急停按钮（UI按钮：急停/解除并重新执行）
 
     // 编程页面
     void onGetJoints();                          // 获取当前关节角度（写入编程块）
@@ -145,6 +147,8 @@ void on_btnNail_released();//打钉子按钮：松开复位 DO0=0
 private:
     Ui::MainWindow *ui;
     RobotController* m_robotController;         // 机器人运动控制器（正逆解、关节/笛卡尔运动）
+    RobotModelId m_provisionModel = RobotModelId::Unknown;  // --setmodel 一次性烧录目标（Unknown=非烧录模式）
+    RobotModelId m_modelId        = RobotModelId::Unknown;  // 启动后从 Flash 自动识别到的机型
     UiController* m_uiController;               // UI 逻辑控制器（界面状态与交互逻辑）
     Rs485Controller* m_rs485 = nullptr;         // RS485 通信控制器（ZMC306X PWM 控制）
     ServoController* m_servo = nullptr;         // 舵机控制器（舵机驱动与角度控制）
@@ -196,6 +200,7 @@ private:
     void appendRs485RecvText(const QString& text);  // 追加文本到 RS485 接收显示区
     QByteArray parseHexString(const QString& hex, bool* ok) const;  // 十六进制字符串转字节数组
     QString bytesToHex(const QByteArray& data) const;               // 字节数组转十六进制字符串
+    void provisionModelIfRequested();                  // 解析 --setmodel/--ip 并触发一次性机型烧录
     QString decimalToHex(const QString& decimalStr) const;          // 十进制字符串转十六进制字符串
     static quint16 calcModbusCRC16(const QByteArray& data);         // 计算 Modbus CRC16 校验码
     void showPointAdjustDialog(bool isJoint);    // 弹出点位调整对话框（关节/笛卡尔）

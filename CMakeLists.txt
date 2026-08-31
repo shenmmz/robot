@@ -2,6 +2,10 @@ cmake_minimum_required(VERSION 3.16)
 
 project(Robot_R06 VERSION 0.1 LANGUAGES CXX)
 
+# 项目普遍使用根相对 include（如 #include "src/models/RobotModelId.h"），
+# 因此把项目根目录加入全局 include 路径，使各库目标也能解析自身头文件。
+include_directories(${CMAKE_SOURCE_DIR})
+
 set(CMAKE_AUTOUIC ON)
 set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)
@@ -25,6 +29,8 @@ set(PROJECT_SOURCES
     mainwindow.h
     mainwindow.ui
     PointAdjustDialog.ui
+    src/models/RobotModels.h
+    src/models/RobotModels.cpp
     src/draw/drawing_window.cpp
     src/draw/drawing_window.h
     src/draw/WorkPieceCoord.cpp

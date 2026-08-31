@@ -1,11 +1,49 @@
-TARGET Target4 = { J0:89.999, J1:4.930, J2:32.065, J3:0.000, J4:52.994, J5:-359.971 }
-TARGET Target1 = { X:306.418, Y:0.000, Z:400.000, A:180.000, B:0.008, C:180.000 }
-TARGET Target2 = { X:306.418, Y:200.000, Z:400.000, A:180.000, B:0.008, C:180.000 }
-TARGET Target3 = { X:306.418, Y:200.000, Z:200.000, A:180.000, B:0.008, C:180.000 }
+TARGET Target4 = { J0:-10.355, J1:47.055, J2:-7.908, J3:5.868, J4:12.193, J5:-14.075 }// 抓锤子安全点位
+TARGET Target2 = { J0:-10.355, J1:57.328, J2:-8.700, J3:25.027, J4:2.928, J5:-33.333 }// 抓锤子点位
+TARGET Target5 = { J0:0.000, J1:0.000, J2:0.000, J3:0.000, J4:0.000, J5:0.000 }// 过渡点
+TARGET Target8 = { J0:6.959, J1:33.489, J2:-33.517, J3:0.000, J4:0.000, J5:1.188 }// 打钉子1上
+TARGET Target7 = { J0:7.942, J1:48.981, J2:2.328, J3:-8.798, J4:38.930, J5:9.035 }// 打钉子1
+TARGET Target12 = { J0:12.186, J1:36.074, J2:-37.298, J3:0.000, J4:0.000, J5:6.264 }// 打钉子2上
+TARGET Target11 = { J0:13.064, J1:50.643, J2:-2.520, J3:-8.129, J4:42.590, J5:13.283 }// 打钉子2
+TARGET Target15 = { J0:17.309, J1:36.074, J2:-37.298, J3:0.000, J4:0.000, J5:6.264 }// 打钉子3上
+TARGET Target13 = { J0:17.978, J1:52.831, J2:-6.228, J3:-7.761, J4:44.546, J5:17.747 }// 打钉子3
+TARGET Target9 = { X:527.784, Y:64.418, Z:652.926, A:88.620, B:88.812, C:95.579 }// 打钉子1上
+TARGET Target3 = { X:526.276, Y:-94.997, Z:300.000, A:-174.581, B:38.414, C:-179.696 }// 抓锤子安全点位
+TARGET Target6 = { X:466.000, Y:52.911, Z:210.000, A:-174.486, B:0.282, C:-174.224 }// 打钉子1
+TARGET Target10 = { X:463.065, Y:91.990, Z:210.038, A:-174.497, B:0.284, C:-174.204 }// 打钉子2
+TARGET Target14 = { X:479.022, Y:143.989, Z:221.958, A:-174.495, B:0.275, C:-174.180 }// 打钉子3
+TARGET Target1 = { X:526.273, Y:-94.994, Z:200.000, A:-174.566, B:38.406, C:-179.665 }// 抓锤子点位
 ---
-MOVEJ(Target4, speed=100, acc=200, dec=300)
-MOVEL(Target1, speed=150, acc=200, dec=300)
-MOVEL(Target2, speed=150, acc=200, dec=300)
-MOVEL(Target3, speed=150, acc=200, dec=300)
-CALL("test1.rbt")
-CALL("test.rbt")
+SERVO(0=48:T10, 1=150:T10, 2=30:T10, 3=150:T10, 4=30:T10, 5=150:T10) // 松开
+MOVEJ(Target4, speed=25, acc=50, dec=60)// 抓锤子安全点位
+MOVEJ(Target2, speed=25, acc=50, dec=60)// 抓锤子点位
+SERVO(1=40:T10, 2=150:T10, 3=30:T10, 4=147:T10, 5=30:T10) // 加紧
+MOVEJ(Target4, speed=25, acc=50, dec=60)// 抓锤子安全点位
+MOVEJ(Target5, speed=25, acc=50, dec=60)// 过渡点
+MOVEJ(Target8, speed=25, acc=50, dec=60)// 打钉子1上
+MOVEJ(Target7, speed=25, acc=50, dec=60)// 打钉子1
+MOVEJ(Target8, speed=25, acc=50, dec=60)// 打钉子1上
+MOVEJ(Target7, speed=25, acc=50, dec=60)// 打钉子1
+MOVEJ(Target8, speed=25, acc=50, dec=60)// 打钉子1上
+MOVEJ(Target7, speed=25, acc=50, dec=60)// 打钉子1
+MOVEJ(Target8, speed=25, acc=50, dec=60)// 打钉子1上
+MOVEJ(Target12, speed=25, acc=50, dec=60)// 打钉子2上
+MOVEJ(Target11, speed=25, acc=50, dec=60)// 打钉子2
+MOVEJ(Target12, speed=25, acc=50, dec=60)// 打钉子2上
+MOVEJ(Target11, speed=25, acc=50, dec=60)// 打钉子2
+MOVEJ(Target12, speed=25, acc=50, dec=60)// 打钉子2上
+MOVEJ(Target11, speed=25, acc=50, dec=60)// 打钉子2
+MOVEJ(Target12, speed=25, acc=50, dec=60)// 打钉子2上
+MOVEJ(Target15, speed=25, acc=50, dec=60)// 打钉子3上
+MOVEJ(Target13, speed=25, acc=50, dec=60)// 打钉子3
+MOVEJ(Target15, speed=25, acc=50, dec=60)// 打钉子3上
+MOVEJ(Target13, speed=25, acc=50, dec=60)// 打钉子3
+MOVEJ(Target15, speed=25, acc=50, dec=60)// 打钉子3上
+MOVEJ(Target13, speed=25, acc=50, dec=60)// 打钉子3
+MOVEJ(Target15, speed=25, acc=50, dec=60)// 打钉子3上
+MOVEJ(Target5, speed=25, acc=50, dec=60)// 过渡点
+MOVEJ(Target4, speed=25, acc=50, dec=60)// 抓锤子安全点位
+MOVEJ(Target2, speed=25, acc=50, dec=60)// 抓锤子点位
+SERVO(0=48:T10, 1=150:T10, 2=30:T10, 3=150:T10, 4=30:T10, 5=150:T10) // 松开
+MOVEJ(Target4, speed=25, acc=50, dec=60)// 抓锤子安全点位
+MOVEJ(Target5, speed=25, acc=50, dec=60)// 过渡点

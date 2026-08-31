@@ -7,7 +7,7 @@
 /**
  * @brief 六轴机械臂建模工具
  *
- * 用于构建和解析 Zmotion 控制器 FRAME6 类型 CONNFRAME 所需的 25 项 TableList。
+ * 用于构建 Zmotion 控制器 FRAME6 类型 CONNFRAME 所需的 25 项 TableList。
  * 运动学计算（正解/逆解）由控制器内部完成，PC 端不需要重复实现。
  *
  * FRAME6 TableList 映射（25 项 float）：
@@ -30,16 +30,8 @@
 class RobotKinematics
 {
 public:
-    RobotKinematics();
-
-    void setAxisUnits(const QList<double>& units);
-    QList<double> getAxisUnits() const;
-
-    QVector<float> toControllerTable() const;
-    void loadFromControllerTable(const QVector<float>& table25);
-
-private:
-    QList<double> m_axisUnits;
+    // 按 6 轴脉冲当量构建 FRAME6 CONNFRAME 的 25 项 TableList（几何为固定硬编码）
+    static QVector<float> buildFrame6Table(const QList<double>& axisUnits);
 };
 
 #endif // ROBOTKINEMATICS_H

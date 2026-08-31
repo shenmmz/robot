@@ -19,7 +19,6 @@
 #include "src/hardware/ServoController.h"
 #include "src/vision/VisualRoboticArm/VisionController.h"
 #include "src/models/RobotConfig.h"
-#include "src/models/RobotKinematics.h"
 #include "library/zmotion.h"
 #include "src/utils/MathUtils.h"
 #include "src/utils/CodeEditor.h"
@@ -73,20 +72,20 @@
 #include <QCryptographicHash>
 #include <QSettings>
 
-QString MainWindow::findConfigFile()
+QString MainWindow::findConfigDir()
 {
-    // 从 exe 所在目录向上查找 config/robot_config.json
+    // 查找 exe 所在目录向上的 config/ 目录（与 developer_account.ini 等同级）
     QDir dir(QCoreApplication::applicationDirPath());
     while (!dir.isRoot()) {
-        QString candidate = dir.absolutePath() + "/config/robot_config.json";
+        QString candidate = dir.absolutePath() + "/config";
         if (QFileInfo::exists(candidate)) {
-//             qDebug() << "[MainWindow] 找到配置文件:" << candidate;
+//             qDebug() << "[MainWindow] 找到配置目录:" << candidate;
             return candidate;
         }
         if (!dir.cdUp()) break;
     }
-    qWarning() << "[MainWindow] 未找到配置文件，使用默认路径";
-    return "config/robot_config.json";
+    qWarning() << "[MainWindow] 未找到 config 目录，使用默认路径";
+    return "config";
 }
 
 MainWindow::MainWindow(QWidget *parent)
@@ -107,9 +106,9 @@ MainWindow::MainWindow(QWidget *parent)
     ui->pageRunLayout->setStretch(3, 2);  // motionParamGroup 右栏（参考图约20%）
     ui->pageRunLayout->setStretch(4, 1);  // runSpacer
 
-    // 初始化机器人控制器（从JSON配置文件加载机械参数）
+    // 初始化机器人控制器（按机型规格 R01 构建配置，不再依赖 robot_config.json）
     m_robotController = new RobotController(this);
-    m_robotController->initialize(findConfigFile());
+    m_robotController->initialize(RobotModelId::R01);
 
     // 初始化 UI 辅助控制器（IO监控/报警日志/编程/设置）
     m_uiController = new UiController(this, m_robotController, this);
@@ -118,11 +117,11 @@ MainWindow::MainWindow(QWidget *parent)
     // 点动完成时立即刷新位置标签
     connect(m_uiController, &UiController::jogCompleted,
             this, &MainWindow::updatePositionDisplay);
-    // 物理按钮 IN10/IN9 → 暂停/急停（下降沿触发，复用 UI 按钮逻辑）
+    // 物理按钮 IN9 = 运行/恢复流程，IN10 = 暂停流程
+    connect(m_uiController, &UiController::opRunTriggered,
+            this, &MainWindow::onBtnOpRun);
     connect(m_uiController, &UiController::opPauseTriggered,
             this, &MainWindow::onBtnOpPause);
-    connect(m_uiController, &UiController::opEStopTriggered,
-            this, &MainWindow::onBtnOpEStop);
 
     // 初始化连接面板
     initConnectionUI();
@@ -143,8 +142,9 @@ MainWindow::MainWindow(QWidget *parent)
     m_navGroup->addButton(ui->btnNavOperator, 7); // 操作者界面页（对应 contentStack 静态页 index 7）
     m_navGroup->addButton(ui->btnNavDraw, 8);  // 画板页（动态页，索引 8）
 
-    // 默认显示"运行"页 (UI文件设置的是index=6，需纠正)
-    ui->contentStack->setCurrentIndex(0);
+    // 默认显示"操作界面"页（打钉子/暂停/急停），放在运行界面前面
+    ui->contentStack->setCurrentIndex(7);
+    ui->btnNavOperator->setChecked(true);
 #if QT_VERSION >= QT_VERSION_CHECK(5, 15, 0)
     connect(m_navGroup, &QButtonGroup::idClicked, this, &MainWindow::onNavButtonClicked);
 #else
@@ -195,6 +195,13 @@ MainWindow::MainWindow(QWidget *parent)
 
     // 初始化开发者账号管理
     initLoginUI();
+
+    // 默认加载 test.rbt 流程脚本路径（供打钉子按钮直接使用）
+    m_opScriptPath = locateOpScript();
+
+    // 机型一次性烧录模式：解析 --setmodel <name> [--ip <ip>] 并触发连接烧录
+    // （信号已在 initConnectionUI 中连好；非烧录模式此方法直接 return，不影响日常启动）
+    provisionModelIfRequested();
 }
 
 /**
@@ -217,10 +224,14 @@ MainWindow::~MainWindow()
  */
 void MainWindow::initConnectionUI()
 {
-    // 初始状态：断开，预填虚拟IP
+    // 初始状态：断开
     ui->btnDisconnect->setEnabled(false);
-    ui->comboIpList->addItem(QStringLiteral("127.0.0.1"));
     setConnectionStatus(QStringLiteral("未连接"), QStringLiteral("red"));
+
+    // 程序启动时自动扫描一遍物理IP
+    QTimer::singleShot(100, this, [this]() {
+        onScanClicked();
+    });
 
     // 按钮点击信号
     connect(ui->btnScan, &QPushButton::clicked,this, &MainWindow::onScanClicked);
@@ -292,10 +303,8 @@ void MainWindow::onScanClicked()
 
     // 清空IP列表下拉框
     ui->comboIpList->clear();
-    // 127.0.0.1永远保留在列表中
-    ui->comboIpList->addItem(QStringLiteral("127.0.0.1"));
     if (ipList.isEmpty()) {
-        setConnectionStatus(QStringLiteral("未找到物理控制器，已添加虚拟IP"), QStringLiteral("orange"));
+        setConnectionStatus(QStringLiteral("未找到物理控制器"), QStringLiteral("orange"));
     } else {
         // 添加扫描到的IP地址到下拉框
         ui->comboIpList->addItems(ipList);
@@ -331,6 +340,54 @@ void MainWindow::onConnectClicked()
 }
 
 /**
+ * @brief 机型一次性烧录模式入口（--setmodel）
+ *
+ * 解析启动参数：--setmodel <R06|R12|…> 必填，--ip <ip> 可选（缺省用界面下拉框当前项）。
+ * 解析到合法机型则打标记并连控制器，连上后由 onHardwareConnected 写 Flash 并退出。
+ * 不带 --setmodel 时直接返回，日常启动完全不受影响。
+ */
+void MainWindow::provisionModelIfRequested()
+{
+    QStringList args = QApplication::arguments();
+    int idx = args.indexOf(QStringLiteral("--setmodel"));
+    if (idx < 0 || idx + 1 >= args.size()) {
+        return;  // 正常启动，非烧录模式
+    }
+
+    QString modelName = args.at(idx + 1);
+    RobotModelId id = robotModelFromName(modelName);
+    if (id == RobotModelId::Unknown) {
+        QMessageBox::warning(nullptr, QStringLiteral("机型烧录"),
+            QStringLiteral("未知机型 \"%1\"，可用：R01 / R02").arg(modelName));
+        QApplication::quit();
+        return;
+    }
+
+    // 取控制器 IP：优先 --ip，否则用界面下拉框当前选中项
+    QString ip;
+    int ipIdx = args.indexOf(QStringLiteral("--ip"));
+    if (ipIdx >= 0 && ipIdx + 1 < args.size()) {
+        ip = args.at(ipIdx + 1).trimmed();
+    } else {
+        ip = ui->comboIpList->currentText().trimmed();
+        ip = ip.split(QStringLiteral(" ")).first();  // 去除可能的后缀说明文字
+    }
+    if (ip.isEmpty()) {
+        QMessageBox::warning(nullptr, QStringLiteral("机型烧录"),
+            QStringLiteral("未指定控制器 IP，请用 --ip 192.168.0.x 或在界面先选好 IP"));
+        QApplication::quit();
+        return;
+    }
+
+    m_provisionModel = id;
+    setConnectionStatus(QStringLiteral("烧录机型 %1 → %2")
+                        .arg(robotModelName(id)).arg(ip),
+                        QStringLiteral("orange"));
+    qInfo() << "[机型烧录] 开始连接控制器" << ip << "以烧录机型" << robotModelName(id);
+    m_robotController->connectHardware(ip);
+}
+
+/**
  * @brief 断开当前连接
  *
  * 调用 RobotController 断开硬件连接。
@@ -350,9 +407,45 @@ void MainWindow::onDisconnectClicked()
  */
 void MainWindow::onHardwareConnected()
 {
+    ZmotionAPI* api = m_robotController->getMotionController()->getZmotionAPI();
+
+    // —— 机型一次性烧录模式（--setmodel <name>）——
+    // 出厂/换臂时连上控制器即把型号 ID 写入 Flash，随后退出程序；日常启动不带此参数则跳过。
+    if (m_provisionModel != RobotModelId::Unknown) {
+        if (api) {
+            ZmotionResult r = api->saveModelToFlash(m_provisionModel);
+            QMessageBox::information(this, QStringLiteral("机型烧录"),
+                r.success
+                    ? QStringLiteral("机型 %1 已写入控制器 Flash，程序将退出。")
+                         .arg(robotModelName(m_provisionModel))
+                    : QStringLiteral("写入失败：%1").arg(r.errorMessage));
+            qInfo() << "[机型烧录]" << robotModelName(m_provisionModel)
+                    << (r.success ? "成功" : r.errorMessage);
+        } else {
+            QMessageBox::warning(this, QStringLiteral("机型烧录"),
+                QStringLiteral("无法获取控制器句柄，烧录中止"));
+        }
+        QApplication::quit();
+        return;
+    }
+
     setConnectionStatus(QStringLiteral("已连接"), QStringLiteral("green"));
     updateConnectionUI(true);
-    ZmotionAPI* api = m_robotController->getMotionController()->getZmotionAPI();
+
+    // —— 启动自动识别机型（从 Flash 读型号 ID）——
+    if (api) {
+        RobotModelId readId = RobotModelId::Unknown;
+        ZmotionResult mr = api->readModelFromFlash(readId);
+        m_modelId = readId;
+        if (mr.success) {
+            qInfo() << "[机型识别] 已从控制器 Flash 识别到机型:"
+                    << robotModelName(m_modelId);
+        } else {
+            qInfo() << "[机型识别] 未读到有效机型（" << mr.errorMessage
+                    << "），将使用默认参数；如需自动识别请在机型设置页写入";
+        }
+    }
+
     if (api) {
         ZmotionResult result = api->executeCommand(
             QStringLiteral("SETCOM(9600,8,1,0,1,14,2,800)"));
@@ -394,6 +487,13 @@ void MainWindow::onHardwareDisconnected()
  */
 void MainWindow::onHardwareConnectionFailed(const QString& errorMsg)
 {
+    // 机型烧录模式下连接失败：提示并退出，避免停留在无控制器的界面
+    if (m_provisionModel != RobotModelId::Unknown) {
+        QMessageBox::warning(nullptr, QStringLiteral("机型烧录"),
+            QStringLiteral("连接控制器失败，无法烧录机型：%1").arg(errorMsg));
+        QApplication::quit();
+        return;
+    }
     setConnectionStatus(QStringLiteral("连接失败: %1").arg(errorMsg), QStringLiteral("red"));
     updateConnectionUI(false);
 }
@@ -761,7 +861,11 @@ void MainWindow::on_btnNail_pressed()
     // 已在运行（任务执行中）时跳过启动，仅置位 DO0=1 作为触发信号（防重入）。
     const bool listening = (m_uiController != nullptr) && m_uiController->isTaskRunning();
     if (!listening) {
-        const QString nailScript = locateOpScript();
+        // 使用启动时预加载的 m_opScriptPath，为空则重新查找
+        QString nailScript = m_opScriptPath;
+        if (nailScript.isEmpty()) {
+            nailScript = locateOpScript();
+        }
         if (nailScript.isEmpty() || !m_uiController) {
             QMessageBox::warning(this, QStringLiteral("打钉子"),
                 QStringLiteral("未找到打钉子流程文件 task/test.rbt，请确认工程目录结构"));
@@ -771,7 +875,6 @@ void MainWindow::on_btnNail_pressed()
             ui->statusbar->showMessage(QStringLiteral("打钉子：监听循环未能启动"));
             return;
         }
-        // 记录当前流程脚本路径，供急停解除后"重新执行"复用
         m_opScriptPath = nailScript;
     }
 
@@ -1116,6 +1219,54 @@ void MainWindow::onBtnShutdown()
         dlg->deleteLater();
         ui->btnShutdown->setEnabled(true);
     });
+}
+
+/**
+ * @brief 操作界面 运行/恢复按钮：输入口 IN9
+ *
+ * 点击一次：
+ *   - 若任务未运行 → 启动 test.rbt 流程
+ *   - 若任务已暂停 → 从断点恢复继续执行
+ */
+void MainWindow::onBtnOpRun()
+{
+    if (!m_robotController || !m_robotController->isConnected()) {
+        ui->statusbar->showMessage(QStringLiteral("运行：控制器未连接"));
+        return;
+    }
+
+    if (m_opPause) {
+        // 已暂停 → 恢复执行
+        m_opPause = false;
+        closeOpOverlay();
+        if (m_uiController) m_uiController->resumeTask();
+        qDebug() << "[操作界面] DI9 运行按钮：从暂停恢复执行";
+        ui->statusbar->showMessage(QStringLiteral("已恢复，任务继续执行"));
+        return;
+    }
+
+    if (m_uiController && m_uiController->isTaskRunning()) {
+        ui->statusbar->showMessage(QStringLiteral("任务正在运行中"));
+        return;
+    }
+
+    // 任务未运行 → 启动 test.rbt 流程
+    QString nailScript = m_opScriptPath;
+    if (nailScript.isEmpty()) {
+        nailScript = locateOpScript();
+    }
+    if (nailScript.isEmpty() || !m_uiController) {
+        QMessageBox::warning(this, QStringLiteral("运行流程"),
+            QStringLiteral("未找到流程文件 task/test.rbt，请确认工程目录结构"));
+        return;
+    }
+    if (!m_uiController->runScriptFile(nailScript)) {
+        ui->statusbar->showMessage(QStringLiteral("流程启动失败"));
+        return;
+    }
+    m_opScriptPath = nailScript;
+    qDebug() << "[操作界面] DI9 运行按钮：启动流程" << nailScript;
+    ui->statusbar->showMessage(QStringLiteral("流程已启动（DI9）"));
 }
 
 /**
@@ -3651,8 +3802,8 @@ void MainWindow::initVisionControlUI()
 
 QString MainWindow::getAccountConfigPath() const
 {
-    // 从 exe 所在目录向上查找 config/ 目录（与 robot_config.json 同目录）
-    QString configDir = QFileInfo(findConfigFile()).absolutePath();
+    // 查找 config/ 目录（与 developer_account.ini 等同级）
+    QString configDir = findConfigDir();
     return configDir + "/developer_account.ini";
 }
 /**

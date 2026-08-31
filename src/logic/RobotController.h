@@ -57,7 +57,9 @@ public:
     ~RobotController();
 
     // ===== 初始化 =====
-    bool initialize(const QString& configFile);
+    // 按机型规格构建配置（不再依赖 robot_config.json，单一数据源在 RobotModelRegistry）。
+    // 默认 R01；连上控制器后由 Flash 读取的型号 ID 可经此重载切换（当前 R01 为唯一实装机型）。
+    bool initialize(RobotModelId modelId = RobotModelId::R01);
     bool initialize(RobotConfig* config);
 
     // ===== 连接管理 =====
@@ -131,7 +133,7 @@ public:
      * @brief 获取原点位置（Flash优先，config兜底）
      *
      * 从控制器Flash读取自定义原点位置；
-     * 如果Flash中无数据，返回robot_config.json中的homePosition默认值。
+     * 如果Flash中无数据，返回 RobotConfig 的 homePosition 默认值（来自机型规格）。
      *
      * @return 6轴原点位置列表
      */

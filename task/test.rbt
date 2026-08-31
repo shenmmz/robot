@@ -1,15 +1,49 @@
-TARGET Target1 = {J0: 9.999, J1: 0.000, J2: 0.000, J3: 0.000, J4: 0.000, J5: 0.000}
-TARGET Target2 = {J0: 29.999, J1: 0.000, J2: 0.000, J3: 0.000, J4: 0.000, J5: 0.000}
-TARGET Target3 = {J0: -9.999, J1: 0.000, J2: 0.000, J3: 0.000, J4: 0.000, J5: 0.000}
-TARGET Target5 = {J0: 0.000, J1: 0.000, J2: 0.000, J3: 0.000, J4: 89.992, J5: 0.000}
-TARGET Target4 = {X: 306.418, Y: 0.000, Z: 500.000, A: 180.000, B: 0.008, C: 180.000}
+TARGET Target1 = { J0:-3.244, J1:10.395, J2:-2.100, J3:1.994, J4:45.050, J5:-3.996 }// 待抓取关节位置
+TARGET Target2 = { X:402.097, Y:-21.476, Z:599.978, A:-179.484, B:36.693, C:179.982 }// 待抓取坐标
+TARGET Target3 = { X:402.133, Y:-25.480, Z:333.052, A:-179.480, B:36.708, C:179.983 }// 抓取点
+TARGET Target4 = { X:402.097, Y:-21.476, Z:450.000, A:-179.484, B:36.693, C:179.982 }// 抓取离开位置
+TARGET Target11 = { J0:-3.089, J1:13.585, J2:16.117, J3:1.858, J4:23.641, J5:-4.140 }// 转变关节位置
+TARGET Target12 = { J0:0.000, J1:0.000, J2:0.000, J3:0.000, J4:0.000, J5:0.000 }// 零点
+TARGET Target13 = { J0:0.000, J1:0.000, J2:0.000, J3:0.000, J4:89.992, J5:0.000 }// 零点转换
+TARGET Target17 = { J0:18.178, J1:24.012, J2:13.909, J3:0.295, J4:0.000, J5:-13.067 }// 待打1
+TARGET Target22 = { J0:18.178, J1:24.012, J2:13.993, J3:0.000, J4:51.998, J5:-13.067 }// 打1
+TARGET Target19 = { J0:23.861, J1:27.464, J2:9.372, J3:0.151, J4:0.000, J5:-7.271 }// 待打2
+TARGET Target18 = { J0:23.861, J1:27.464, J2:9.372, J3:0.151, J4:52.034, J5:-7.271 }// 打2
+TARGET Target21 = { J0:28.964, J1:30.652, J2:5.568, J3:0.014, J4:0.000, J5:-2.088 }// 待打3
+TARGET Target20 = { J0:28.964, J1:30.652, J2:5.568, J3:0.014, J4:52.598, J5:-2.088 }// 打3
+TARGET Target14 = { J0:-3.244, J1:20.259, J2:21.997, J3:7.308, J4:11.136, J5:-9.755 }// 放置点位
+TARGET Target15 = { X:402.165, Y:-21.483, Z:500.000, A:-179.481, B:36.716, C:179.979 }// 离开
+TARGET Target23 = { J0:23.477, J1:23.893, J2:17.089, J3:2.088, J4:43.730, J5:12.203 }// 打111
+TARGET Target24 = { J0:23.474, J1:0.000, J2:0.000, J3:0.000, J4:0.000, J5:12.311 }// 打111上
+TARGET Target25 = { J0:28.762, J1:27.833, J2:12.432, J3:1.346, J4:44.306, J5:17.999 }// 打222
+TARGET Target26 = { J0:28.762, J1:0.000, J2:0.000, J3:0.000, J4:0.000, J5:0.000 }// 打222上
+TARGET Target27 = { J0:33.451, J1:31.669, J2:6.912, J3:0.691, J4:45.926, J5:23.146 }// 打333
+TARGET Target28 = { J0:33.451, J1:0.000, J2:0.000, J3:0.000, J4:0.000, J5:0.000 }// 打333上
 ---
 WHILE TRUE
-IF(DO, 0, 1)
-MOVEJ(Target1, speed=25, acc=50, dec=60)
-MOVEJ(Target2, speed=25, acc=50, dec=60)
-MOVEJ(Target3, speed=25, acc=50, dec=60)
-MOVEJ(Target5, speed=25, acc=50, dec=60)
-MOVEL(Target4, speed=25, acc=50, dec=60)
+IF(DI, 9, 1)
+MOVEJ(Target1, speed=80, acc=100, dec=120)// 待抓取关节位置
+MOVEL(Target2, speed=80, acc=100, dec=120)// 待抓取坐标
+SERVO(0=48:T10, 1=150:T10, 2=30:T10, 3=150:T10, 4=30:T10, 5=150:T10) // 松开
+MOVEL(Target3, speed=80, acc=100, dec=120)// 抓取点
+SERVO(1=40:T10, 2=150:T10, 3=30:T10, 4=147:T10, 5=30:T10) // 加紧
+MOVEL(Target4, speed=80, acc=100, dec=120)// 抓取离开位置
+MOVEJ(Target12, speed=80, acc=100, dec=120)// 零点
+MOVEJ(Target13, speed=80, acc=100, dec=120)// 零点转换
+MOVEJ(Target17, speed=80, acc=100, dec=120)// 待打1
+MOVEJ(Target22, speed=25, acc=50, dec=60)// 打1
+MOVEJ(Target17, speed=80, acc=100, dec=120)// 待打1
+MOVEJ(Target19, speed=80, acc=100, dec=120)// 待打2
+MOVEJ(Target18, speed=80, acc=100, dec=120)// 打2
+MOVEJ(Target19, speed=80, acc=100, dec=120)// 待打2
+MOVEJ(Target21, speed=80, acc=100, dec=120)// 待打3
+MOVEJ(Target20, speed=80, acc=100, dec=120)// 打3
+MOVEJ(Target21, speed=80, acc=100, dec=120)// 待打3
+MOVEJ(Target12, speed=80, acc=100, dec=120)// 零点
+MOVEJ(Target11, speed=80, acc=100, dec=120)// 转变关节位置
+MOVEJ(Target14, speed=80, acc=100, dec=120)// 放置点位
+SERVO(1=137:T10, 2=37:T10, 3=143:T10, 4=30:T10, 5=150:T10) // 松开
+MOVEL(Target15, speed=80, acc=100, dec=120)// 离开
+MOVEJ(Target12, speed=80, acc=100, dec=120)// 零点
 END_IF
 END_WHILE

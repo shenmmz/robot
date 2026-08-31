@@ -18,6 +18,7 @@
 #include <QFile>
 #include <QFileInfo>
 #include <QDir>
+#include <QRegularExpression>
 
 /**
  * @brief 构造函数：初始化任务执行器

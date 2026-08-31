@@ -1336,6 +1336,108 @@ ZmotionResult ZmotionAPI::clearOriginFlash()
 }
 
 /*
+ * ===================== 机械臂型号（控制器 Flash 持久化）=====================
+ *
+ * 数据格式（独立 Flash 块 kModelFlashBlockId，共 4 个 float）：
+ *   [0] modelMagic = 2026.0  （区别于原点魔数 9527/8341，防错读）
+ *   [1] version    = 1.0     （格式版本，代码删机型后读旧 ID 可识别错配）
+ *   [2] modelId    = 枚举整数值（1=R06, 2=R12, …；0=Unknown 哨兵）
+ *   [3] axisCount  = 6.0
+ *
+ * 说明：用独立块而非并入原点块 0，是为了不破坏已部署 R06 的原点数据。
+ *       控制器上只存型号标签，完整参数在代码侧 RobotModelSpec 注册表。
+ */
+static const uint16 kModelFlashBlockId = 100;  // 型号记录 Flash 块号（与原点块 0 隔开）
+static const float  kModelMagic        = 2026.0f;
+static const float  kModelVersion      = 1.0f;
+static const int    kModelAxisCount    = 6;
+static const int    kModelRecordSize   = 4;    // 记录总长度：魔数+版本+ID+轴数
+
+ZmotionResult ZmotionAPI::saveModelToFlash(RobotModelId id)
+{
+    try {
+        if (!m_initialized || m_handle == NULL) {
+            return ZmotionResult(false, -1, QStringLiteral("控制器未连接"));
+        }
+        if (id == RobotModelId::Unknown) {
+            return ZmotionResult(false, -2, QStringLiteral("型号无效（Unknown），无法写入"));
+        }
+
+        float buf[kModelRecordSize] = {0};
+        buf[0] = kModelMagic;
+        buf[1] = kModelVersion;
+        buf[2] = static_cast<float>(static_cast<int>(id));
+        buf[3] = static_cast<float>(kModelAxisCount);
+
+        int ret = ZAux_FlashWritef(m_handle, kModelFlashBlockId,
+                                   kModelRecordSize, buf);
+        if (ret != ERR_SUCCESS) {
+            qWarning() << QStringLiteral("[ZmotionAPI] 型号写入Flash失败，错误码：%1，错误描述：%2")
+                          .arg(ret).arg(getErrorDescription(ret));
+            return ZmotionResult(false, ret,
+                QStringLiteral("写入控制器Flash失败：%1").arg(getErrorDescription(ret)));
+        }
+
+        ZINFO << QStringLiteral("[ZmotionAPI] 机械臂型号已写入控制器Flash（断电保持）: %1 (id=%2)")
+                 .arg(robotModelName(id)).arg(static_cast<int>(id));
+        return ZmotionResult(true, 0,
+            QStringLiteral("机型 %1 已保存到控制器Flash").arg(robotModelName(id)));
+    }
+    catch (const std::exception& e) {
+        return ZmotionResult(false, -1, QString("异常: ") + e.what());
+    }
+    catch (...) {
+        return ZmotionResult(false, -1, QStringLiteral("发生未知异常"));
+    }
+}
+
+ZmotionResult ZmotionAPI::readModelFromFlash(RobotModelId& id)
+{
+    id = RobotModelId::Unknown;
+    try {
+        if (!m_initialized || m_handle == NULL) {
+            return ZmotionResult(false, -1, QStringLiteral("控制器未连接"));
+        }
+
+        float buf[kModelRecordSize] = {0};
+        uint32 readCount = 0;
+        int ret = ZAux_FlashReadf(m_handle, kModelFlashBlockId,
+                                  kModelRecordSize, buf, &readCount);
+        if (ret != ERR_SUCCESS) {
+            // 读取失败视为"未设置机型"，不算致命错误
+            qWarning() << QStringLiteral("[ZmotionAPI] 读取型号Flash失败，错误码：%1").arg(ret);
+            return ZmotionResult(false, ret,
+                QStringLiteral("读取控制器Flash失败：%1").arg(getErrorDescription(ret)));
+        }
+
+        // 数据不足（空块）或魔数/版本不匹配 → 未设置过机型
+        if (readCount < kModelRecordSize ||
+            buf[0] != kModelMagic ||
+            buf[1] != kModelVersion) {
+            return ZmotionResult(false, 0, QStringLiteral("Flash中未存有有效机型"));
+        }
+
+        int idVal = static_cast<int>(buf[2]);
+        RobotModelId readId = static_cast<RobotModelId>(idVal);
+        if (readId == RobotModelId::Unknown) {
+            // 读到的就是哨兵值 → 视为未写入
+            return ZmotionResult(false, 0, QStringLiteral("Flash中机型为 Unknown（未写入）"));
+        }
+
+        id = readId;
+        ZINFO << QStringLiteral("[ZmotionAPI] 从控制器Flash读到机械臂型号: %1 (id=%2)")
+                 .arg(robotModelName(id)).arg(idVal);
+        return ZmotionResult(true, 0, QStringLiteral("识别机型成功"));
+    }
+    catch (const std::exception& e) {
+        return ZmotionResult(false, -1, QString("异常: ") + e.what());
+    }
+    catch (...) {
+        return ZmotionResult(false, -1, QStringLiteral("发生未知异常"));
+    }
+}
+
+/*
  * @brief 获取单轴位置
  * 
  * 该函数用于获取单个轴的当前位置，使用ZAux_Direct_GetDpos API实现。
