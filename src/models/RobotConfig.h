@@ -1,7 +1,7 @@
 /*
  * @file RobotConfig.h
  * @brief 声明机械臂配置数据模型。配置由机型规格（RobotModelRegistry）构建，
- *        不再从 robot_config.json 读取/保存。
+ *        不再从外部 JSON 文件读取/保存。
  *
  * 本文件定义 RobotConfig 类，用于存储机械臂的:
  * - 轴数、命名、控制器地址

@@ -106,7 +106,7 @@ MainWindow::MainWindow(QWidget *parent)
     ui->pageRunLayout->setStretch(3, 2);  // motionParamGroup 右栏（参考图约20%）
     ui->pageRunLayout->setStretch(4, 1);  // runSpacer
 
-    // 初始化机器人控制器（按机型规格 R01 构建配置，不再依赖 robot_config.json）
+    // 初始化机器人控制器（按机型规格 R01 构建配置，不再依赖外部 JSON 配置）
     m_robotController = new RobotController(this);
     m_robotController->initialize(RobotModelId::R01);
 

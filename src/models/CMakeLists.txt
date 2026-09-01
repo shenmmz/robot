@@ -5,6 +5,7 @@ add_library(robot_models STATIC
     RobotState.cpp
     RobotConfig.cpp
     RobotKinematics.cpp
+    RobotModels.cpp
 )
 
 target_include_directories(robot_models PUBLIC
@@ -15,6 +16,8 @@ target_sources(robot_models PUBLIC
     RobotState.h
     RobotConfig.h
     RobotKinematics.h
+    RobotModels.h
+    RobotModelId.h
 )
 
 # 链接 Qt 模块

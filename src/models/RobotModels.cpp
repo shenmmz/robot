@@ -2,7 +2,7 @@
  * @file RobotModels.cpp
  * @brief RobotModelSpec / RobotModelRegistry 的实现，及 R01 机型参数定义。
  *
- * R01 即原 Robot_R06 的参数，齿轮链/速度/传感器/回零/IP 等从原 robot_config.json 归总，
+ * R01 即原 Robot_R06 的参数，齿轮链/速度/传感器/回零/IP 等归总，
  * 作为型号管理的唯一代码侧数据源；FRAME6 几何为固定结构，仍保留在 RobotKinematics 硬编码。
  */
 #include "RobotModels.h"
@@ -36,7 +36,7 @@ RobotModelSpec buildR01()
     s.defaultControllerIP = QStringLiteral("192.168.0.123");
     s.stateUpdateIntervalMs = 100;
 
-    // 每轴齿轮链 / 传感器（来自原 robot_config.json）
+    // 每轴齿轮链 / 传感器
     // 列：pulsePerRev, reductionRatio, gearRatio, sensors
     s.axes = QList<AxisSpec>{
         {1000, 50, QStringLiteral("1:4"), QStringList{QStringLiteral("IN0"), QStringLiteral("IN1")}},  // J0

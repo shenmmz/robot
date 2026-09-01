@@ -113,7 +113,7 @@ Robot_R06/
 └── build/                         # CMake 构建输出（VS 生成器，本机用）
 ```
 
-> ⚠️ `config/robot_config.json` **已删除**（2026-08-31）：机械臂参数全部收口到代码侧 `RobotModels.cpp`，不再有任何 JSON 配置。
+> ⚠️ 配置文件已删除（2026-08-31）：机械臂参数全部收口到代码侧 `RobotModels.cpp`，不再有任何 JSON 配置。
 
 ---
 

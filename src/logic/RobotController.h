@@ -57,7 +57,7 @@ public:
     ~RobotController();
 
     // ===== 初始化 =====
-    // 按机型规格构建配置（不再依赖 robot_config.json，单一数据源在 RobotModelRegistry）。
+    // 按机型规格构建配置（不再依赖外部 JSON 文件，单一数据源在 RobotModelRegistry）。
     // 默认 R01；连上控制器后由 Flash 读取的型号 ID 可经此重载切换（当前 R01 为唯一实装机型）。
     bool initialize(RobotModelId modelId = RobotModelId::R01);
     bool initialize(RobotConfig* config);

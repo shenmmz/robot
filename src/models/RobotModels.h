@@ -32,14 +32,14 @@ struct AxisSpec {
     QStringList sensors;              // 回零/限位传感器映射 (IN0..IN8)
 
     AxisSpec() = default;   // 默认构造（保持可默认初始化）
-    // 构造单轴规格：速度/加减速带默认值，与原 robot_config.json 一致
+    // 构造单轴规格：速度/加减速带默认值，与原配置一致
     AxisSpec(int pr, int rr, const QString& gr, const QStringList& sn,
              double ms = 360, double ma = 1000, double md = 1000)
         : pulsePerRev(pr), reductionRatio(rr), gearRatio(gr),
           maxSpeed(ms), maxAccel(ma), maxDecel(md), sensors(sn) {}
 };
 
-// 整机型号规格：原分散在 robot_config.json 与各常量定义中的参数统一收口（FRAME6 几何保留在 RobotKinematics）
+// 整机型号规格：原分散在各常量定义中的参数统一收口（FRAME6 几何保留在 RobotKinematics）
 struct RobotModelSpec {
     RobotModelId id = RobotModelId::Unknown;
     QString      name;                // 机型名（如 "Robot_R01"）

@@ -71,7 +71,7 @@ RobotController::~RobotController()
  * @brief 按机型规格初始化
  *
  * 按指定机型枚举从代码侧注册表（RobotModelRegistry）构建 RobotConfig，
- * 不再从 robot_config.json 读取配置。随后调用 initialize(RobotConfig*) 完成
+ * 不再从 JSON 文件读取配置。随后调用 initialize(RobotConfig*) 完成
  * 状态对象、运动控制器等子模块的创建与信号槽连接。
  *
  * @param modelId 机型枚举，缺省 R01（当前唯一实装机型）

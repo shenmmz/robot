@@ -3673,7 +3673,7 @@ void UiController::onLoadSettings()
 /**
  * @brief "保存设置"按钮回调：采集回零原点位置，更新内存中的配置种子。
  *
- * 注意：配置不再写 robot_config.json。回零原点的断电持久化由"原点设置"
+ * 注意：配置不再写入 JSON 文件。回零原点的断电持久化由"原点设置"
  * （RobotController::setOriginFromCurrentPos，写入控制器 Flash）负责；
  * 此处仅更新内存中的 homePosition 种子（Flash 为空时 ensureOriginInitialized
  * 会把它写入 Flash）。
