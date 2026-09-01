@@ -126,6 +126,40 @@ MainWindow::MainWindow(QWidget *parent)
     // 初始化连接面板
     initConnectionUI();
 
+    // 在顶部添加一个持久的机型显示标签（不会被 setConnectionStatus 覆盖）
+    // 将父对象设为 topBar，保证它由 topBar 布局管理并显示在顶栏
+    m_labelModel = new QLabel(ui->topBar);
+    m_labelModel->setObjectName(QStringLiteral("labelModel"));
+    m_labelModel->setStyleSheet(QStringLiteral(
+        "color:#39d98a;font-size:13px;font-weight:600;"
+        "padding:0;background:transparent;border:0;"));
+    m_labelModel->setText(QStringLiteral("机型: -"));
+    // 显式插入到 labelStatus 之后，避免占用 IP 区域
+    if (ui->labelStatus && ui->labelStatus->parentWidget()) {
+        QLayout* topLayout = ui->labelStatus->parentWidget()->layout();
+        if (topLayout) {
+            int count = topLayout->count();
+            int insertPos = -1;
+            for (int i = 0; i < count; ++i) {
+                QLayoutItem* it = topLayout->itemAt(i);
+                if (!it) continue;
+                QWidget* w = it->widget();
+                if (w == ui->labelStatus) { insertPos = i + 1; break; }
+            }
+            if (insertPos >= 0) {
+                QBoxLayout* box = qobject_cast<QBoxLayout*>(topLayout);
+                if (box) box->insertWidget(insertPos, m_labelModel);
+                else topLayout->addWidget(m_labelModel);
+            } else {
+                topLayout->addWidget(m_labelModel);
+            }
+        } else if (ui->topBar && ui->topBar->layout()) {
+            ui->topBar->layout()->addWidget(m_labelModel);
+        }
+    } else if (ui->topBar && ui->topBar->layout()) {
+        ui->topBar->layout()->addWidget(m_labelModel);
+    }
+
     // 初始化位置显示面板
     initPositionDisplay();
 
@@ -275,6 +309,7 @@ void MainWindow::updateConnectionUI(bool connected)
  */
 void MainWindow::setConnectionStatus(const QString& text, const QString& color)
 {
+    // 状态栏只显示当前状态；机型显示由 m_labelModel 单独维护，避免重复拼接 "- R02"
     ui->labelStatus->setText(text);
     ui->labelStatus->setStyleSheet(
         QStringLiteral("color: %1;").arg(color));
@@ -383,6 +418,9 @@ void MainWindow::provisionModelIfRequested()
     setConnectionStatus(QStringLiteral("烧录机型 %1 → %2")
                         .arg(robotModelName(id)).arg(ip),
                         QStringLiteral("orange"));
+    qInfo() << "[机型烧录] 先初始化内存配置为目标机型" << robotModelName(id);
+    // 先把内存配置切换到将要烧录的机型，确保在连接时 seed 使用正确的 homePosition
+    m_robotController->initialize(id);
     qInfo() << "[机型烧录] 开始连接控制器" << ip << "以烧录机型" << robotModelName(id);
     m_robotController->connectHardware(ip);
 }
@@ -412,18 +450,17 @@ void MainWindow::onHardwareConnected()
     // —— 机型一次性烧录模式（--setmodel <name>）——
     // 出厂/换臂时连上控制器即把型号 ID 写入 Flash，随后退出程序；日常启动不带此参数则跳过。
     if (m_provisionModel != RobotModelId::Unknown) {
-        if (api) {
-            ZmotionResult r = api->saveModelToFlash(m_provisionModel);
+        if (m_robotController) {
+            bool ok = m_robotController->provisionModel(m_provisionModel, /*force=*/false);
             QMessageBox::information(this, QStringLiteral("机型烧录"),
-                r.success
-                    ? QStringLiteral("机型 %1 已写入控制器 Flash，程序将退出。")
+                ok
+                    ? QStringLiteral("机型 %1 已写入控制器并校验通过，程序将退出。")
                          .arg(robotModelName(m_provisionModel))
-                    : QStringLiteral("写入失败：%1").arg(r.errorMessage));
-            qInfo() << "[机型烧录]" << robotModelName(m_provisionModel)
-                    << (r.success ? "成功" : r.errorMessage);
+                    : QStringLiteral("烧录校验失败，请检查设备与日志。"));
+            qInfo() << "[机型烧录]" << robotModelName(m_provisionModel) << (ok ? "成功" : "失败");
         } else {
             QMessageBox::warning(this, QStringLiteral("机型烧录"),
-                QStringLiteral("无法获取控制器句柄，烧录中止"));
+                QStringLiteral("无法获取 RobotController，烧录中止"));
         }
         QApplication::quit();
         return;
@@ -438,11 +475,35 @@ void MainWindow::onHardwareConnected()
         ZmotionResult mr = api->readModelFromFlash(readId);
         m_modelId = readId;
         if (mr.success) {
-            qInfo() << "[机型识别] 已从控制器 Flash 识别到机型:"
-                    << robotModelName(m_modelId);
+            qInfo() << "[机型识别] 已从控制器 Flash 识别到机型:" << robotModelName(m_modelId);
+            // 也打印到标准输出，便于在控制台启动时直接查看
+            fprintf(stdout, "Detected robot model: %s\n", qPrintable(robotModelName(m_modelId)));
+            fflush(stdout);
+            // 同时推到界面控制台（若 UiController 存在）
+            if (m_uiController) {
+                m_uiController->appendConsole(QStringLiteral("Detected robot model: %1").arg(robotModelName(m_modelId)));
+            }
+            // 机型显示已经独立放在 m_labelModel 上，不再反复拼接到状态栏文本
+            if (m_labelModel) {
+                m_labelModel->setText(QStringLiteral("机型: %1").arg(robotModelName(m_modelId)));
+            }
+            if (ui->labelIp) {
+                ui->labelIp->setText(QStringLiteral("IP:"));
+            }
         } else {
             qInfo() << "[机型识别] 未读到有效机型（" << mr.errorMessage
                     << "），将使用默认参数；如需自动识别请在机型设置页写入";
+            fprintf(stdout, "Detected robot model: Unknown (use default)\n");
+            fflush(stdout);
+            if (m_uiController) {
+                m_uiController->appendConsole(QStringLiteral("Detected robot model: Unknown (use default)"));
+            }
+            if (m_labelModel) {
+                m_labelModel->setText(QStringLiteral("机型: 未设置"));
+            }
+            if (ui->labelIp) {
+                ui->labelIp->setText(QStringLiteral("IP:"));
+            }
         }
     }
 
