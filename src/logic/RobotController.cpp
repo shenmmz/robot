@@ -13,10 +13,12 @@
 #include "../hardware/ServoController.h"
 #include "../hardware/Rs485Controller.h"
 #include "../models/RobotKinematics.h"
+#include "../models/RobotModels.h"
 #include "../utils/MathUtils.h"
 #include "../../ZmotionAPI/ZmotionAPI.h"
 #include <QDebug>
 #include <QTimer>
+#include <QThread>
 #include <cmath>
 
 /**
@@ -1032,8 +1034,18 @@ void RobotController::ensureOriginInitialized()
         qInfo() << "[RobotController] Flash中已有原点，跳过默认seed:" << dummy;
         return;
     }
-    // Flash为空，把配置文件中的出厂默认原点直接写入Flash；之后一律以Flash为基准
-    QList<double> seedHome = m_config->getHomePosition();
+    // Flash 为空，选择合适的 seed 写入 Flash（仅在设备全新/Flash空时写入一次）
+    // 优先使用已初始化的机型配置中的 homePosition（当通过 --setmodel 先初始化时），
+    // 否则回退到集中定义的 initialDeviceOrigin() 作为工厂默认。
+    QList<double> seedHome;
+    if (m_config && m_config->getHomePosition().size() == 6) {
+        seedHome = m_config->getHomePosition();
+        qInfo() << "[RobotController] Flash为空，将使用当前配置的机型 homePosition 作为 seed:" << seedHome;
+    } else {
+        seedHome = initialDeviceOrigin();
+        qInfo() << "[RobotController] Flash为空，使用共享出厂原点作为 seed:" << seedHome;
+    }
+
     ZmotionResult writeRet = api->saveOriginToFlash(seedHome);
     if (writeRet.success) {
         qInfo() << "[RobotController] Flash为空，已写入出厂默认原点:" << seedHome;
@@ -1073,6 +1085,91 @@ bool RobotController::switchToCartesianMode()
     }
 
     return result;
+}
+
+bool RobotController::provisionModel(RobotModelId modelId, bool force)
+{
+    if (!isConnected()) {
+        qWarning() << "[provisionModel] 控制器未连接，无法烧录";
+        return false;
+    }
+    if (modelId == RobotModelId::Unknown) {
+        qWarning() << "[provisionModel] 无效的机型 ID";
+        return false;
+    }
+
+    ZmotionAPI* api = m_motionController->getZmotionAPI();
+    if (!api) {
+        qWarning() << "[provisionModel] 无法获取 ZmotionAPI";
+        return false;
+    }
+
+    // 写入机型 ID（Flash 块专用）
+    ZmotionResult mr = api->saveModelToFlash(modelId);
+    if (!mr.success) {
+        qWarning() << "[provisionModel] 写入机型失败:" << mr.errorMessage;
+        return false;
+    }
+    qInfo() << "[provisionModel] 机型已写入 Flash:" << robotModelName(modelId);
+
+    // 写入 origin：优先使用当前内存配置的 homePosition
+    QList<double> home = (m_config ? m_config->getHomePosition() : QList<double>());
+    if (home.size() != 6) {
+        qWarning() << "[provisionModel] 当前配置未包含有效的 homePosition，使用 initialDeviceOrigin() 作为回退";
+        home = initialDeviceOrigin();
+    }
+
+    // 若目标 Flash 已有 origin 且未设置 force，则不覆盖（保护已有用户设置）
+    QList<double> existing;
+    ZmotionResult rr = api->readOriginFromFlash(existing);
+    if (rr.success && existing.size() == 6 && !force) {
+        qInfo() << "[provisionModel] 控制器已存在 origin，且未指定 force，跳过写入 origin:" << existing;
+    } else {
+        ZmotionResult wr = api->saveOriginToFlash(home);
+        if (!wr.success) {
+            qWarning() << "[provisionModel] 写入 origin 失败:" << wr.errorMessage;
+            return false;
+        }
+        qInfo() << "[provisionModel] origin 已写入 Flash:" << home;
+    }
+
+    // 读回并校验（最多重试两次）
+    const int maxAttempts = 3;
+    for (int attempt = 1; attempt <= maxAttempts; ++attempt) {
+        RobotModelId readId = RobotModelId::Unknown;
+        ZmotionResult rmid = api->readModelFromFlash(readId);
+        QList<double> readOrigin;
+        ZmotionResult rori = api->readOriginFromFlash(readOrigin);
+
+        bool idOk = (rmid.success && readId == modelId);
+        bool originOk = (rori.success && readOrigin.size() == 6);
+        if (originOk) {
+            // 允许小的浮点差
+            originOk = true;
+            for (int i = 0; i < 6; ++i) {
+                if (std::abs(readOrigin[i] - home[i]) > 1e-3) {
+                    originOk = false; break;
+                }
+            }
+        }
+
+        if (idOk && originOk) {
+            qInfo() << "[provisionModel] 烧录校验通过（机型 & origin）";
+            return true;
+        }
+
+        qWarning() << "[provisionModel] 烧录校验失败，尝试" << attempt << "of" << maxAttempts;
+        if (attempt < maxAttempts) {
+            // 重新写一次再读
+            api->saveModelToFlash(modelId);
+            api->saveOriginToFlash(home);
+            QThread::msleep(200);
+            continue;
+        }
+    }
+
+    qWarning() << "[provisionModel] 烧录最终校验失败";
+    return false;
 }
 
 /**

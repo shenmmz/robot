@@ -29,6 +29,8 @@ public:
     ~UiController();
 
     void init();
+    /// 追加到控制台（供外部调用）
+    void appendConsole(const QString& text);
 
 signals:
     void jogCompleted();
@@ -238,8 +240,7 @@ private:
     QPlainTextEdit* getEditor() const;
     QPlainTextEdit* getTargetEditor() const;
 
-    /// 追加到控制台
-    void appendConsole(const QString& text);
+    
 
     // parseScript 辅助方法
     void applyKeywordParams(ScriptCommand& cmd, const QString& line);

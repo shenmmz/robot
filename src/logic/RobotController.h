@@ -139,6 +139,14 @@ public:
      */
     QList<double> getOriginPosition();
 
+    /**
+     * @brief 一次性为控制器烧录机型并写入机型对应的 origin（用于出厂/换臂）
+     * @param modelId 要烧录的机型枚举
+     * @param force 若为 true 则忽略目标 Flash 中已有数据强制覆盖
+     * @return true 成功且校验通过，false 失败
+     */
+    bool provisionModel(RobotModelId modelId, bool force = false);
+
     // 注意：清除自定义原点的功能已移除。如需恢复出厂默认原点，
     // 请重新执行"回零"流程，会自动走 kDefaultHomePosition 作为初始位置。
 

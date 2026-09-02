@@ -183,6 +183,7 @@ private:
     QPlainTextEdit* m_visionLogView = nullptr;
 
     QButtonGroup* m_navGroup;
+    QLabel* m_labelModel = nullptr; // 顶部显示已识别机型（持久显示，不被状态覆盖）
     QTimer* m_jogResetTimerJoint = nullptr;   // 关节点动5s自动复位
     QTimer* m_jogResetTimerCart  = nullptr;   // 笛卡尔点动5s自动复位
     bool m_jogJointUserInput = false;          // 用户正在手动输入关节值
