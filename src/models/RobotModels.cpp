@@ -22,20 +22,26 @@ int gearDenominator(const QString& g)
     return 1;
 }
 
+// 提取共享默认字段：axisCount / homePosition / homeMove / 默认 IP / 状态间隔
+RobotModelSpec buildSharedDefaults()
+{
+    RobotModelSpec s;
+    s.axisCount = 6; // 6 轴
+    s.homePosition = QList<double>{84.999, 68.620, -51.944, 4.229, 71.000, 90.000};
+    s.homeMoveSpeed = 60; // 回零后移动速度 (°/s)
+    s.homeMoveAccel = 80; // 回零后移动加速度
+    s.homeMoveDecel = 100; // 回零后移动减速度
+    s.defaultControllerIP = QStringLiteral("192.168.0.123");
+    s.stateUpdateIntervalMs = 100; // 状态更新间隔(ms)
+    return s;
+}
+
 // 构建 R01 机型（FRAME6 几何由 RobotKinematics 硬编码，此处不含）
 RobotModelSpec buildR01()
 {
-    RobotModelSpec s;
+    RobotModelSpec s = buildSharedDefaults();
     s.id = RobotModelId::R01;
     s.name = QStringLiteral("Robot_R01");
-    s.axisCount = 6;
-    s.homePosition = QList<double>{84.999, 68.620, -51.944, 4.229, 71.000, 90.000};
-    s.homeMoveSpeed = 60;
-    s.homeMoveAccel = 80;
-    s.homeMoveDecel = 100;
-    s.defaultControllerIP = QStringLiteral("192.168.0.123");
-    s.stateUpdateIntervalMs = 100;
-
     // 每轴齿轮链 / 传感器
     // 列：pulsePerRev, reductionRatio, gearRatio, sensors
     s.axes = QList<AxisSpec>{
@@ -49,6 +55,27 @@ RobotModelSpec buildR01()
     return s;
 }
 
+// 构建 R02 机型（同 FRAME6 几何，电机脉冲与减速比由新机型指定）
+RobotModelSpec buildR02()
+{
+    RobotModelSpec s = buildSharedDefaults();
+    s.id = RobotModelId::R02;
+    s.name = QStringLiteral("Robot_R02");
+
+    // 每轴齿轮链 / 传感器
+    // 列：pulsePerRev, reductionRatio, gearRatio, sensors
+    // 按 R02 要求：电机脉冲为 10000，减速比固定为 28
+    s.axes = QList<AxisSpec>{
+        {10000, 28, QStringLiteral("1:4"), QStringList{QStringLiteral("IN0"), QStringLiteral("IN1")}},  // J0
+        {10000, 28, QStringLiteral("1:4"), QStringList{QStringLiteral("IN2")}},                           // J1
+        {10000, 28, QStringLiteral("1:1"), QStringList{QStringLiteral("IN3")}},                           // J2
+        {10000, 28, QStringLiteral("1:1"), QStringList{QStringLiteral("IN4"), QStringLiteral("IN5")}},  // J3
+        {10000, 28, QStringLiteral("1:1"), QStringList{QStringLiteral("IN6")}},                           // J4
+        {10000, 28, QStringLiteral("1:1"), QStringList{QStringLiteral("IN7"), QStringLiteral("IN8")}},  // J5
+    };
+    return s;
+}
+
 // R01 规格单例（静态缓存，全程唯一）
 const RobotModelSpec& r01Spec()
 {
@@ -56,10 +83,19 @@ const RobotModelSpec& r01Spec()
     return s;
 }
 
+// R02 规格单例（静态缓存，全程唯一）
+const RobotModelSpec& r02Spec()
+{
+    static const RobotModelSpec s = buildR02();
+    return s;
+}
+
 // 空规格（R02/Unknown 占位，参数待填）
+// 注：const 聚合对象必须显式初始化（值初始化），字段为 0/空，
+//   但实际不会读这些字段 —— 见 RobotConfig::initializeFromModel 对 Unknown 的 R01 回退
 const RobotModelSpec& emptySpec()
 {
-    static const RobotModelSpec s;
+    static const RobotModelSpec s{};
     return s;
 }
 
@@ -85,8 +121,7 @@ const RobotModelSpec& RobotModelRegistry::get(RobotModelId id)
     case RobotModelId::R01:
         return r01Spec();
     case RobotModelId::R02:
-        // 新臂占位：参数待填，暂返回空 spec（后续在此填充 buildR02()）
-        return emptySpec();
+        return r02Spec();
     case RobotModelId::Unknown:
     default:
         return emptySpec();
