@@ -80,6 +80,15 @@ int main(int argc, char *argv[])
     // qputenv("QT_DEBUG_PLUGINS", "1");//调试使用
     QApplication a(argc, argv);
 
+    // === 全局放大 QMessageBox（确认/提示弹窗），适配触屏操作 ===
+    // 统一放大：文字 20px、按钮 18px 且加宽加高（便于手指点按）、窗口最小宽度 560。
+    // 作用于所有 QMessageBox（回零确认、原点写入提示、错误/警告弹窗等）。
+    a.setStyleSheet(QStringLiteral(
+        "QMessageBox{min-width:560px;}"
+        "QMessageBox QLabel{font-size:20px;color:#1a1a2e;}"
+        "QMessageBox QPushButton{font-size:18px;min-width:140px;min-height:52px;"
+        "padding:6px 18px;border-radius:6px;}"));
+
     // === 初始化文件日志 ===
     // 将所有 qDebug 输出实时写入文件，不受 VisionMaster SDK 缓冲影响。
     // 日志文件位于 exe 目录的 log/app/ 下，按启动时间命名。
