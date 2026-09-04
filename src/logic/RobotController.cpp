@@ -980,66 +980,10 @@ void RobotController::onStatusUpdated()
 // ==================== 原点管理（Flash 断电保持）====================
 
 /**
- * @brief 将当前姿态设为自定义原点，写入控制器Flash
- *
- * 将当前 6 轴关节位置（实时 DPOS）原样写入 Flash 作为新原点，
- * 不再读取旧基准做 baseOrigin + DPOS 累加。
- *
- * 写入前把每个角度 round 到 3 位小数，避免 float 存储把不必要的位占满。
- *
- * 仅在用户主动点击"原点设置"按钮时调用，避免 Flash 写入寿命消耗。
- *
- * @return true=写入成功，false=未连接/读取失败/写入失败
- */
-bool RobotController::setOriginFromCurrentPos()
-{
-    if (!isConnected()) {
-        emit operationFailed(QStringLiteral("原点设置"), QStringLiteral("控制器未连接"));
-        return false;
-    }
-
-    ZmotionAPI* api = m_motionController->getZmotionAPI();
-
-    // 读取当前 6 轴 DPOS（相对"当前生效原点"的偏移）
-    QList<double> dpos;
-    for (int i = 0; i < 6; ++i) {
-        ZmotionResult ret = api->getAxisPosition(i);
-        if (!ret.success) {
-            emit operationFailed(QStringLiteral("原点设置"),
-                QStringLiteral("读取轴%1位置失败: %2").arg(i).arg(ret.errorMessage));
-            return false;
-        }
-        dpos.append(static_cast<double>(ret.axisPosition));
-    }
-
-    // 取"当前关节位置"（DPOS）直接作为新原点，整体覆盖写入 Flash：
-    // 不做 baseOrigin + DPOS 相加减（避免旧基准叠加导致的偏移不断累加），
-    // 语义为"以当前位置校准原点偏移"。
-    QList<double> newOrigin(6, 0.0);
-    for (int i = 0; i < 6; ++i) {
-        double v = dpos[i];
-        v = std::round(v * 1000.0) / 1000.0;
-        newOrigin[i] = v;
-    }
-
-    qInfo() << "[RobotController] 原点设置，当前关节位置直接覆盖写入Flash:" << newOrigin;
-
-    ZmotionResult flashRet = api->saveOriginToFlash(newOrigin);
-    if (!flashRet.success) {
-        emit operationFailed(QStringLiteral("原点设置"), flashRet.errorMessage);
-        return false;
-    }
-
-    emit operationCompleted(QStringLiteral("原点设置"));
-    return true;
-}
-
-/**
  * @brief 手动调整原点：把调用方给定的 6 轴目标值写入控制器 Flash
  *
- * 与 setOriginFromCurrentPos 的区别：不读取当前 DPOS，直接写入调用方给定的值。
  * 调用方（"设置机械原点"按钮）负责计算"新原点 = 当前Flash原点 + 当前DPOS"，
- * 因此本函数不再要求 DPOS 全为 0（新流程恰恰是在 DPOS≠0 的偏移位姿下使用）。
+ * 因此本函数不要求 DPOS 全为 0（新流程恰恰是在 DPOS≠0 的偏移位姿下使用）。
  *
  * @param originValues 调用方计算好的 6 轴原点值
  * @param outErrorMsg  可选输出参数，失败时返回错误描述
@@ -1065,7 +1009,7 @@ bool RobotController::setOriginFromValues(const QList<double>& originValues, QSt
 
     ZmotionAPI* api = m_motionController->getZmotionAPI();
 
-    // round 到 3 位小数，避免 float 存储占满不必要位（与 setOriginFromCurrentPos 一致）
+    // round 到 3 位小数，避免 float 存储占满不必要位
     QList<double> newOrigin;
     newOrigin.reserve(6);
     for (int i = 0; i < 6; ++i) {

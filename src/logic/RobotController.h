@@ -120,27 +120,13 @@ public:
 
     // ===== 原点管理（Flash 断电保持）=====
     /**
-     * @brief 将当前6轴DPOS设为自定义原点，写入控制器Flash
+     * @brief 手动调整原点：把调用方给定的 6 轴目标值写入控制器 Flash
      *
-     * 用户在点动控制中手动调整好机械臂位置后调用，
-     * 将当前各轴DPOS作为"新原点"持久化到Flash，断电不丢失。
+     * 调用方（"设置机械原点"按钮）负责计算"新原点 = 当前Flash原点 + 当前DPOS"，
+     * 本函数只做校验（连接、6 元素）+ round3 + 直写 Flash，
+     * 写入成功后顺带清零 DPOS/MPOS（新原点 <-> DPOS=0）。
      *
-     * @return true=成功，false=失败
-     */
-    bool setOriginFromCurrentPos();
-
-    /**
-     * @brief 手动调整原点：把用户输入的 6 轴目标值写入控制器 Flash
-     *
-     * 与 setOriginFromCurrentPos 的区别：本接口不读取当前 DPOS，
-     * 直接把用户输入值作为新原点写入 Flash（断电保持）。
-     * 适用场景：R02 回零后停 DATUM 位、DPOS 恒为 0，无法用"抓当前位置"方式
-     * 记录原点，需手动输入目标值（例如机型 homePosition）。
-     *
-     * 安全约束：仅当 6 轴 DPOS 全为 0（机械臂停在 DATUM 位）时允许写入；
-     * 否则坐标基准会随原点偏移而跳变。
-     *
-     * @param originValues 用户输入的 6 轴原点值
+     * @param originValues 调用方计算好的 6 轴原点值
      * @param outErrorMsg  可选输出参数，失败时返回错误描述
      * @return true=写入成功
      */
@@ -163,9 +149,6 @@ public:
      * @return true 成功且校验通过，false 失败
      */
     bool provisionModel(RobotModelId modelId, bool force = false);
-
-    // 注意：清除自定义原点的功能已移除。如需恢复出厂默认原点，
-    // 请重新执行"回零"流程，会自动走 kDefaultHomePosition 作为初始位置。
 
     // ===== 正逆解模式控制 =====
     bool switchToCartesianMode();      // 切换到笛卡尔空间控制（逆解模式）

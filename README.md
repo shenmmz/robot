@@ -269,7 +269,7 @@ R01 六轴当量（已验证与原始规格一致）：J0/J1 = 555.56、J2/J4 = 
 - 建模：`initRobotModel()` —— 物理关节轴（0-5，atype=1）→ 写 25 项 TABLE → 虚拟笛卡尔轴（6-11，atype=0）→ CONNFRAME 正逆解关联。
 - 运动：`moveJ()`（正解，等待到位）/ `moveL()`（逆解，Rx/Ry/Rz ±180° 归一化）/ `jogJoint()` / `jogJointBatch()` / `jogCart()` / `moveAxis()` / `stopMotion()`。
 - 回零：`executeHoming()` / `stopHoming()`（委托 HomingController）。
-- **原点 Flash 持久化**：`setOriginFromCurrentPos()` 把当前 6 轴 DPOS 写 Flash（块 0）；`getOriginPosition()` Flash 优先、config 兜底。
+- **原点 Flash 持久化**：`setOriginFromValues()` 把"当前Flash原点 + 当前DPOS"写 Flash（块 0）并清零 DPOS/MPOS；`getOriginPosition()` Flash 优先、config 兜底。
 - 安全停止：`executeSafeStop()`（减速停止 + 禁用轴）。
 
 **`HomingController`（882 行）** — 六轴回零状态机
@@ -504,7 +504,7 @@ cmake --build build_ninja --target Robot_R06
 | 想改某轴减速比/齿轮比？ | 改 `RobotModels.cpp` `buildR01()` 对应 `s.axes` 行，当量自动重算 |
 | 想改 FRAME6 几何？ | `RobotKinematics.cpp` `buildFrame6Table()` 内硬编码常量（真实 L4 需向机械设计确认） |
 | 视觉定位用哪条链？ | 链 B（VM SDK，视觉定位按钮）；链 A（Python，启动/停止视觉程序）——见 §6.6 |
-| 自定义原点怎么保存？ | 点动到目标位姿 → `setOriginFromCurrentPos()` 写 Flash，断电不丢 |
+| 自定义原点怎么保存？ | 点动到目标位姿 → "调节"弹窗 → "原点设置" → "设置机械原点" 写 Flash（=当前Flash原点+DPOS，且 DPOS 清零），断电不丢 |
 
 ---
 
