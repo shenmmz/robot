@@ -85,7 +85,7 @@ RobotModelSpec buildR02()
     RobotModelSpec s = buildSharedDefaults();
     s.id = RobotModelId::R02;
     s.name = QStringLiteral("Robot_R02");
-    s.homeMoveSpeed = 20;  // 回零后移动速度 (°/s)，R02 独立值
+    s.homeMoveSpeed = 60;  // 回零后移动速度 (°/s)，R02 独立值
     s.homeMoveAccel = 80;  // 回零后移动加速度
     s.homeMoveDecel = 100; // 回零后移动减速度
     s.moveToHomeAfterHoming = true;  // R02：回零后移动到 homePosition（到位后统一清 DPOS=0）
