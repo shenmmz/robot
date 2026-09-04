@@ -94,6 +94,30 @@ bool RobotController::initialize(RobotModelId modelId)
 }
 
 /**
+ * @brief 轻量切换机型配置
+ *
+ * 仅更新 RobotConfig 数据源，不重建控制器链。
+ * 回零/建模等动作在执行时按 RobotConfig 实时取机型参数(getAxisSpec/getAxisUnitsList)，
+ * 因此连接成功阶段调用即可让后续流程使用正确机型数据。
+ *
+ * @param modelId 目标机型枚举
+ * @return true 切换成功或已是目标机型；false 配置未初始化
+ */
+bool RobotController::applyModel(RobotModelId modelId)
+{
+    if (!m_config) {
+        qWarning() << "[RobotController] applyModel: 配置未初始化";
+        return false;
+    }
+    if (m_config->modelId() == modelId) {
+        return true;   // 已是目标机型
+    }
+    m_config->initializeFromModel(modelId);
+    qInfo() << "[RobotController] 运行配置已切换机型:" << robotModelName(modelId);
+    return true;
+}
+
+/**
  * @brief 通过配置对象初始化
  *
  * 使用已加载的RobotConfig对象初始化控制器，创建状态对象和运动控制器，
@@ -118,7 +142,6 @@ bool RobotController::initialize(RobotConfig* config)
     m_homingController = new HomingController(
         m_motionController->getZmotionAPI(),
         m_config,
-        m_state,
         this
     );
     
@@ -819,34 +842,43 @@ void RobotController::connectSignals()
 
     if (m_homingController) {
         connect(m_homingController, &HomingController::homingCompleted, this, [this]() {
-            // 回零完成后，移动到原点位置（Flash优先，config兜底）
-            QList<double> originPos = getOriginPosition();
-            if (originPos.size() >= 6) {
-                QList<float> positions;
-                for (int i = 0; i < 6; ++i) {
-                    positions.append(static_cast<float>(originPos[i]));
-                }
-                float speed = static_cast<float>(m_config->getHomeMoveSpeed());
-                float accel = static_cast<float>(m_config->getHomeMoveAccel());
-                float decel = static_cast<float>(m_config->getHomeMoveDecel());
-                m_homingController->moveAllAxesToPositions(positions, speed, accel, decel);
+            // 回零完成后按机型策略处理：是否移动到 homePosition（Flash优先，config兜底）
+            ZmotionAPI* api = getMotionController()->getZmotionAPI();
+            if (m_config->moveToHomeAfterHoming()) {
+                // 原行为（R01）：移动到原点位置，等待到位后再统一清零
+                qInfo() << "[RobotController] 全部轴回零完成，开始移动到原点位置（速度取 homeMoveSpeed 等机型参数）";
+                QList<double> originPos = getOriginPosition();
+                if (originPos.size() >= 6) {
+                    QList<float> positions;
+                    for (int i = 0; i < 6; ++i) {
+                        positions.append(static_cast<float>(originPos[i]));
+                    }
+                    float speed = static_cast<float>(m_config->getHomeMoveSpeed());
+                    float accel = static_cast<float>(m_config->getHomeMoveAccel());
+                    float decel = static_cast<float>(m_config->getHomeMoveDecel());
+                    m_homingController->moveAllAxesToPositions(positions, speed, accel, decel);
 
-                // 等待所有轴到达原点位置后再继续后续流程
-                ZmotionAPI* api = getMotionController()->getZmotionAPI();
-                api->waitForAxesIdle({0, 1, 2, 3, 4, 5}, 15000);
-
-                // 物理已移动到原点位置 P，把 DPOS 与 MPOS 同时清 0，
-                // 使 DPOS=0 ↔ 处于 Flash 原点。维持"原点设置"公式所需的
-                // "DPOS 是相对当前 Flash 原点的偏移"不变量，避免先回零再设原点时双倍计数。
-                // 必须同时清 DPOS+MPOS（闭环伺服两者不一致会瞬冲）。
-                ZmotionResult zeroRet = api->clearAxisPosition({0, 1, 2, 3, 4, 5});
-                if (!zeroRet.success) {
-                    qWarning() << "[RobotController] 回零后清零 DPOS/MPOS 失败:" << zeroRet.errorMessage;
+                    // 等待所有轴到达原点位置后再继续后续流程
+                    api->waitForAxesIdle({0, 1, 2, 3, 4, 5}, 15000);
                 }
+            } else {
+                // R02：回零后停 DATUM 位，不清坐标前先等轴静止
+                qInfo() << "[RobotController] 本机型回零后停 DATUM 位，不清坐标前先等轴静止";
+                api->waitForAxesIdle({0, 1, 2, 3, 4, 5}, 3000);
+            }
+
+            // 物理位置固定后，把 DPOS 与 MPOS 同时清 0，
+            // 使 DPOS=0 ↔ 处于坐标原点。维持"原点设置"公式所需的
+            // "DPOS 是相对当前 Flash 原点的偏移"不变量，避免先回零再设原点时双倍计数。
+            // 必须同时清 DPOS+MPOS（闭环伺服两者不一致会瞬冲）。
+            ZmotionResult zeroRet = api->clearAxisPosition({0, 1, 2, 3, 4, 5});
+            if (!zeroRet.success) {
+                qWarning() << "[RobotController] 回零后清零 DPOS/MPOS 失败:" << zeroRet.errorMessage;
             }
             emit operationCompleted(QStringLiteral("回零"));
         });
         connect(m_homingController, &HomingController::homingFailed, this, [this](const QString& errorMsg) {
+            qWarning() << "[RobotController] 回零失败:" << errorMsg;
             emit operationFailed(QStringLiteral("回零"), errorMsg);
         });
     }
@@ -924,16 +956,8 @@ void RobotController::onStatusUpdated()
 /**
  * @brief 将当前姿态设为自定义原点，写入控制器Flash
  *
- * 新原点绝对姿态 = "Flash 中当前已保存的原点" + 当前 6 轴 DPOS。
- *
- * 语义：以**当前生效的原点**为基线，加上本次示教产生的 DPOS 增量。
- * 这样用户多次设置原点时，第二次保存的是"在第一次基础上又调整了多少"，
- * 不会因为基线是出厂 homePosition 而被反复覆盖回滚。
- *
- * - 首次保存：Flash 为空（或 ensureOriginInitialized 刚 seed 的默认 home），
- *   等价于 "homePosition + DPOS"，符合出厂基准。
- * - 后续保存：基线 = Flash 已有值，DPOS 是相对该基线的偏移，因此是真正的
- *   "在原基础上做调整"。
+ * 将当前 6 轴关节位置（实时 DPOS）原样写入 Flash 作为新原点，
+ * 不再读取旧基准做 baseOrigin + DPOS 累加。
  *
  * 写入前把每个角度 round 到 3 位小数，避免 float 存储把不必要的位占满。
  *
@@ -962,22 +986,17 @@ bool RobotController::setOriginFromCurrentPos()
         dpos.append(static_cast<double>(ret.axisPosition));
     }
 
-    // 取"当前生效的原点"作为基线：
-    //   - 优先读 Flash 中上一次保存的原点
-    //   - Flash 为空时回退到 config 的 homePosition（与 ensureOriginInitialized 一致）
-    QList<double> baseOrigin = getOriginPosition();
-
-    // 在基线上叠加本次 DPOS 增量，并 round 到 3 位小数
+    // 取"当前关节位置"（DPOS）直接作为新原点，整体覆盖写入 Flash：
+    // 不做 baseOrigin + DPOS 相加减（避免旧基准叠加导致的偏移不断累加），
+    // 语义为"以当前位置校准原点偏移"。
     QList<double> newOrigin(6, 0.0);
     for (int i = 0; i < 6; ++i) {
-        const double base = (i < baseOrigin.size()) ? baseOrigin[i] : 0.0;
-        double v = base + dpos[i];
+        double v = dpos[i];
         v = std::round(v * 1000.0) / 1000.0;
         newOrigin[i] = v;
     }
 
-    qInfo() << "[RobotController] 原点设置，baseOrigin =" << baseOrigin
-            << "+ DPOS =" << dpos << "= newOrigin" << newOrigin;
+    qInfo() << "[RobotController] 原点设置，当前关节位置直接覆盖写入Flash:" << newOrigin;
 
     ZmotionResult flashRet = api->saveOriginToFlash(newOrigin);
     if (!flashRet.success) {

@@ -1,4 +1,4 @@
-/*
+﻿/*
  * @file UiController.h
  * @brief UI 辅助功能控制器，管理 IO 监控 / 报警日志 / 编程运行 / 设置页面 / 手动调试。
  */
@@ -12,13 +12,19 @@
 #include <functional>
 #include "TargetDef.h"      // MotionParams:点位级 speed/accel/decel/timeoutMs
 #include "ScriptCommand.h"  // ScriptCmdType / ScriptCommand（parseScript 及辅助方法使用）
+#include "../models/RobotModelId.h"  // RobotModelId 枚举（回零面板值成员需完整类型）
 
 class QWidget;
 class QPlainTextEdit;
 class QPushButton;
+class QComboBox;
+class QTableWidget;
+class QLabel;
 class RobotController;
 class TaskExecutor;
 class MainWindow;
+
+struct HomeSpec;                 // 回零参数结构前置声明（完整定义见 src/models/RobotModels.h）
 
 class UiController : public QObject
 {
@@ -183,6 +189,12 @@ private slots:
     /// @brief 调试模式开关:勾选后启用手动点动控件和调试参数输入框;未勾选时全部禁用
     void onDebugModeToggled(bool checked);
 
+    // === 回零参数面板 ===
+    void onHomeModelChanged();
+    void onHomeLoad();
+    void onHomeSave();
+    void onHomeReset();
+
 private:
     MainWindow* m_mainWindow;
     RobotController* m_robotController;
@@ -205,6 +217,12 @@ private:
     int m_currentExecLine = -1;               // 当前执行源代码行号（-1=无）
     bool m_stepMode = false;                   // 当前是否处于单步会话中（用于决定 finish 后是否自动重置）
     QHash<QString, QString> m_ioLabels;       // IO 自定义名称（frameName → 自定义名称）
+
+    // === 回零参数面板控件（buildHomeParamPanel 创建）===
+    QComboBox* m_homeModelCombo = nullptr;        // 机型下拉（目标机型）
+    QTableWidget* m_homeParamTable = nullptr;     // 6轴 x 10字段 编辑表格
+    QLabel* m_homeHintLabel = nullptr;            // 面板底部状态提示
+    RobotModelId m_homePreviewModel = RobotModelId::Unknown;  // 面板当前预览/编辑机型
 
     // 辅助方法
     void setIOIndicator(const QString& frameName, bool active);
@@ -252,6 +270,12 @@ private:
 
     /// 解析脚本为指令列表
     QList<struct ScriptCommand> parseScript(const QString& text);
+
+    // === 回零参数面板（机型化覆盖）辅助 ===
+    void buildHomeParamPanel();                  // 构建设置页分组 + 载入已有覆盖
+    void fillHomeParamTable(RobotModelId id);    // 按机型填充表格（默认+覆盖叠加，覆盖高亮）
+    HomeSpec collectHomeParamRow(int axis, const HomeSpec& base) const; // 收集行编辑值(10字段)
+    void setRowOverrideStyle(int axis, bool overrideActive);
 };
 
 #endif // UICONTROLLER_H

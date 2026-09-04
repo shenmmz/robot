@@ -1,4 +1,4 @@
-/*
+﻿/*
  * @file RobotConfig.cpp
  * @brief RobotConfig 实现：按机型规格（RobotModelRegistry）构建机械臂配置。
  *
@@ -7,6 +7,7 @@
 #include "RobotConfig.h"
 #include "RobotModels.h"
 #include <QDebug>          // qInfo / qWarning 流式输出
+#include <QSettings>        // 回零覆盖表 ini 读写
 
 /**
  * @brief 构造函数：默认按 R01 机型规格构建（数据源自 RobotModelRegistry）
@@ -26,16 +27,6 @@ RobotConfig::AxisConfig RobotConfig::getAxisConfig(int axisIndex) const
         return m_axisConfigs.at(axisIndex);
     }
     return AxisConfig();
-}
-
-/**
- * @brief 设置指定轴配置；索引越界则忽略
- */
-void RobotConfig::setAxisConfig(int axisIndex, const RobotConfig::AxisConfig& config)
-{
-    if (axisIndex >= 0 && axisIndex < m_axisConfigs.size()) {
-        m_axisConfigs[axisIndex] = config;
-    }
 }
 
 /**
@@ -74,6 +65,174 @@ QList<double> RobotConfig::getAxisUnitsList() const
 }
 
 /**
+ * @brief 取指定轴的型号规格（含 home 回零配置）
+ *
+ * 直接转发到 RobotModelRegistry；不缓存（机型切换时自动跟随）。
+ */
+const AxisSpec& RobotConfig::getAxisSpec(int axisIndex) const
+{
+    return RobotModelRegistry::get(m_modelId).axes.at(axisIndex);
+}
+
+// ==================== 运行时回零参数覆盖（HomeOverride） ====================
+
+namespace {
+// 覆盖表键：(modelId 高16位) << 16 | axisIndex 低16位
+quint64 homeKeyOf(RobotModelId id, int axisIndex)
+{
+    return (static_cast<quint64>(static_cast<int>(id)) << 16)
+           | static_cast<quint64>(static_cast<unsigned>(axisIndex) & 0xFFFFu);
+}
+
+// 把 HomeSpec 序列化为 ini 组键值（字段与 HomeSpec 成员一一对应）
+void writeHomeSpec(QSettings& s, const HomeSpec& h)
+{
+    s.setValue(QStringLiteral("homeIn"), h.homeIn);
+    s.setValue(QStringLiteral("negIn"), h.negIn);
+    s.setValue(QStringLiteral("datumMode"), h.datumMode);
+    s.setValue(QStringLiteral("moveAwayOrigin"), h.moveAwayOrigin);
+    s.setValue(QStringLiteral("moveAwayReverse"), h.moveAwayReverse);
+    s.setValue(QStringLiteral("homeSpeed"), h.homeSpeed);
+    s.setValue(QStringLiteral("homeAccel"), h.homeAccel);
+    s.setValue(QStringLiteral("homeDecel"), h.homeDecel);
+    s.setValue(QStringLiteral("homeLspeed"), h.homeLspeed);
+    s.setValue(QStringLiteral("homeSramp"), h.homeSramp);
+    s.setValue(QStringLiteral("homeCreep"), h.homeCreep);
+}
+
+HomeSpec readHomeSpec(QSettings& s)
+{
+    HomeSpec h;
+    h.homeIn           = s.value(QStringLiteral("homeIn"), h.homeIn).toInt();
+    h.negIn            = s.value(QStringLiteral("negIn"), h.negIn).toInt();
+    h.datumMode        = s.value(QStringLiteral("datumMode"), h.datumMode).toInt();
+    h.moveAwayOrigin   = s.value(QStringLiteral("moveAwayOrigin"), h.moveAwayOrigin).toDouble();
+    h.moveAwayReverse  = s.value(QStringLiteral("moveAwayReverse"), h.moveAwayReverse).toDouble();
+    h.homeSpeed        = s.value(QStringLiteral("homeSpeed"), h.homeSpeed).toDouble();
+    h.homeAccel        = s.value(QStringLiteral("homeAccel"), h.homeAccel).toDouble();
+    h.homeDecel        = s.value(QStringLiteral("homeDecel"), h.homeDecel).toDouble();
+    h.homeLspeed       = s.value(QStringLiteral("homeLspeed"), h.homeLspeed).toDouble();
+    h.homeSramp        = s.value(QStringLiteral("homeSramp"), h.homeSramp).toDouble();
+    h.homeCreep        = s.value(QStringLiteral("homeCreep"), h.homeCreep).toDouble();
+    return h;
+}
+} // namespace
+
+/**
+ * @brief 当前机型下轴的回零参数：覆盖优先，否则注册表默认。
+ *
+ * 返回 const 引用：覆盖值存于 m_homeOverrides（QHash 节点稳定），
+ * 默认值存于 RobotModelRegistry 静态单例，均可跨调用安全引用。
+ */
+const HomeSpec& RobotConfig::homeSpecFor(int axisIndex) const
+{
+    const quint64 key = homeKeyOf(m_modelId, axisIndex);
+    const auto it = m_homeOverrides.constFind(key);
+    if (it != m_homeOverrides.constEnd())
+        return it.value();
+    return RobotModelRegistry::get(m_modelId).axes.at(axisIndex).home;
+}
+
+/**
+ * @brief 指定机型轴的回零覆盖值（无覆盖时回注册表默认）。面板按机型预览用。
+ */
+const HomeSpec& RobotConfig::homeOverrideFor(RobotModelId id, int axisIndex) const
+{
+    const quint64 key = homeKeyOf(id, axisIndex);
+    const auto it = m_homeOverrides.constFind(key);
+    if (it != m_homeOverrides.constEnd())
+        return it.value();
+    const RobotModelSpec& spec = RobotModelRegistry::get(id);
+    return (spec.id == RobotModelId::Unknown)
+               ? RobotModelRegistry::get(RobotModelId::R01).axes.at(axisIndex).home
+               : spec.axes.at(axisIndex).home;
+}
+
+bool RobotConfig::hasHomeOverride(RobotModelId id, int axisIndex) const
+{
+    return m_homeOverrides.contains(homeKeyOf(id, axisIndex));
+}
+
+void RobotConfig::setHomeOverride(RobotModelId id, int axisIndex, const HomeSpec& h)
+{
+    m_homeOverrides.insert(homeKeyOf(id, axisIndex), h);
+}
+
+bool RobotConfig::clearHomeOverride(RobotModelId id, int axisIndex)
+{
+    return m_homeOverrides.remove(homeKeyOf(id, axisIndex)) > 0;
+}
+
+bool RobotConfig::clearAllHomeOverrides(RobotModelId id)
+{
+    const quint64 high = static_cast<quint64>(static_cast<int>(id)) << 16;
+    bool any = false;
+    auto it = m_homeOverrides.begin();
+    while (it != m_homeOverrides.end()) {
+        if ((it.key() >> 16) == high) {
+            it = m_homeOverrides.erase(it);
+            any = true;
+        } else {
+            ++it;
+        }
+    }
+    return any;
+}
+
+bool RobotConfig::hasAnyHomeOverrides() const
+{
+    return !m_homeOverrides.isEmpty();
+}
+
+/**
+ * @brief 从 ini 载入全部机型覆盖（HomeOverride/<机型>/axis<轴> 组）。
+ *
+ * 全量载入语义：先清空再读，保证与文件一致（启动空表 / 面板"载入已保存"均可用）。
+ */
+bool RobotConfig::loadHomeOverrides(const QString& iniPath)
+{
+    m_homeOverrides.clear();
+    QSettings settings(iniPath, QSettings::IniFormat);
+    const QStringList groups = settings.childGroups();
+    for (const QString& g : groups) {
+        const QStringList parts = g.split(QLatin1Char('/'));
+        if (parts.size() != 3 || parts.at(0) != QStringLiteral("HomeOverride"))
+            continue;
+        const RobotModelId id = robotModelFromName(parts.at(1));
+        bool ok = false;
+        const int axis = parts.at(2).mid(4).toInt(&ok);   // "axis0" -> 0
+        if (id == RobotModelId::Unknown || !ok || axis < 0 || axis >= 6)
+            continue;
+        settings.beginGroup(g);
+        m_homeOverrides.insert(homeKeyOf(id, axis), readHomeSpec(settings));
+        settings.endGroup();
+    }
+    return true;
+}
+
+/**
+ * @brief 全量重写 ini（QSettings 写模式先 clear 再写各覆盖组）。
+ */
+bool RobotConfig::saveHomeOverrides(const QString& iniPath) const
+{
+    QSettings settings(iniPath, QSettings::IniFormat);
+    settings.clear();
+    auto it = m_homeOverrides.constBegin();
+    for (; it != m_homeOverrides.constEnd(); ++it) {
+        const RobotModelId id = static_cast<RobotModelId>(static_cast<int>(it.key() >> 16));
+        const int axis = static_cast<int>(it.key() & 0xFFFFu);
+        const QString group = QStringLiteral("HomeOverride/%1/axis%2")
+                                  .arg(robotModelName(id))
+                                  .arg(axis);
+        settings.beginGroup(group);
+        writeHomeSpec(settings, it.value());
+        settings.endGroup();
+    }
+    settings.sync();
+    return settings.status() == QSettings::NoError;
+}
+
+/**
  * @brief 输出完整配置的可读字符串
  */
 QString RobotConfig::toString() const
@@ -85,7 +244,6 @@ QString RobotConfig::toString() const
 
     for (const auto& config : m_axisConfigs) {
         result += QString("轴%1配置:\n").arg(config.axisIndex);
-        result += QString("  传感器: %1\n").arg(config.sensors.join(", "));
         result += QString("  减速比: %1\n").arg(config.reductionRatio);
         result += QString("  齿轮比: %1\n").arg(config.gearRatio);
         result += QString("  脉冲数: %1\n").arg(config.pulsePerRev);
@@ -122,6 +280,7 @@ void RobotConfig::initializeFromModel(RobotModelId id)
     m_homeMoveSpeed = src.homeMoveSpeed;
     m_homeMoveAccel = src.homeMoveAccel;
     m_homeMoveDecel = src.homeMoveDecel;
+    m_moveToHomeAfterHoming = src.moveToHomeAfterHoming; // 回零后是否移动到 homePosition
 
     // 当前机型 ID（存回退后的 src.id：Unknown 机型回退 R01 后存 R01）
     m_modelId = src.id;
@@ -137,7 +296,6 @@ void RobotConfig::initializeFromModel(RobotModelId id)
         config.maxAccel = a.maxAccel;
         config.maxDecel = a.maxDecel;
         config.homePosition = (i < src.homePosition.size()) ? src.homePosition.at(i) : 0.0;
-        config.sensors = a.sensors;
         config.reductionRatio = a.reductionRatio;
         config.gearRatio = a.gearRatio;
         config.pulsePerRev = a.pulsePerRev;

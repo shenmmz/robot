@@ -32,6 +32,7 @@ static void outputVisionLine(const QString &line)
 #endif
 }
 
+/* ==================== 视觉运动 ==================== */
 /**
  * @brief 构造主窗口并创建视觉模块。
  * @param parent Qt 父窗口。

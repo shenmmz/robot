@@ -61,6 +61,7 @@ public:
     // 默认 R01；连上控制器后由 Flash 读取的型号 ID 可经此重载切换（当前 R01 为唯一实装机型）。
     bool initialize(RobotModelId modelId = RobotModelId::R01);
     bool initialize(RobotConfig* config);
+    bool applyModel(RobotModelId modelId);   // 轻量切换机型配置：仅更新 RobotConfig 数据源，不重建控制器链
 
     // ===== 连接管理 =====
     bool connectHardware(const QString& ipAddr);
@@ -83,7 +84,6 @@ public:
     // ===== 高级运动控制 =====
     bool executeHoming();
     void stopHoming();
-    HomingController* getHomingController() const { return m_homingController; }
     
     /**
      * @brief 执行安全停止

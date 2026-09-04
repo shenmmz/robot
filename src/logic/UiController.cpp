@@ -3,6 +3,9 @@
  * @brief 实现 UiController 类，负责 IO 监控、报警日志、编程运行和设置页面逻辑。
  *
  * 所有子控件通过 mainWindow->findChild 按名称查找，不依赖 ui_mainwindow.h 生成头文件。
+ *
+ * 模块划分（以 ==================== XX ==================== 分界注释标记）：
+ * IO监控 / 报警日志 / 程序编程 / 设置
  */
 #include "UiController.h"
 #include "RobotController.h"
@@ -36,6 +39,7 @@
 #include <QTextFormat>
 #include <QTextCursor>
 #include <QDoubleSpinBox>
+#include <QComboBox>
 #include <QStatusBar>
 #include <QDateTime>
 #include <QFile>
@@ -216,8 +220,7 @@ void UiController::init()
     connProgBtn(QStringLiteral("btnProgElse"),     &UiController::onProgInsertElse);
     connProgBtn(QStringLiteral("btnProgEndIf"),    &UiController::onProgInsertEndIf);
     // SERVO 按钮在 mainwindow.cpp rebuildInstrTabs() 中动态创建并连接
-    // （2026-06-15：原 SERVO_S 按钮已删除，多路语法并入 SERVO）
-
+   
     // === 编程页面：文件操作按钮（保存/加载/新建/删行） ===
     if (auto* btn = m_mainWindow->findChild<QPushButton*>(QStringLiteral("btnProgSave")))
         connect(btn, &QPushButton::clicked, this, &UiController::onProgSave);
@@ -341,9 +344,12 @@ void UiController::init()
         if (auto* sb = m_mainWindow->findChild<QStatusBar*>(QStringLiteral("statusbar")))
             sb->showMessage(QStringLiteral("已加载: %1").arg(scriptPath));
     });
+
+    // 回零参数面板（机型化运行时覆盖；载入 config/robot_home.ini）
+    buildHomeParamPanel();
 }
 
-// ==================== IO 监控 ====================
+/* ==================== IO监控 ==================== */
 
 /**
  * @brief 定时刷新 DI/DO 状态显示（每 50ms 调用一次）
@@ -565,7 +571,7 @@ void UiController::saveIOLabels()
     settings.sync();
 }
 
-// ==================== 报警日志 ====================
+/* ==================== 报警日志 ==================== */
 
 /**
  * @brief 机械臂业务层错误回调
@@ -662,7 +668,7 @@ void UiController::onClearAlarms()
     }
 }
 
-// ==================== 编程运行 ====================
+/* ==================== 程序编程 ==================== */
 
 /**
  * @brief 获取程序编辑器控件（MOVEJ/MOVEL/WAIT_IDLE 等指令写在这里）
@@ -3652,7 +3658,7 @@ void UiController::onConsoleOutput(const QString& text)
     appendConsole(text);
 }
 
-// ==================== 设置 ====================
+/* ==================== 设置 ==================== */
 
 /**
  * @brief "加载设置"按钮回调：从 RobotConfig 读取参数（速度/加速度/超时/IP）并写回界面控件
@@ -4140,4 +4146,334 @@ void UiController::highlightCurrentLine(int line)
     // 简化方案：每次 emit currentLineChanged 时在控制台追加一个圆点标记；
     // 编辑器行首圆点由后续扩展（CodeEditor 子类）实现。
     Q_UNUSED(line);
+}
+
+// ==================== 回零参数（机型化·运行时覆盖）面板 ====================
+
+namespace {
+// 面板可编辑字段（10 个；homeLspeed 不在此列，始终跟随机型代码默认）
+const int kHomeFieldCount = 10;
+
+struct HomeFieldMeta {
+    const char* key;     // HomeSpec 字段名（也作 ini 键）
+    const char* title;   // 列头
+    bool isInt;
+    double minV;
+    double maxV;
+    int decimals;
+};
+const HomeFieldMeta kHomeFields[kHomeFieldCount] = {
+    {"homeIn",           "原点IO",       true,  -1,      31,     0},
+    {"negIn",            "负限IO",       true,  -1,      31,     0},
+    {"datumMode",        "寻零方式",     true,   0,       6,     0},
+    {"moveAwayOrigin",   "回退距离",     false, -100000, 100000, 3},
+    {"moveAwayReverse",  "反向回退",     false, -100000, 100000, 3},
+    {"homeSpeed",        "寻零速度",     false,   0.1,   10000,  2},
+    {"homeAccel",        "加速度",       false,   0.1,   10000,  2},
+    {"homeDecel",        "减速度",       false,   0.1,   10000,  2},
+    {"homeSramp",        "S曲线",        false,   0,     10000,  0},
+    {"homeCreep",        "爬行速度",     false,   0.001,  1000,   3},
+};
+
+QString homeIniPathOf()
+{
+    return MainWindow::findConfigDir() + QStringLiteral("/robot_home.ini");
+}
+} // namespace
+
+/**
+ * @brief 在设置页「回零原点位置」分组之后追加「回零参数（机型化·运行时覆盖）」分组。
+ *
+ * 分组构成：
+ *   - 机型下拉：切换预览机型（保存/载入均针对该机型，互不覆盖）
+ *   - 表格：6 轴 × (轴名 + 10 字段)，整数字段用 QSpinBox，小数字段用 QDoubleSpinBox
+ *   - 按钮：载入已保存 / 保存 / 恢复默认
+ * 高亮行（米黄）= 该轴存在已保存覆盖；白底行 = 运行时使用机型代码默认值。
+ */
+void UiController::buildHomeParamPanel()
+{
+    if (!m_mainWindow || !m_robotController)
+        return;
+    RobotConfig* config = m_robotController->getConfig();
+    if (!config)
+        return;
+
+    auto* page = m_mainWindow->findChild<QWidget*>(QStringLiteral("pageSettings"));
+    if (!page)
+        return;
+    auto* pageLay = qobject_cast<QVBoxLayout*>(page->layout());
+    if (!pageLay)
+        return;
+
+    auto* group = new QGroupBox(QStringLiteral("回零参数（机型化·运行时覆盖）"), page);
+    group->setObjectName(QStringLiteral("homeParamGroup"));
+    auto* glay = new QVBoxLayout(group);
+
+    // 顶部：机型 + 操作按钮
+    auto* barLay = new QHBoxLayout();
+    auto* modelLbl = new QLabel(QStringLiteral("目标机型:"), group);
+    m_homeModelCombo = new QComboBox(group);
+    m_homeModelCombo->setObjectName(QStringLiteral("homeModelCombo"));
+    const QList<RobotModelId> models = RobotModelRegistry::allModels();
+    for (RobotModelId m : models) {
+        if (m != RobotModelId::Unknown)
+            m_homeModelCombo->addItem(robotModelName(m), static_cast<int>(m));
+    }
+    if (m_homeModelCombo->count() == 0) {   // 注册表为空时兜底 R01/R02
+        m_homeModelCombo->addItem(QStringLiteral("R01"), static_cast<int>(RobotModelId::R01));
+        m_homeModelCombo->addItem(QStringLiteral("R02"), static_cast<int>(RobotModelId::R02));
+    }
+
+    auto* btnLoad = new QPushButton(QStringLiteral("载入已保存"), group);
+    btnLoad->setObjectName(QStringLiteral("btnHomeLoad"));
+    auto* btnSave = new QPushButton(QStringLiteral("保存"), group);
+    btnSave->setObjectName(QStringLiteral("btnHomeSave"));
+    btnSave->setDefault(true);
+    auto* btnReset = new QPushButton(QStringLiteral("恢复默认"), group);
+    btnReset->setObjectName(QStringLiteral("btnHomeReset"));
+
+    barLay->addWidget(modelLbl);
+    barLay->addWidget(m_homeModelCombo);
+    barLay->addStretch();
+    barLay->addWidget(btnLoad);
+    barLay->addWidget(btnSave);
+    barLay->addWidget(btnReset);
+    glay->addLayout(barLay);
+
+    // 表格：6 轴 × (轴名 + 10 字段)
+    m_homeParamTable = new QTableWidget(6, 1 + kHomeFieldCount, group);
+    m_homeParamTable->setObjectName(QStringLiteral("tblHomeParam"));
+    m_homeParamTable->verticalHeader()->setVisible(false);
+    m_homeParamTable->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
+    QStringList heads;
+    heads << QStringLiteral("轴");
+    for (int c = 0; c < kHomeFieldCount; ++c)
+        heads << QString::fromUtf8(kHomeFields[c].title);
+    m_homeParamTable->setHorizontalHeaderLabels(heads);
+    for (int axis = 0; axis < 6; ++axis) {
+        auto* item = new QTableWidgetItem(QStringLiteral("J%1").arg(axis));
+        item->setFlags(item->flags() & ~Qt::ItemIsEditable);
+        m_homeParamTable->setItem(axis, 0, item);
+        for (int c = 1; c <= kHomeFieldCount; ++c) {
+            const HomeFieldMeta& f = kHomeFields[c - 1];
+            if (f.isInt) {
+                auto* sb = new QSpinBox(m_homeParamTable);
+                sb->setRange(static_cast<int>(f.minV), static_cast<int>(f.maxV));
+                m_homeParamTable->setCellWidget(axis, c, sb);
+            } else {
+                auto* ds = new QDoubleSpinBox(m_homeParamTable);
+                ds->setRange(f.minV, f.maxV);
+                ds->setDecimals(f.decimals);
+                m_homeParamTable->setCellWidget(axis, c, ds);
+            }
+        }
+    }
+    m_homeParamTable->setMinimumHeight(6 * 30 + 40);
+    glay->addWidget(m_homeParamTable);
+
+    m_homeHintLabel = new QLabel(group);
+    m_homeHintLabel->setObjectName(QStringLiteral("lblHomeParamHint"));
+    m_homeHintLabel->setWordWrap(true);
+    m_homeHintLabel->setStyleSheet(QStringLiteral("color: gray; font-size: 12px;"));
+    glay->addWidget(m_homeHintLabel);
+
+    pageLay->addWidget(group);
+
+    // 初始机型：跟随当前连接/配置机型；Unknown 回退 R01
+    RobotModelId cur = config->modelId();
+    if (cur == RobotModelId::Unknown)
+        cur = RobotModelId::R01;
+    int idx = m_homeModelCombo->findData(static_cast<int>(cur));
+    if (idx < 0)
+        idx = 0;
+    m_homeModelCombo->setCurrentIndex(idx);
+    m_homePreviewModel = static_cast<RobotModelId>(m_homeModelCombo->currentData().toInt());
+
+    // 启动即载入持久化覆盖（覆盖优先于机型默认；此后由用户通过按钮显式重载）
+    config->loadHomeOverrides(homeIniPathOf());
+
+    // 信号绑定（放最后：初始填充不触发重入）
+    connect(m_homeModelCombo, &QComboBox::currentIndexChanged,
+            this, &UiController::onHomeModelChanged);
+    connect(btnLoad, &QPushButton::clicked, this, &UiController::onHomeLoad);
+    connect(btnSave, &QPushButton::clicked, this, &UiController::onHomeSave);
+    connect(btnReset, &QPushButton::clicked, this, &UiController::onHomeReset);
+
+    fillHomeParamTable(m_homePreviewModel);
+}
+
+/**
+ * @brief 按机型填充表格：默认值 = 注册表默认 + 已保存覆盖叠加，覆盖行米黄高亮。
+ */
+void UiController::fillHomeParamTable(RobotModelId id)
+{
+    if (!m_homeParamTable || !m_robotController)
+        return;
+    RobotConfig* config = m_robotController->getConfig();
+    if (!config)
+        return;
+    const RobotModelId eff = (id == RobotModelId::Unknown) ? RobotModelId::R01 : id;
+
+    for (int axis = 0; axis < 6; ++axis) {
+        const HomeSpec& v = config->homeOverrideFor(eff, axis);
+        const bool ov = config->hasHomeOverride(eff, axis);
+        for (int c = 1; c <= kHomeFieldCount; ++c) {
+            QWidget* w = m_homeParamTable->cellWidget(axis, c);
+            if (!w)
+                continue;
+            double value = 0.0;
+            switch (c - 1) {
+            case 0:  value = v.homeIn;          break;
+            case 1:  value = v.negIn;           break;
+            case 2:  value = v.datumMode;       break;
+            case 3:  value = v.moveAwayOrigin;  break;
+            case 4:  value = v.moveAwayReverse; break;
+            case 5:  value = v.homeSpeed;       break;
+            case 6:  value = v.homeAccel;       break;
+            case 7:  value = v.homeDecel;       break;
+            case 8:  value = v.homeSramp;       break;
+            case 9:  value = v.homeCreep;       break;
+            default: break;
+            }
+            if (auto* sb = qobject_cast<QSpinBox*>(w))
+                sb->setValue(static_cast<int>(value));
+            else if (auto* ds = qobject_cast<QDoubleSpinBox*>(w))
+                ds->setValue(value);
+        }
+        setRowOverrideStyle(axis, ov);
+    }
+
+    if (m_homeHintLabel) {
+        int cnt = 0;
+        for (int axis = 0; axis < 6; ++axis)
+            if (config->hasHomeOverride(eff, axis))
+                ++cnt;
+        m_homeHintLabel->setText(
+            QStringLiteral("当前机型 %1：高亮行 = 已保存覆盖(%2 行)，白底行 = 代码默认。保存后写入 config/robot_home.ini，下次回零即时生效。")
+                .arg(robotModelName(eff))
+                .arg(cnt));
+    }
+}
+
+/**
+ * @brief 收集表格一行的 10 个可编辑字段，合并进 base（保留 homeLspeed 等不可编辑字段）。
+ */
+HomeSpec UiController::collectHomeParamRow(int axis, const HomeSpec& base) const
+{
+    HomeSpec h = base;
+    if (!m_homeParamTable)
+        return h;
+    auto readVal = [&](int col) -> double {
+        QWidget* w = m_homeParamTable->cellWidget(axis, col + 1);
+        if (auto* sb = qobject_cast<QSpinBox*>(w))
+            return sb->value();
+        if (auto* ds = qobject_cast<QDoubleSpinBox*>(w))
+            return ds->value();
+        return 0.0;
+    };
+    h.homeIn          = static_cast<int>(readVal(0));
+    h.negIn           = static_cast<int>(readVal(1));
+    h.datumMode       = static_cast<int>(readVal(2));
+    h.moveAwayOrigin  = readVal(3);
+    h.moveAwayReverse = readVal(4);
+    h.homeSpeed       = readVal(5);
+    h.homeAccel       = readVal(6);
+    h.homeDecel       = readVal(7);
+    h.homeSramp       = readVal(8);
+    h.homeCreep       = readVal(9);
+    return h;
+}
+
+void UiController::setRowOverrideStyle(int axis, bool overrideActive)
+{
+    if (!m_homeParamTable)
+        return;
+    const QString ovStyle = QStringLiteral(
+        "QSpinBox{background:#FFF3D6;} QDoubleSpinBox{background:#FFF3D6;}");
+    for (int c = 1; c <= kHomeFieldCount; ++c) {
+        if (QWidget* w = m_homeParamTable->cellWidget(axis, c))
+            w->setStyleSheet(overrideActive ? ovStyle : QString());
+    }
+    if (QTableWidgetItem* it = m_homeParamTable->item(axis, 0))
+        it->setBackground(overrideActive ? QColor(255, 243, 214) : QColor(255, 255, 255));
+}
+
+void UiController::onHomeModelChanged()
+{
+    if (!m_homeModelCombo)
+        return;
+    m_homePreviewModel = static_cast<RobotModelId>(m_homeModelCombo->currentData().toInt());
+    fillHomeParamTable(m_homePreviewModel);
+}
+
+void UiController::onHomeLoad()
+{
+    if (!m_robotController)
+        return;
+    RobotConfig* config = m_robotController->getConfig();
+    if (!config)
+        return;
+    if (!config->loadHomeOverrides(homeIniPathOf()))
+        return;
+    if (m_homeHintLabel)
+        m_homeHintLabel->setText(QStringLiteral("已从 config/robot_home.ini 载入全部机型覆盖。"));
+    fillHomeParamTable(m_homePreviewModel);
+}
+
+void UiController::onHomeSave()
+{
+    if (!m_homeModelCombo || !m_robotController)
+        return;
+    RobotConfig* config = m_robotController->getConfig();
+    if (!config)
+        return;
+    const RobotModelId id = static_cast<RobotModelId>(m_homeModelCombo->currentData().toInt());
+    if (id == RobotModelId::Unknown) {
+        QMessageBox::warning(m_mainWindow, QStringLiteral("回零参数"),
+                             QStringLiteral("未知机型，无法保存。"));
+        return;
+    }
+    const RobotModelSpec& spec = RobotModelRegistry::get(id);
+    if (spec.axes.size() < 6) {
+        QMessageBox::warning(m_mainWindow, QStringLiteral("回零参数"),
+                             QStringLiteral("机型 %1 注册表轴数不足，无法保存。").arg(robotModelName(id)));
+        return;
+    }
+    QStringList badIn;
+    for (int axis = 0; axis < 6; ++axis) {
+        HomeSpec h = collectHomeParamRow(axis, spec.axes.at(axis).home);
+        if (h.homeIn < 0)
+            badIn << QStringLiteral("J%1").arg(axis + 1);
+        config->setHomeOverride(id, axis, h);
+    }
+    if (!config->saveHomeOverrides(homeIniPathOf())) {
+        QMessageBox::warning(m_mainWindow, QStringLiteral("回零参数"),
+                             QStringLiteral("写入 config/robot_home.ini 失败，请检查目录权限。"));
+        fillHomeParamTable(id);
+        return;
+    }
+    QString msg = QStringLiteral("已保存 %1 全部 6 轴回零参数至 config/robot_home.ini，下次回零即时生效。")
+                      .arg(robotModelName(id));
+    if (!badIn.isEmpty())
+        msg += QStringLiteral("\n注意：%1 的 homeIn=-1（未配置原点IO），回零预检会被拦截，请补填。")
+                   .arg(badIn.join(QStringLiteral("、")));
+    QMessageBox::information(m_mainWindow, QStringLiteral("回零参数"), msg);
+    fillHomeParamTable(id);
+}
+
+void UiController::onHomeReset()
+{
+    if (!m_homeModelCombo || !m_robotController)
+        return;
+    RobotConfig* config = m_robotController->getConfig();
+    if (!config)
+        return;
+    const RobotModelId id = static_cast<RobotModelId>(m_homeModelCombo->currentData().toInt());
+    if (id == RobotModelId::Unknown)
+        return;
+    config->clearAllHomeOverrides(id);
+    config->saveHomeOverrides(homeIniPathOf());
+    if (m_homeHintLabel)
+        m_homeHintLabel->setText(QStringLiteral("已清除 %1 的全部覆盖，恢复为代码默认值。").arg(robotModelName(id)));
+    fillHomeParamTable(id);
 }

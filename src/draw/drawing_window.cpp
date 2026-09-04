@@ -521,6 +521,7 @@ static QString getProjectRoot() {
     return QCoreApplication::applicationDirPath() + "/..";
 }
 
+/* ==================== 画板 ==================== */
 DrawingWindow::DrawingWindow(QWidget *parent) : QMainWindow(parent), m_workPieceCoord(nullptr) {
     // 创建绘图区域
     m_canvas = new DrawingCanvas;

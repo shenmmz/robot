@@ -6,6 +6,9 @@
  * - 初始化 UI 界面
  * - 控制器连接管理（扫描、连接、断开）
  * - 验证建模功能
+ *
+ * 模块划分（以 ==================== XX ==================== 分界注释标记）：
+ * 运行界面 / 程序编程 / 操作界面 / 通信 / 视觉运动 / 画板
  */
 #include "mainwindow.h"
 #include "./ui_mainwindow.h"
@@ -324,7 +327,7 @@ void MainWindow::setConnectionStatus(const QString& text, const QString& color)
  * @brief 扫描可用控制器
  *
  * 调用 RobotController 搜索局域网内的控制器IP，
- * 扫描不到物理控制器时自动添加虚拟IP作为默认选项。
+ * 并始终追加本机回环 IP 127.0.0.1 作为虚拟机/模拟器内的控制器选项。
  */
 void MainWindow::onScanClicked()
 {
@@ -346,6 +349,10 @@ void MainWindow::onScanClicked()
         setConnectionStatus(
             QStringLiteral("找到 %1 个控制器").arg(ipList.size()), QStringLiteral("green"));
     }
+
+    // 追加虚拟机/本机回环 IP：模拟器内的控制器通过 127.0.0.1 可达，始终作为可选项
+    if (!ipList.contains(QStringLiteral("127.0.0.1")))
+        ui->comboIpList->addItem(QStringLiteral("127.0.0.1"));
 
     // 重新启用扫描按钮
     ui->btnScan->setEnabled(true);
@@ -479,6 +486,22 @@ void MainWindow::onHardwareConnected()
             // 也打印到标准输出，便于在控制台启动时直接查看
             fprintf(stdout, "Detected robot model: %s\n", qPrintable(robotModelName(m_modelId)));
             fflush(stdout);
+            // 机型配置跟随 Flash：识别机型与当前运行配置不一致时轻量重载。
+            // 回零/建模等动作在执行时按 RobotConfig 实时取机型参数(getAxisSpec/getAxisUnitsList)，
+            // 故连接成功阶段切换 config 即可让后续流程使用正确机型数据。
+            if (readId != RobotModelId::Unknown
+                && m_robotController
+                && m_robotController->getConfig()->modelId() != readId) {
+                if (m_robotController->applyModel(readId)) {
+                    qInfo() << "[机型识别] 已切换运行配置到机型:" << robotModelName(readId);
+                    if (m_uiController) {
+                        m_uiController->appendConsole(
+                            QStringLiteral("已切换运行配置到机型: %1").arg(robotModelName(readId)));
+                    }
+                } else {
+                    qWarning() << "[机型识别] 切换运行配置失败";
+                }
+            }
             // 同时推到界面控制台（若 UiController 存在）
             if (m_uiController) {
                 m_uiController->appendConsole(QStringLiteral("Detected robot model: %1").arg(robotModelName(m_modelId)));
@@ -608,6 +631,7 @@ void MainWindow::onModelInitFailed(int errorCode)
     ui->statusbar->showMessage(QStringLiteral("模型初始化失败！请检查控制器连接和参数"));
 }
 
+/* ==================== 运行界面 ==================== */
 /**
  * @brief 切换到笛卡尔模式（逆解模式）
  *
@@ -1282,6 +1306,7 @@ void MainWindow::onBtnShutdown()
     });
 }
 
+/* ==================== 操作界面 ==================== */
 /**
  * @brief 操作界面 运行/恢复按钮：输入口 IN9
  *
@@ -1578,6 +1603,7 @@ void MainWindow::restartOpScript()
     }
 }
 
+/* ==================== 运行界面 ==================== */
 /**
  * @brief 正解/逆解模式切换回调
  *
@@ -1867,7 +1893,7 @@ void MainWindow::onNavButtonClicked(int index)
     }
 }
 
-// ==================== RS485通信 ====================
+/* ==================== 通信 ==================== */
 
 /**
  * @brief 初始化 RS485
@@ -2191,6 +2217,7 @@ quint16 MainWindow::calcModbusCRC16(const QByteArray& data)
     return crc;
 }
 
+/* ==================== 程序编程 ==================== */
 // ============================================================
 // 快捷指令面板
 // ============================================================
@@ -3204,6 +3231,9 @@ void MainWindow::showPointAdjustDialog(bool isJoint)
     lblFlashOrigin->setText(QStringLiteral("机械原点：—"));
 
     // 从控制器 Flash 读取原点并格式化为字符串（未连接/无数据给出占位）
+    // ★ 换算显示（方案B）：机械原点 = Flash原点 + 当前DPOS
+    //   Flash 存的是"原点偏移基准"；界面清零后 DPOS 是相对当前锚点的读数，
+    //   显示层把两者相加换算成同一基准下的读数。写入侧保持直写，不受此影响。
     auto refreshFlashOrigin = [this]() -> QString {
         if (!m_robotController || !m_robotController->isConnected()) {
             return QStringLiteral("(未连接)");
@@ -3212,10 +3242,17 @@ void MainWindow::showPointAdjustDialog(bool isJoint)
         if (origin.size() < 6) {
             return QStringLiteral("(无数据)");
         }
-        return QStringLiteral("J0=%1  J1=%2  J2=%3  J3=%4  J4=%5  J5=%6")
-            .arg(origin[0], 0, 'f', 3).arg(origin[1], 0, 'f', 3)
-            .arg(origin[2], 0, 'f', 3).arg(origin[3], 0, 'f', 3)
-            .arg(origin[4], 0, 'f', 3).arg(origin[5], 0, 'f', 3);
+        QList<double> joints;
+        if (RobotState* st = m_robotController->getState()) {
+            joints = st->getAllAxisPositions();
+        }
+        QStringList parts;
+        for (int i = 0; i < 6; ++i) {
+            const double dpos = (i < joints.size()) ? joints.at(i) : 0.0;
+            parts << QStringLiteral("J%1=%2").arg(i)
+                         .arg(origin.at(i) + dpos, 0, 'f', 3);
+        }
+        return parts.join(QStringLiteral("  "));
     };
 
     connect(btnSetOriginInDialog, &QPushButton::clicked, &dlg, [this, &dlg, refreshFlashOrigin, lblFlashOrigin] {
@@ -3542,7 +3579,7 @@ void MainWindow::showPointAdjustDialog(bool isJoint)
     dlg.exec();
 }
 
-// ==================== 视觉系统控制 ====================
+/* ==================== 视觉运动 ==================== */
 
 void MainWindow::onVisionStarted()
 {
@@ -4029,6 +4066,7 @@ bool MainWindow::checkLoginGate()
     return false;
 }
 
+/* ==================== 视觉运动 ==================== */
 void MainWindow::initVisionAutoLoad()
 {
     if (!m_vmWindow) {
@@ -4040,7 +4078,7 @@ void MainWindow::initVisionAutoLoad()
     m_vmWindow->show();
 }
 
-// ==================== 画板控制 ====================
+/* ==================== 画板 ==================== */
 
 void MainWindow::onRequestInverseKinematics()
 {
