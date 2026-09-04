@@ -842,27 +842,53 @@ void RobotController::connectSignals()
 
     if (m_homingController) {
         connect(m_homingController, &HomingController::homingCompleted, this, [this]() {
-            // 回零完成后按机型策略处理：是否移动到 homePosition（Flash优先，config兜底）
+            // 回零完成后按机型策略处理：是否移动到原点位置
+            // 移动目标来源：getOriginPosition() —— Flash 优先、config homePosition 兜底。
+            // Flash 存的是用户通过"原点设置"→"设置机械原点"写入的当前原点
+            // （2026-09-04 已通过该流程把 R02 Flash 修正为有效数据）；
+            // Flash 空/无效时兜底为机型 spec homePosition。
             ZmotionAPI* api = getMotionController()->getZmotionAPI();
             if (m_config->moveToHomeAfterHoming()) {
-                // 原行为（R01）：移动到原点位置，等待到位后再统一清零
-                qInfo() << "[RobotController] 全部轴回零完成，开始移动到原点位置（速度取 homeMoveSpeed 等机型参数）";
+                qInfo() << "[RobotController] 全部轴回零完成，开始移动到原点位置（Flash 优先，config 兜底）";
                 QList<double> originPos = getOriginPosition();
                 if (originPos.size() >= 6) {
                     QList<float> positions;
                     for (int i = 0; i < 6; ++i) {
                         positions.append(static_cast<float>(originPos[i]));
                     }
-                    float speed = static_cast<float>(m_config->getHomeMoveSpeed());
+                    float maxSpeed = static_cast<float>(m_config->getHomeMoveSpeed());
                     float accel = static_cast<float>(m_config->getHomeMoveAccel());
                     float decel = static_cast<float>(m_config->getHomeMoveDecel());
-                    m_homingController->moveAllAxesToPositions(positions, speed, accel, decel);
+
+                    // 等时到达：以行程最大的轴跑满速为基准，其余轴按行程比例降速，
+                    // 6 轴大致同时到位（避免长行程轴如 R02 J2(-212°) 独自磨蹭，被误认为"速度慢"）。
+                    // 行程 = |目标 - 当前DPOS|；行程为 0 的轴跳过不移动。
+                    QList<float> speeds;
+                    float maxTravel = 0.0f;
+                    QList<float> travels;
+                    for (int i = 0; i < 6; ++i) {
+                        ZmotionResult posRet = api->getAxisPosition(i);
+                        float cur = (posRet.success) ? posRet.axisPosition : 0.0f;
+                        float travel = std::fabs(positions[i] - cur);
+                        travels.append(travel);
+                        maxTravel = std::max(maxTravel, travel);
+                    }
+                    for (int i = 0; i < 6; ++i) {
+                        // 下限 1°/s：行程为 0 的轴也下发安全速度（目标=当前位置，实际不动）
+                        speeds.append((maxTravel > 0.001f)
+                            ? std::max(1.0f, maxSpeed * travels[i] / maxTravel)
+                            : 1.0f);
+                    }
+                    qInfo() << "[RobotController] 等时到达速度分配: maxTravel=" << maxTravel
+                            << "speeds=" << speeds;
+
+                    m_homingController->moveAllAxesToPositions(positions, speeds, accel, decel);
 
                     // 等待所有轴到达原点位置后再继续后续流程
                     api->waitForAxesIdle({0, 1, 2, 3, 4, 5}, 15000);
                 }
             } else {
-                // R02：回零后停 DATUM 位，不清坐标前先等轴静止
+                // 机型策略：回零后停 DATUM 位
                 qInfo() << "[RobotController] 本机型回零后停 DATUM 位，不清坐标前先等轴静止";
                 api->waitForAxesIdle({0, 1, 2, 3, 4, 5}, 3000);
             }
@@ -1005,6 +1031,66 @@ bool RobotController::setOriginFromCurrentPos()
     }
 
     emit operationCompleted(QStringLiteral("原点设置"));
+    return true;
+}
+
+/**
+ * @brief 手动调整原点：把调用方给定的 6 轴目标值写入控制器 Flash
+ *
+ * 与 setOriginFromCurrentPos 的区别：不读取当前 DPOS，直接写入调用方给定的值。
+ * 调用方（"设置机械原点"按钮）负责计算"新原点 = 当前Flash原点 + 当前DPOS"，
+ * 因此本函数不再要求 DPOS 全为 0（新流程恰恰是在 DPOS≠0 的偏移位姿下使用）。
+ *
+ * @param originValues 调用方计算好的 6 轴原点值
+ * @param outErrorMsg  可选输出参数，失败时返回错误描述
+ * @return true=写入成功
+ */
+bool RobotController::setOriginFromValues(const QList<double>& originValues, QString* outErrorMsg)
+{
+    auto fail = [outErrorMsg](const QString& msg) -> bool {
+        if (outErrorMsg) *outErrorMsg = msg;
+        return false;
+    };
+
+    if (!isConnected()) {
+        emit operationFailed(QStringLiteral("原点调整"), QStringLiteral("控制器未连接"));
+        return fail(QStringLiteral("控制器未连接"));
+    }
+
+    if (originValues.size() != 6) {
+        emit operationFailed(QStringLiteral("原点调整"),
+            QStringLiteral("原点数据必须为 6 个轴，收到 %1 个").arg(originValues.size()));
+        return fail(QStringLiteral("原点数据必须为 6 个轴"));
+    }
+
+    ZmotionAPI* api = m_motionController->getZmotionAPI();
+
+    // round 到 3 位小数，避免 float 存储占满不必要位（与 setOriginFromCurrentPos 一致）
+    QList<double> newOrigin;
+    newOrigin.reserve(6);
+    for (int i = 0; i < 6; ++i) {
+        newOrigin.append(std::round(originValues.at(i) * 1000.0) / 1000.0);
+    }
+
+    qInfo() << "[RobotController] 手动调整原点，写入 Flash:" << newOrigin;
+
+    ZmotionResult flashRet = api->saveOriginToFlash(newOrigin);
+    if (!flashRet.success) {
+        emit operationFailed(QStringLiteral("原点调整"), flashRet.errorMessage);
+        return fail(flashRet.errorMessage);
+    }
+
+    // 当前实际位姿已固化为新原点 → 立即把 6 轴 DPOS/MPOS 清 0，
+    // 使"新原点 ↔ DPOS=0"马上生效（与回零后到位清 0 同一语义）。
+    // 必须同时清 DPOS+MPOS（闭环伺服两者不一致会瞬冲）；先等轴静止再清。
+    api->waitForAxesIdle({0, 1, 2, 3, 4, 5}, 3000);
+    ZmotionResult zeroRet = api->clearAxisPosition({0, 1, 2, 3, 4, 5});
+    if (!zeroRet.success) {
+        qWarning() << "[RobotController] 设原点后清零 DPOS/MPOS 失败:" << zeroRet.errorMessage;
+        // Flash 已写入成功，清零失败仅告警（坐标读数未归零，用户可重新回零修正）
+    }
+
+    emit operationCompleted(QStringLiteral("原点调整"));
     return true;
 }
 

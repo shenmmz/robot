@@ -130,6 +130,23 @@ public:
     bool setOriginFromCurrentPos();
 
     /**
+     * @brief 手动调整原点：把用户输入的 6 轴目标值写入控制器 Flash
+     *
+     * 与 setOriginFromCurrentPos 的区别：本接口不读取当前 DPOS，
+     * 直接把用户输入值作为新原点写入 Flash（断电保持）。
+     * 适用场景：R02 回零后停 DATUM 位、DPOS 恒为 0，无法用"抓当前位置"方式
+     * 记录原点，需手动输入目标值（例如机型 homePosition）。
+     *
+     * 安全约束：仅当 6 轴 DPOS 全为 0（机械臂停在 DATUM 位）时允许写入；
+     * 否则坐标基准会随原点偏移而跳变。
+     *
+     * @param originValues 用户输入的 6 轴原点值
+     * @param outErrorMsg  可选输出参数，失败时返回错误描述
+     * @return true=写入成功
+     */
+    bool setOriginFromValues(const QList<double>& originValues, QString* outErrorMsg = nullptr);
+
+    /**
      * @brief 获取原点位置（Flash优先，config兜底）
      *
      * 从控制器Flash读取自定义原点位置；

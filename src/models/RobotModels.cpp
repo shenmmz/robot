@@ -88,7 +88,7 @@ RobotModelSpec buildR02()
     s.homeMoveSpeed = 20;  // 回零后移动速度 (°/s)，R02 独立值
     s.homeMoveAccel = 80;  // 回零后移动加速度
     s.homeMoveDecel = 100; // 回零后移动减速度
-    s.moveToHomeAfterHoming = false; // R02：回零后停 DATUM 位，不移动到 homePosition
+    s.moveToHomeAfterHoming = true;  // R02：回零后移动到 homePosition（到位后统一清 DPOS=0）
     // TODO(临时): 用户指定临时原点数据（R02 原点偏移，待调整原点验证后移除或正式化）
     s.homePosition = QList<double>{-136.500, 25.000, -211.999, 9.381, -90.999, 0.000};
     /* ============ 各轴回零参数 HomeSpec：一行一轴 ============
@@ -98,7 +98,7 @@ RobotModelSpec buildR02()
     HomeSpec J0{0,    1,  3, -10,  -155, 10, 80,  100, 0, 200, 1}; 
     HomeSpec J1{2,   -1,  4,  15,     0, 10, 80,  200, 0, 200, 1};  
     HomeSpec J2{3,   -1,  3, -35,     0, 10, 50,  100, 0, 200, 1}; 
-    HomeSpec J3{4,    5,  3, -10,  -200, 10, 80,  100, 0, 200, 1};  
+    HomeSpec J3{4,    5,  3, -20,  -200, 10, 80,  100, 0, 200, 1};  
     HomeSpec J4{6,   -1,  3, -20,     0, 10, 80,  100, 0, 200, 1};  
     HomeSpec J5{7,    8,  3, -10,  -220, 10, 100, 200, 0, 200, 2};  
 

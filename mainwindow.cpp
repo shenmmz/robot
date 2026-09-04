@@ -1775,59 +1775,122 @@ void MainWindow::onSendCartMove()
 }
 
 /**
- * @brief 原点设置按钮点击
+ * @brief 原点设置弹窗（统一入口）
  *
- * 将当前6轴DPOS作为自定义原点写入控制器Flash（断电保持）。
- * 操作前弹出确认对话框，防止误操作。
+ * 打开一个模态弹窗，包含：
+ *   - 只读显示当前 Flash 原点（6 轴）
+ *   - 6 个 QDoubleSpinBox（只读，显示当前 Flash 原点，3 位小数）
+ *   - [设置机械原点]  把"当前Flash原点 + 当前DPOS"写入 Flash（点击即保存），
+ *                     成功后按钮置灰防重复点击；想再改需取消后重新打开弹窗
+ *   - [取消]
+ *
+ * 语义：机械臂当前实际位姿 = Flash原点 + 当前DPOS（与主界面"机械原点"显示同一公式）。
+ * 用户点动到目标位姿后点"设置机械原点"，即把当前实际位姿固化为新的 Flash 原点。
  */
-void MainWindow::onSetOrigin()
+void MainWindow::showOriginDialog()
 {
     if (!m_robotController || !m_robotController->isConnected()) {
-        ui->statusbar->showMessage(QStringLiteral("请先连接控制器"));
+        QMessageBox::warning(this, QStringLiteral("原点设置"), QStringLiteral("请先连接控制器"));
         return;
     }
 
-    // 安全检查：任一轴仍在运动时不允许设置原点（避免把过渡姿态误存为原点）
-    ZmotionAPI* api = m_robotController->getMotionController()->getZmotionAPI();
+    QDialog dlg(this);
+    dlg.setWindowTitle(QStringLiteral("原点设置"));
+    dlg.setMinimumWidth(460);
+
+    QVBoxLayout* mainLay = new QVBoxLayout(&dlg);
+
+    // 只读显示当前 Flash 原点
+    QLabel* lblCurrent = new QLabel(&dlg);
+    lblCurrent->setWordWrap(true);
+    lblCurrent->setStyleSheet(QStringLiteral(
+        "QLabel{font-family:Consolas,'Microsoft YaHei UI';font-size:13px;"
+        "color:#555;background:#f5f5f5;border:1px solid #e0e0e0;"
+        "border-radius:4px;padding:6px 8px;}"));
+    mainLay->addWidget(lblCurrent);
+
+    // 6 个只读 SpinBox（显示当前 Flash 原点，不可手改——修改方式是点动后点"设置机械原点"）
+    QDoubleSpinBox* spins[6] = {nullptr};
+    QGridLayout* grid = new QGridLayout();
+    grid->setHorizontalSpacing(6);
     for (int i = 0; i < 6; ++i) {
-        ZmotionResult idle = api->getIfIdle2(i);
-        if (!idle.success || idle.axisHomeStatus == 0) {
-            QMessageBox::warning(this, QStringLiteral("原点设置"),
-                QStringLiteral("轴 %1 仍在运动中，请先停止机械臂再设置原点。").arg(i));
-            ui->statusbar->showMessage(QStringLiteral("原点设置取消：存在运动中的轴"));
-            return;
+        QLabel* lbl = new QLabel(QStringLiteral("J%1").arg(i), &dlg);
+        lbl->setAlignment(Qt::AlignCenter);
+        spins[i] = new QDoubleSpinBox(&dlg);
+        spins[i]->setRange(-9999.0, 9999.0);
+        spins[i]->setDecimals(3);
+        spins[i]->setSingleStep(0.001);
+        spins[i]->setMinimumWidth(80);
+        spins[i]->setReadOnly(true);
+        spins[i]->setButtonSymbols(QAbstractSpinBox::NoButtons);
+        grid->addWidget(lbl, 0, i);
+        grid->addWidget(spins[i], 1, i);
+    }
+    mainLay->addLayout(grid);
+
+    // 用当前 Flash 原点预填 SpinBox 并刷新只读显示
+    auto fillCurrentOrigin = [this, spins, lblCurrent]() {
+        QList<double> origin = m_robotController->getOriginPosition();
+        QStringList parts;
+        for (int i = 0; i < 6; ++i) {
+            double v = (i < origin.size()) ? origin.at(i) : 0.0;
+            spins[i]->setValue(v);
+            parts << QStringLiteral("J%1=%2").arg(i).arg(v, 0, 'f', 3);
         }
-    }
+        lblCurrent->setText(QStringLiteral("当前 Flash 原点：") + parts.join(QStringLiteral("  ")));
+    };
+    fillCurrentOrigin();
 
-    // 弹出确认对话框
-    QMessageBox::StandardButton reply = QMessageBox::question(
-        this,
-        QStringLiteral("原点设置"),
-        QStringLiteral("确认将当前位置设为机械臂原点？\n\n"
-                       "设置后每次回零将以此位置为基准。\n"
-                       "此操作会写入控制器Flash（断电保持）。"),
-        QMessageBox::Yes | QMessageBox::No,
-        QMessageBox::No);
+    // 按钮行
+    QHBoxLayout* btnLay = new QHBoxLayout();
+    QPushButton* btnSetOrigin = new QPushButton(QStringLiteral("设置机械原点"), &dlg);
+    QPushButton* btnCancel    = new QPushButton(QStringLiteral("取消"), &dlg);
+    btnSetOrigin->setStyleSheet(QStringLiteral(
+        "QPushButton{background:#2e7d32;color:#fff;border:1px solid #1b5e20;"
+        "border-radius:4px;font-weight:bold;padding:4px 14px;}"
+        "QPushButton:hover{background:#1b5e20;}"
+        "QPushButton:disabled{background:#9e9e9e;border-color:#757575;}"));
+    btnLay->addWidget(btnSetOrigin);
+    btnLay->addStretch();
+    btnLay->addWidget(btnCancel);
+    mainLay->addLayout(btnLay);
 
-    if (reply != QMessageBox::Yes) {
-        return;
-    }
+    // [设置机械原点]：新原点 = 当前Flash原点 + 当前DPOS，点击即写入 Flash；
+    // 成功后按钮置灰，防止重复点击；想再改需取消后重新打开弹窗。
+    connect(btnSetOrigin, &QPushButton::clicked, &dlg,
+            [this, btnSetOrigin, fillCurrentOrigin, &dlg]() {
+        QList<double> origin = m_robotController->getOriginPosition();
+        QList<double> dpos   = m_robotController->getAllAxisPositions();
+        QList<double> values;
+        QStringList preview;
+        for (int i = 0; i < 6; ++i) {
+            double base = (i < origin.size()) ? origin.at(i) : 0.0;
+            double off  = (i < dpos.size())   ? dpos.at(i)   : 0.0;
+            double v = base + off;
+            values.append(v);
+            preview << QStringLiteral("J%1=%2").arg(i).arg(v, 0, 'f', 3);
+        }
 
-    bool ok = m_robotController->setOriginFromCurrentPos();
-    if (ok) {
-        // 设原点后复位 homing 标志，允许再次点击"回零"移动到新原点并验证
-        m_homingDone = false;
-        ui->statusbar->showMessage(QStringLiteral("原点已写入Flash，请点击\"回零\"使新原点生效"));
-        // 明确提示：Flash 数据已更改，必须重新回零后才会生效（机械臂才会移动到新原点）
-        QMessageBox::information(this, QStringLiteral("原点设置"),
-            QStringLiteral("原点已写入控制器Flash（断电保持）！\n\n"
-                           "⚠ 新原点需要重新回零后才会生效。\n"
-                           "请点击主界面「回零」按钮，机械臂将移动到新原点位置。"));
-    } else {
-        ui->statusbar->showMessage(QStringLiteral("原点设置失败"));
-        QMessageBox::warning(this, QStringLiteral("原点设置"),
-            QStringLiteral("原点设置失败，请检查控制器连接状态。"));
-    }
+        QString err;
+        if (m_robotController->setOriginFromValues(values, &err)) {
+            // 设原点后复位 homing 标志，允许再次点击"回零"使新原点生效
+            m_homingDone = false;
+            btnSetOrigin->setEnabled(false);  // 置灰，防重复点击
+            fillCurrentOrigin();              // 刷新显示为写入后的新值
+            ui->statusbar->showMessage(QStringLiteral("机械原点已写入Flash"));
+            QMessageBox::information(&dlg, QStringLiteral("原点设置"),
+                QStringLiteral("机械原点已写入控制器 Flash（断电保持）：\n\n%1\n\n"
+                               "当前 6 轴关节角度已清零（DPOS=0 ↔ 新原点）。")
+                    .arg(preview.join(QStringLiteral("  "))));
+        } else {
+            QMessageBox::warning(&dlg, QStringLiteral("原点设置"),
+                err.isEmpty() ? QStringLiteral("原点写入失败，请检查控制器连接状态。") : err);
+        }
+    });
+
+    connect(btnCancel, &QPushButton::clicked, &dlg, &QDialog::reject);
+
+    dlg.exec();
 }
 
 /**
@@ -3212,8 +3275,8 @@ void MainWindow::showPointAdjustDialog(bool isJoint)
     btnSetOriginInDialog->setFixedHeight(40);
     btnSetOriginInDialog->setCursor(Qt::PointingHandCursor);
     btnSetOriginInDialog->setToolTip(QStringLiteral(
-        "将当前 6 轴位置写入控制器 Flash 作为自定义原点（断电保持）。\n"
-        "后续一键回零将以该位置为基准进行绝对姿态恢复。"));
+        "打开原点设置弹窗：查看当前 Flash 原点。\n"
+        "点动到目标位姿后点\"设置机械原点\"，把\"当前Flash原点+当前DPOS\"写入 Flash（断电保持）。"));
     btnSetOriginInDialog->setStyleSheet(QStringLiteral(
         "QPushButton{background:#2e7d32;color:#fff;border:1px solid #1b5e20;"
         "border-radius:6px;font-weight:bold;font-size:14px;padding:4px 16px;}"
@@ -3233,7 +3296,8 @@ void MainWindow::showPointAdjustDialog(bool isJoint)
     // 从控制器 Flash 读取原点并格式化为字符串（未连接/无数据给出占位）
     // ★ 换算显示（方案B）：机械原点 = Flash原点 + 当前DPOS
     //   Flash 存的是"原点偏移基准"；界面清零后 DPOS 是相对当前锚点的读数，
-    //   显示层把两者相加换算成同一基准下的读数。写入侧保持直写，不受此影响。
+    //   显示层把两者相加换算成同一基准下的读数。
+    //   写入侧（"设置机械原点"按钮）用同一公式：新Flash原点 = 旧Flash原点 + 当前DPOS。
     auto refreshFlashOrigin = [this]() -> QString {
         if (!m_robotController || !m_robotController->isConnected()) {
             return QStringLiteral("(未连接)");
@@ -3256,9 +3320,9 @@ void MainWindow::showPointAdjustDialog(bool isJoint)
     };
 
     connect(btnSetOriginInDialog, &QPushButton::clicked, &dlg, [this, &dlg, refreshFlashOrigin, lblFlashOrigin] {
-        // 复用 MainWindow::onSetOrigin（含轴停止检查 + 确认对话框 + 写 Flash）
-        onSetOrigin();
-        // 写完后刷新一次下方 Flash 原点显示（onSetOrigin 内的确认框是模态阻塞的，返回即已写入）
+        // 打开统一"原点设置"弹窗（只读显示当前 Flash 原点 + 设置机械原点 + 取消）
+        showOriginDialog();
+        // 弹窗关闭后刷新一次下方 Flash 原点显示（showOriginDialog 是模态阻塞的，返回即可能已写入）
         QTimer::singleShot(0, &dlg, [refreshFlashOrigin, lblFlashOrigin] {
             if (lblFlashOrigin) lblFlashOrigin->setText(QStringLiteral("机械原点：") + refreshFlashOrigin());
         });

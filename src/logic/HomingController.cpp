@@ -823,3 +823,31 @@ void HomingController::moveAllAxesToPositions(const QList<float>& positions, flo
     }
 }
 
+/**
+ * @brief 移动所有轴到指定位置（每轴独立速度，等时到达）
+ *
+ * 回零完成后，将每个轴移动到指定的绝对位置；
+ * 每轴速度由调用方按行程比例分配（行程最远的轴跑满速，近的轴按比例降速），
+ * 使各轴大致同时到位，避免长行程轴（如 R02 J2 的 -212°）独自磨蹭看起来"慢"。
+ *
+ * @param positions 各轴目标位置列表，长度必须不小于kAxisCount
+ * @param speeds    各轴速度列表，与positions索引一一对应（单位与全局速度一致）
+ * @param accel     加速度（各轴相同）
+ * @param decel     减速度（各轴相同）
+ */
+void HomingController::moveAllAxesToPositions(const QList<float>& positions, const QList<float>& speeds, float accel, float decel)
+{
+    if (!m_zmotionAPI) {
+        return;
+    }
+
+    if (positions.size() < kAxisCount || speeds.size() < kAxisCount) {
+        qWarning() << "[HomingController] 位置/速度列表长度不足"
+                   << positions.size() << speeds.size();
+        return;
+    }
+    for (int i = 0; i < kAxisCount; ++i) {
+        m_zmotionAPI->startAxisSingleMoveAbs(i, speeds[i], accel, decel, positions[i]);
+    }
+}
+

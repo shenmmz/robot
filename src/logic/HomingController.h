@@ -60,6 +60,9 @@ public:
     bool isHoming() const { return m_isHoming; }
 
     void moveAllAxesToPositions(const QList<float>& positions, float speed = 60.0f, float accel = 80.0f, float decel = 100.0f);
+    // 等时到达版本：每轴独立速度（speeds 与 positions 一一对应），
+    // 由调用方按行程比例分配速度，使各轴同时到位
+    void moveAllAxesToPositions(const QList<float>& positions, const QList<float>& speeds, float accel, float decel);
 
 
 signals:
