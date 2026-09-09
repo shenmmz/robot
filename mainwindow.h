@@ -71,6 +71,7 @@ private slots:
     void on_pushButton_2_clicked();  // 正解模式（关节空间控制）
     void on_pushButton_3_clicked();  // 逆解模式（笛卡尔空间控制）
     void onHomingClicked();          // 机械回原点（回零→建模→逆解模式）
+    bool confirmHomingOperation();   // 回零确认弹窗（自绘深色）：true=用户确认执行
     void on_pushButton_6_clicked();  // 视觉启停
 
     // 视觉取放水

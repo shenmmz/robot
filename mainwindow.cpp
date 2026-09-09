@@ -746,6 +746,77 @@ void MainWindow::on_pushButton_3_clicked()
 
 
 /**
+ * @brief 回零操作确认弹窗（自绘深色无边框，与急停/暂停提示弹窗视觉统一）
+ *
+ * 替代原生 QMessageBox::question：
+ *   - 无边框深色圆角卡片（对齐 showOpOverlay 风格）
+ *   - 底部「取消」为默认焦点，ESC 关闭亦视为取消
+ *
+ * @return true=用户点击「确认执行」；false=取消
+ */
+bool MainWindow::confirmHomingOperation()
+{
+    QDialog dlg(this);
+    dlg.setModal(true);
+    dlg.setWindowFlags(Qt::Dialog | Qt::FramelessWindowHint); // 无边框，样式与整体界面统一
+    dlg.setObjectName(QStringLiteral("homeConfirmDlg"));
+    dlg.setFixedSize(480, 250);
+    dlg.setStyleSheet(QStringLiteral(
+        "QDialog#homeConfirmDlg{background-color:#232a3a;border:2px solid #3d4658;border-radius:12px;}"
+        "QLabel#hcTitle{color:#98a2b3;font-size:16px;font-weight:bold;background:transparent;border:none;}"
+        "QLabel#hcText{color:#FFFFFF;font-size:26px;font-weight:bold;background:transparent;border:none;}"
+        "QPushButton#hcCancel{background-color:#3d4658;color:#d7dce5;font-size:18px;font-weight:bold;"
+        "border:none;border-radius:10px;min-width:150px;min-height:48px;}"
+        "QPushButton#hcCancel:hover{background-color:#4a5468;}"
+        "QPushButton#hcOk{background-color:#e67e22;color:#FFFFFF;font-size:18px;font-weight:bold;"
+        "border:none;border-radius:10px;min-width:150px;min-height:48px;}"
+        "QPushButton#hcOk:hover{background-color:#f39c12;}"));
+
+    auto* root = new QVBoxLayout(&dlg);
+    root->setContentsMargins(24, 16, 24, 20);
+    root->setSpacing(0);
+
+    // 顶部：标题
+    auto* title = new QLabel(QStringLiteral("确认执行"), &dlg);
+    title->setObjectName(QStringLiteral("hcTitle"));
+    root->addWidget(title);
+
+    // 中部：正文
+    auto* text = new QLabel(QStringLiteral("确定执行回零操作？"), &dlg);
+    text->setObjectName(QStringLiteral("hcText"));
+    text->setAlignment(Qt::AlignCenter);
+    root->addWidget(text, 1);
+
+    // 底部：取消（默认焦点）+ 确认执行
+    auto* btnRow = new QWidget(&dlg);
+    btnRow->setStyleSheet(QStringLiteral("background:transparent;"));
+    auto* btnLayout = new QHBoxLayout(btnRow);
+    btnLayout->setContentsMargins(0, 0, 0, 0);
+    btnLayout->setSpacing(16);
+    auto* cancelBtn = new QPushButton(QStringLiteral("取消"), btnRow);
+    cancelBtn->setObjectName(QStringLiteral("hcCancel"));
+    auto* okBtn = new QPushButton(QStringLiteral("确认执行"), btnRow);
+    okBtn->setObjectName(QStringLiteral("hcOk"));
+    btnLayout->addStretch();
+    btnLayout->addWidget(cancelBtn);
+    btnLayout->addWidget(okBtn);
+    root->addWidget(btnRow);
+
+    bool confirmed = false;
+    connect(okBtn, &QPushButton::clicked, &dlg, [&dlg, &confirmed]() {
+        confirmed = true;
+        dlg.accept();
+    });
+    connect(cancelBtn, &QPushButton::clicked, &dlg, &QDialog::reject);
+
+    cancelBtn->setFocus(); // 安全默认：默认焦点在取消
+    dlg.move(this->rect().center().x() - dlg.width() / 2,
+             this->rect().center().y() - dlg.height() / 2);
+    dlg.exec();
+    return confirmed;
+}
+
+/**
  * @brief 一键自动初始化按钮：回零 → 建模 → 逆解模式
  *
  * 流程：
@@ -806,15 +877,8 @@ void MainWindow::onHomingClicked()
         return;
     }
 
-    // 确认对话框
-    QMessageBox::StandardButton reply = QMessageBox::question(
-        this,
-        QStringLiteral("确认执行"),
-        QStringLiteral("确定执行回零操作？"),
-        QMessageBox::Yes | QMessageBox::No,
-        QMessageBox::No
-    );
-    if (reply != QMessageBox::Yes) {
+    // 确认对话框（自绘深色，与急停/暂停弹窗风格统一）
+    if (!confirmHomingOperation()) {
         return;
     }
 
