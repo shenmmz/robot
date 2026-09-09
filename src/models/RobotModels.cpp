@@ -28,6 +28,8 @@ RobotModelSpec buildSharedDefaults()
     RobotModelSpec s;
     s.axisCount = 6; // 6 轴
     s.homePosition = QList<double>{84.999, 68.620, -51.944, 4.229, 71.000, 90.000};
+    // 关机安全位姿：R01 沿用原硬编码值；R02 在 buildR02 覆盖
+    s.shutdownPosition = QList<double>{0, -50, 50, 0, 0, 0};
     // homeMoveSpeed/homeMoveAccel/homeMoveDecel（回零后移动速度）按机型独立设置，见 buildR01/buildR02
     s.moveToHomeAfterHoming = true; // 默认：回零后移动到 homePosition（R02 覆盖为 false）
     s.defaultControllerIP = QStringLiteral("192.168.0.123");
@@ -91,6 +93,8 @@ RobotModelSpec buildR02()
     s.moveToHomeAfterHoming = true;  // R02：回零后移动到 homePosition（到位后统一清 DPOS=0）
     // TODO(临时): 用户指定临时原点数据（R02 原点偏移，待调整原点验证后移除或正式化）
     s.homePosition = QList<double>{-136.500, 25.000, -211.999, 9.381, -90.999, 0.000};
+    // R02 关机安全位姿（与 R01 不同，J2 行程深，取 260°）
+    s.shutdownPosition = QList<double>{0, -25, 260, 0, 0, 0};
     /* ============ 各轴回零参数 HomeSpec：一行一轴 ============
     // 以 J0 行为例：{0,1,3,-10,-155,40,80,100,0,200,1}
     //   = 原点IO0 / 反限位IO1 / 模式3(正向回零) / 移开-10°、-155° /

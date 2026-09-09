@@ -276,6 +276,9 @@ void RobotConfig::initializeFromModel(RobotModelId id)
     // 回零后目标位置
     m_homePosition = src.homePosition;
 
+    // 关机安全位姿（随机型走）
+    m_shutdownPosition = src.shutdownPosition;
+
     // 回零后移动速度参数
     m_homeMoveSpeed = src.homeMoveSpeed;
     m_homeMoveAccel = src.homeMoveAccel;

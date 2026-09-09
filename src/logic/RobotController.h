@@ -143,6 +143,16 @@ public:
     QList<double> getOriginPosition();
 
     /**
+     * @brief 获取关机安全位姿（6轴关节角，°）
+     *
+     * 来自当前机型 spec（RobotConfig::shutdownPosition），不写 Flash、不受原点调整影响。
+     * 与 getOriginPosition() 区别：原点是"回零后要去的位置"，关机位是"停机收纳姿态"。
+     *
+     * @return 6轴关机位置列表（机型未配置时为空列表）
+     */
+    QList<double> getShutdownPosition() const;
+
+    /**
      * @brief 一次性为控制器烧录机型并写入机型对应的 origin（用于出厂/换臂）
      * @param modelId 要烧录的机型枚举
      * @param force 若为 true 则忽略目标 Flash 中已有数据强制覆盖

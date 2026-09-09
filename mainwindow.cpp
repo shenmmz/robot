@@ -1349,8 +1349,14 @@ void MainWindow::onBtnShutdown()
     dlg->show();
     QApplication::processEvents();
 
-    // 回到安全位置：关节 {0, -50, 50, 0, 0, 0}
-    m_robotController->moveJ({0, -50, 50, 0, 0, 0}, 10.0, 20.0, 30.0, 10000);
+    // 回到安全位置：按机型取关机位姿（R01 {0,-50,50,0,0,0} / R02 {0,-25,260,0,0,0}）
+    QList<double> shutdownPos = m_robotController->getShutdownPosition();
+    if (shutdownPos.size() != 6) {
+        shutdownPos = {0, -50, 50, 0, 0, 0};  // spec 缺失时兜底（R01 值）
+        qWarning() << "[关机] 机型未配置关机位姿，回退默认:" << shutdownPos;
+    }
+    qInfo() << "[关机] 移动到关机位姿:" << shutdownPos;
+    m_robotController->moveJ(shutdownPos, 10.0, 20.0, 30.0, 10000);
 
     // 安全停止
     m_robotController->executeSafeStop();

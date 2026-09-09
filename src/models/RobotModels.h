@@ -67,6 +67,7 @@ struct RobotModelSpec {
 
     QList<AxisSpec> axes;
     QList<double>   homePosition;             // Flash 为空时作种子
+    QList<double>   shutdownPosition;         // 关机安全位姿（6轴关节角，°），纯 spec 不写 Flash
 
     double       homeMoveSpeed;               //回原点速度 °/s
     double       homeMoveAccel;              //加速度 °/s²

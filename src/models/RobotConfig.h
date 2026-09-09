@@ -63,6 +63,10 @@ public:
     double getHomeMoveDecel() const { return m_homeMoveDecel; }         // 获取回零后移动减速度(°/s²)
     bool moveToHomeAfterHoming() const { return m_moveToHomeAfterHoming; } // 回零成功后是否移动到 homePosition（false=停 DATUM 位只清坐标）
 
+    // 关机安全位姿（6轴关节角，°）：来自机型 spec，不写 Flash
+    QList<double> getShutdownPosition() const { return m_shutdownPosition; }
+    void setShutdownPosition(const QList<double>& pos) { m_shutdownPosition = pos; }
+
     AxisConfig getAxisConfig(int axisIndex) const;    // 获取指定轴的配置
 
     // ===== 机器人模型参数 =====
@@ -106,6 +110,7 @@ private:
     RobotModelId m_modelId = RobotModelId::Unknown;  // 当前机型 ID（Unknown 回退后存 R01）
     QHash<quint64, HomeSpec> m_homeOverrides;  // 运行时回零参数覆盖表：(modelId<<16)|axis -> HomeSpec
     QList<double> m_homePosition;       // 回零后目标位置（6轴关节角度）
+    QList<double> m_shutdownPosition;   // 关机安全位姿（6轴关节角度，来自机型 spec）
     double m_homeMoveSpeed;             // 回零后移动速度(°/s)
     double m_homeMoveAccel;             // 回零后移动加速度(°/s²)
     double m_homeMoveDecel;             // 回零后移动减速度(°/s²)

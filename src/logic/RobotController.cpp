@@ -1065,6 +1065,21 @@ QList<double> RobotController::getOriginPosition()
 }
 
 /**
+ * @brief 获取关机安全位姿（6轴关节角，°）
+ *
+ * 直接取当前机型 spec，不读 Flash、不受"设置机械原点"影响。
+ *
+ * @return 6轴关机位置列表（机型未配置时为空列表）
+ */
+QList<double> RobotController::getShutdownPosition() const
+{
+    if (!m_config) {
+        return {};
+    }
+    return m_config->getShutdownPosition();
+}
+
+/**
  * @brief 确保Flash中已有出厂默认原点
  *
  * 首次连接成功后调用。若Flash中无有效原点（空块/魔数校验失败），
