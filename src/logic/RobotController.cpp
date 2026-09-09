@@ -849,8 +849,12 @@ void RobotController::connectSignals()
             // Flash 空/无效时兜底为机型 spec homePosition。
             ZmotionAPI* api = getMotionController()->getZmotionAPI();
             if (m_config->moveToHomeAfterHoming()) {
-                qInfo() << "[RobotController] 全部轴回零完成，开始移动到原点位置（Flash 优先，config 兜底）";
-                QList<double> originPos = getOriginPosition();
+                qInfo() << "[RobotController] 全部轴回零完成，开始移动到原点位置（R01 用配置全0、其余 Flash 优先）";
+                // R01 暂不读取 Flash 原点数据：回零后移动到机型配置的全 0 软件零点
+                // （与 R02 此前"别跑 Flash"一致；其余机型仍走 getOriginPosition 的 Flash 优先逻辑）
+                QList<double> originPos = (m_config->modelId() == RobotModelId::R01)
+                    ? m_config->getHomePosition()
+                    : getOriginPosition();
                 if (originPos.size() >= 6) {
                     QList<float> positions;
                     for (int i = 0; i < 6; ++i) {
