@@ -22,13 +22,14 @@ int gearDenominator(const QString& g)
     return 1;
 }
 
-// 提取机型公共默认字段：轴数 / 出厂原点位姿 / 关机安全位姿 / 回零后动作 / 默认 IP / 状态间隔
+// 提取机型公共默认字段：轴数 / 回零后动作 / 默认 IP / 状态间隔
+// ⚠️ 只放与机型结构无关的通用项。位姿类字段（homePosition / shutdownPosition）
+//    是机型特有的，必须由各 buildR0x() 显式定义，不得在此给默认值，
+//    否则新增机型漏配时会静默继承到别的机型的姿态。
 RobotModelSpec buildSharedDefaults()
 {
     RobotModelSpec s;
     s.axisCount = 6;  // 轴数（6 关节）
-    s.homePosition = QList<double>{84.999, 68.620, -51.944, 4.229, 71.000, 90.000};  // 出厂原点位姿(6轴关节角,°)：Flash 为空时作种子写入
-    s.shutdownPosition = QList<double>{0, -50, 50, 0, 0, 0};  // 关机安全位姿(6轴关节角,°)：断电前摆到的姿态
     s.moveToHomeAfterHoming = true;  // 默认：回零成功后移动到 homePosition（具体见各机型 buildR01/buildR02）
     s.defaultControllerIP = QStringLiteral("192.168.0.123");  // 默认控制器 IP
     s.stateUpdateIntervalMs = 100;  // 状态更新周期(ms)
@@ -44,6 +45,9 @@ RobotModelSpec buildR01()
     s.homeMoveSpeed = 60;  // 回零后移动速度 (°/s)，R01 独立值
     s.homeMoveAccel = 80;  // 回零后移动加速度
     s.homeMoveDecel = 100; // 回零后移动减速度
+    // —— 机型特有位姿（不可下沉到 buildSharedDefaults）——
+    s.homePosition = QList<double>{84.999, 68.620, -51.944, 4.229, 71.000, 90.000};  // 出厂原点位姿(6轴关节角,°)：Flash 为空时作种子写入
+    s.shutdownPosition = QList<double>{0, -50, 50, 0, 0, 0};  // 关机安全位姿(6轴关节角,°)：断电前摆到的姿态
     // ============ 各轴回零参数 HomeSpec：一行一轴 ============
     // J0~J5 依次填入 axes[0]~axes[5]，每行 11 个数字按序对应：
     //   1 homeIn          原点传感器 IO 号（-1=未接）
@@ -89,10 +93,10 @@ RobotModelSpec buildR02()
     s.homeMoveAccel = 80;  // 回零后移动加速度
     s.homeMoveDecel = 100; // 回零后移动减速度
     s.moveToHomeAfterHoming = true;  // R02：回零后移动到 homePosition（到位后统一清 DPOS=0）
+    // —— 机型特有位姿（不可下沉到 buildSharedDefaults）——
     // TODO(临时): 用户指定临时原点数据（R02 原点偏移，待调整原点验证后移除或正式化）
-    s.homePosition = QList<double>{-136.500, 25.000, -211.999, 9.381, -90.999, 0.000};
-    // R02 关机安全位姿（与 R01 不同，J2 行程深，取 260°）
-    s.shutdownPosition = QList<double>{0, -25, 260, 0, 0, 0};
+    s.homePosition = QList<double>{-136.500, 25.000, -211.999, 9.381, -90.999, 0.000};  // 出厂原点位姿(6轴关节角,°)：Flash 为空时作种子写入
+    s.shutdownPosition = QList<double>{0, -25, 260, 0, 0, 0};  // 关机安全位姿(6轴关节角,°)：J2 行程深，取 260°
     /* ============ 各轴回零参数 HomeSpec：一行一轴 ============
     // 以 J0 行为例：{0,1,3,-10,-155,40,80,100,0,200,1}
     //   = 原点IO0 / 反限位IO1 / 模式3(正向回零) / 移开-10°、-155° /
