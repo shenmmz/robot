@@ -380,9 +380,9 @@ void UiController::refreshIO()
         return;
     }
 
-    // 读取 DI 状态（NPN型，低电平=触发=active），共 24 个（DI0~DI23）
+    // 读取 DI 状态（PNP型，高电平=触发=active），共 24 个（DI0~DI23）
     // DI 使能掩码：DI0-8 接原点/限位传感器，DI9 接运行/恢复按钮，DI10 接暂停按钮
-    // DI11-23 未接传感器，端子悬空会读到低电平导致误显示为绿色，强制白色
+    // DI11-23 未接传感器，端子悬空会读到低电平（不触发），强制白色
     // DI9/DI10 接的是常闭型(NC)按钮：松开=0V(低)，按下=24V(高)，需反转显示
     static const QSet<int> enabledDIs = {0,1,2,3,4,5,6,7,8,9,10};
     for (int i = 0; i < 24; ++i) {
@@ -392,7 +392,8 @@ void UiController::refreshIO()
                 // NC型按钮：按下=1(高电平)→绿色，松开=0(低电平)→白色
                 setIOIndicator(QStringLiteral("di%1").arg(i), (val == 1));
             } else {
-                setIOIndicator(QStringLiteral("di%1").arg(i), (val == 0));
+                // PNP型传感器：碰到=高电平(1)→绿色，松开=低电平(0)→白色
+                setIOIndicator(QStringLiteral("di%1").arg(i), (val != 0));
             }
         } else {
             setIOIndicator(QStringLiteral("di%1").arg(i), false);
