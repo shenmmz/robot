@@ -22,18 +22,16 @@ int gearDenominator(const QString& g)
     return 1;
 }
 
-// 提取共享默认字段：axisCount / homePosition / homeMove / 默认 IP / 状态间隔
+// 提取机型公共默认字段：轴数 / 出厂原点位姿 / 关机安全位姿 / 回零后动作 / 默认 IP / 状态间隔
 RobotModelSpec buildSharedDefaults()
 {
     RobotModelSpec s;
-    s.axisCount = 6; // 6 轴
-    s.homePosition = QList<double>{84.999, 68.620, -51.944, 4.229, 71.000, 90.000};
-    // 关机安全位姿：R01 沿用原硬编码值；R02 在 buildR02 覆盖
-    s.shutdownPosition = QList<double>{0, -50, 50, 0, 0, 0};
-    // homeMoveSpeed/homeMoveAccel/homeMoveDecel（回零后移动速度）按机型独立设置，见 buildR01/buildR02
-    s.moveToHomeAfterHoming = true; // 默认：回零后移动到 homePosition（R02 覆盖为 false）
-    s.defaultControllerIP = QStringLiteral("192.168.0.123");
-    s.stateUpdateIntervalMs = 100; // 状态更新间隔(ms)
+    s.axisCount = 6;  // 轴数（6 关节）
+    s.homePosition = QList<double>{84.999, 68.620, -51.944, 4.229, 71.000, 90.000};  // 出厂原点位姿(6轴关节角,°)：Flash 为空时作种子写入
+    s.shutdownPosition = QList<double>{0, -50, 50, 0, 0, 0};  // 关机安全位姿(6轴关节角,°)：断电前摆到的姿态
+    s.moveToHomeAfterHoming = true;  // 默认：回零成功后移动到 homePosition（具体见各机型 buildR01/buildR02）
+    s.defaultControllerIP = QStringLiteral("192.168.0.123");  // 默认控制器 IP
+    s.stateUpdateIntervalMs = 100;  // 状态更新周期(ms)
     return s;
 }
 

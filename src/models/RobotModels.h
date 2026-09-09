@@ -11,15 +11,6 @@
 #include <QString>
 #include <QList>
 #include "src/models/RobotModelId.h"
-
-// ===== 单轴回零策略 =====
-// 一次完整的单轴回零 = IO 配置（homeIn/negIn）+ 回零模式（datumMode）
-//                        + 移开距离（moveAway*）+ 回零运动参数（home*）
-// 数据来源：由原 HomingController.cpp 的 g_home_strategy + g_axis_hw 合并迁移（已删除），
-//           供回零状态机逐轴查用（见 HomingController::stepSerial / stepParallel）。
-// 回零流程背景：
-//   1) 检测原点/反向限位是否压住传感器，压住则先用 moveAway* 相对移动移开；
-//   2) 再按 datumMode 下发找原点命令，以 homeSpeed 快速逼近、homeCreep 低速压点完成回零。
 struct HomeSpec {
     // ---- IO 配置 ----
     int    homeIn = -1;          // 原点传感器输入 IO 编号（-1=未配置，跳过原点检测）
