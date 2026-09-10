@@ -1038,6 +1038,37 @@ bool RobotController::setOriginFromValues(const QList<double>& originValues, QSt
     return true;
 }
 
+bool RobotController::discardOriginOffset(QString* outErrorMsg)
+{
+    auto fail = [outErrorMsg](const QString& msg) -> bool {
+        if (outErrorMsg) *outErrorMsg = msg;
+        return false;
+    };
+
+    if (!isConnected()) {
+        emit operationFailed(QStringLiteral("取消保存"), QStringLiteral("控制器未连接"));
+        return fail(QStringLiteral("控制器未连接"));
+    }
+
+    ZmotionAPI* api = m_motionController->getZmotionAPI();
+
+    // 先记录待放弃的偏移，便于日志追溯
+    QList<double> dpos = getAllAxisPositions();
+    qInfo() << "[RobotController] 取消保存：放弃未保存的点动偏移" << dpos
+            << "（Flash 原点保持不变，仅清零 DPOS/MPOS）";
+
+    api->waitForAxesIdle({0, 1, 2, 3, 4, 5}, 3000);
+    ZmotionResult zeroRet = api->clearAxisPosition({0, 1, 2, 3, 4, 5});
+    if (!zeroRet.success) {
+        qWarning() << "[RobotController] 取消保存清零 DPOS/MPOS 失败:" << zeroRet.errorMessage;
+        emit operationFailed(QStringLiteral("取消保存"), zeroRet.errorMessage);
+        return fail(zeroRet.errorMessage);
+    }
+
+    emit operationCompleted(QStringLiteral("取消保存"));
+    return true;
+}
+
 /**
  * @brief 获取原点位置（Flash优先，config兜底）
  *

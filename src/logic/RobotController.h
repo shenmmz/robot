@@ -133,6 +133,23 @@ public:
     bool setOriginFromValues(const QList<double>& originValues, QString* outErrorMsg = nullptr);
 
     /**
+     * @brief 放弃未保存的原点调整（"取消保存"）：仅清零 DPOS/MPOS，Flash 原点保持不变
+     *
+     * 场景：用户点动（如 J1 -2）后反悔，不想让这次偏移进入原点数据。
+     * 点动只改变 DPOS，而"设置机械原点"写入的是"Flash原点 + DPOS"，
+     * 所以只要把累计偏移清零，这次点动就不会被算进以后的原点。
+     *
+     * 注意：本函数**不移动**机械臂，只把坐标偏移归零（等价于"以当前姿态为基准重新计数"）。
+     * 手臂物理位置不变，因此清零后"DPOS=0"对应的并不是 Flash 原点姿态；
+     * 若需要与机械原点严格对位，应重新执行回零（DATUM 会重新建立基准）。
+     * 必须同时清 DPOS+MPOS（闭环伺服两者不一致会瞬冲），先等轴静止再清。
+     *
+     * @param outErrorMsg 可选输出参数，失败时返回错误描述
+     * @return true=清零成功
+     */
+    bool discardOriginOffset(QString* outErrorMsg = nullptr);
+
+    /**
      * @brief 获取原点位置（Flash优先，config兜底）
      *
      * 从控制器Flash读取自定义原点位置；
