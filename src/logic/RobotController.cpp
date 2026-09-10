@@ -844,17 +844,13 @@ void RobotController::connectSignals()
         connect(m_homingController, &HomingController::homingCompleted, this, [this]() {
             // 回零完成后按机型策略处理：是否移动到原点位置
             // 移动目标来源：getOriginPosition() —— Flash 优先、config homePosition 兜底。
-            // Flash 存的是用户通过"原点设置"→"设置机械原点"写入的当前原点
-            // （2026-09-04 已通过该流程把 R02 Flash 修正为有效数据）；
+            // Flash 存的是用户通过"原点设置"→"设置机械原点"或 --setmodel 烧录写入的原点
+            // （R01 机械原点已于 2026-09-10 实测标定并烧录，R01/R02 统一走 Flash 优先）；
             // Flash 空/无效时兜底为机型 spec homePosition。
             ZmotionAPI* api = getMotionController()->getZmotionAPI();
             if (m_config->moveToHomeAfterHoming()) {
-                qInfo() << "[RobotController] 全部轴回零完成，开始移动到原点位置（R01 用配置全0、其余 Flash 优先）";
-                // R01 暂不读取 Flash 原点数据：回零后移动到机型配置的全 0 软件零点
-                // （与 R02 此前"别跑 Flash"一致；其余机型仍走 getOriginPosition 的 Flash 优先逻辑）
-                QList<double> originPos = (m_config->modelId() == RobotModelId::R01)
-                    ? m_config->getHomePosition()
-                    : getOriginPosition();
+                qInfo() << "[RobotController] 全部轴回零完成，开始移动到原点位置（Flash 优先）";
+                QList<double> originPos = getOriginPosition();
                 if (originPos.size() >= 6) {
                     QList<float> positions;
                     for (int i = 0; i < 6; ++i) {

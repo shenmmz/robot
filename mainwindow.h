@@ -149,6 +149,7 @@ private:
     Ui::MainWindow *ui;
     RobotController* m_robotController;         // 机器人运动控制器（正逆解、关节/笛卡尔运动）
     RobotModelId m_provisionModel = RobotModelId::Unknown;  // --setmodel 一次性烧录目标（Unknown=非烧录模式）
+    bool m_provisionForceOrigin = false;  // --forceorigin：烧录时强制覆盖 Flash 已有原点（默认只写空 Flash）
     RobotModelId m_modelId        = RobotModelId::Unknown;  // 启动后从 Flash 自动识别到的机型
     UiController* m_uiController;               // UI 逻辑控制器（界面状态与交互逻辑）
     Rs485Controller* m_rs485 = nullptr;         // RS485 通信控制器（ZMC306X PWM 控制）

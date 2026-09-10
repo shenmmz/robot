@@ -42,7 +42,8 @@ RobotModelSpec buildR01()
     s.homeMoveAccel = 80;  // 回零后移动加速度
     s.homeMoveDecel = 100; // 回零后移动减速度
     // —— 机型特有位姿（不可下沉到 buildSharedDefaults）——
-    s.homePosition = QList<double>{0.000, 0.000, 0.000, 0.000, 0.000, 0.000}; 
+    // 机械原点（2026-09-10 实测标定，来源：调节弹窗"机械原点"读数），同时作为 Flash 空时的 seed
+    s.homePosition = QList<double>{198.499, 174.118, -138.365, 11.229, -87.228, 180.000};
     s.shutdownPosition = QList<double>{0, -50, 50, 0, 0, 0};  // 关机安全位姿(6轴关节角,°)：断电前摆到的姿态
     /*原点传感器 反向限位传感器 回零模式 移开原点 移开反向限位 回零高速 回零加速度 回零减速度 起始低速 起始S曲线 压到原点后的低速爬行速度*/
     HomeSpec J0{0,    1,  3, -10,  -300, 10, 80,  100, 0, 200, 1};    

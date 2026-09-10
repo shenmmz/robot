@@ -384,7 +384,8 @@ void MainWindow::onConnectClicked()
 /**
  * @brief 机型一次性烧录模式入口（--setmodel）
  *
- * 解析启动参数：--setmodel <R06|R12|…> 必填，--ip <ip> 可选（缺省用界面下拉框当前项）。
+ * 解析启动参数：--setmodel <R06|R12|…> 必填，--ip <ip> 可选（缺省用界面下拉框当前项），
+ * --forceorigin 可选（强制覆盖 Flash 已有原点为当前机型配置 homePosition；缺省只写空 Flash）。
  * 解析到合法机型则打标记并连控制器，连上后由 onHardwareConnected 写 Flash 并退出。
  * 不带 --setmodel 时直接返回，日常启动完全不受影响。
  */
@@ -419,6 +420,13 @@ void MainWindow::provisionModelIfRequested()
             QStringLiteral("未指定控制器 IP，请用 --ip 192.168.0.x 或在界面先选好 IP"));
         QApplication::quit();
         return;
+    }
+
+    // --forceorigin：强制覆盖 Flash 已有原点（写入当前机型配置的 homePosition）。
+    // 默认不带此参数时，Flash 已有原点则跳过写入，保护用户已标定数据。
+    m_provisionForceOrigin = args.contains(QStringLiteral("--forceorigin"));
+    if (m_provisionForceOrigin) {
+        qInfo() << "[机型烧录] 检测到 --forceorigin，将强制覆盖 Flash 原点";
     }
 
     m_provisionModel = id;
@@ -458,7 +466,7 @@ void MainWindow::onHardwareConnected()
     // 出厂/换臂时连上控制器即把型号 ID 写入 Flash，随后退出程序；日常启动不带此参数则跳过。
     if (m_provisionModel != RobotModelId::Unknown) {
         if (m_robotController) {
-            bool ok = m_robotController->provisionModel(m_provisionModel, /*force=*/false);
+            bool ok = m_robotController->provisionModel(m_provisionModel, /*force=*/m_provisionForceOrigin);
             QMessageBox::information(this, QStringLiteral("机型烧录"),
                 ok
                     ? QStringLiteral("机型 %1 已写入控制器并校验通过，程序将退出。")
