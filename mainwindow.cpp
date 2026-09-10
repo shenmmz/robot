@@ -1858,17 +1858,16 @@ void MainWindow::onSendCartMove()
  * 打开一个模态弹窗，包含：
  *   - 只读显示当前 Flash 原点（6 轴）
  *   - 6 个 QDoubleSpinBox（只读，显示当前 Flash 原点，3 位小数）
- *   - [设置机械原点]  把"当前Flash原点 + 当前DPOS"写入 Flash（点击即保存），
- *                     成功后按钮置灰防重复点击；想再改需取消后重新打开弹窗
- *   - [取消保存]      放弃"尚未保存"的点动偏移：仅清零 DPOS/MPOS，Flash 原点不动、
- *                     机械臂不移动。仅在存在未保存偏移（DPOS≠0）时可点，否则置灰。
- *                     用途：点动（如 J1 -2）后反悔，不想让这次偏移进入原点数据。
- *   - [取消]          仅关闭弹窗，不做任何读写
+ *   - [设置机械原点]  算出"新原点 = 当前Flash原点 + 当前DPOS"并**暂存**（SpinBox 显示预览），
+ *                     **不写 Flash、不清 DPOS**
+ *   - [保存]          把暂存的新原点写入 Flash，并清零 DPOS/MPOS（DPOS=0 ↔ 新原点）；
+ *                     未生成暂存值时置灰
+ *   - [退出]          关闭弹窗。若已点过"设置机械原点"但没点"保存"，先弹提示三选一：
+ *                     保存并退出 / 直接退出（本次设置作废：Flash 不写、DPOS 不清零）/ 返回
  *
  * 语义：机械臂当前实际位姿 = Flash原点 + 当前DPOS（与主界面"机械原点"显示同一公式）。
- * 用户点动到目标位姿后点"设置机械原点"，即把当前实际位姿固化为新的 Flash 原点。
- * 由于点动只改变 DPOS、而保存的是"Flash原点 + DPOS"，因此只要把 DPOS 清零（取消保存），
- * 这段点动就不会被计入以后的原点。
+ * 用户点动到目标位姿后点"设置机械原点"生成预览，确认无误再点"保存"固化到 Flash。
+ * 没点"保存"就退出 = 本次设置完全无效，控制器数据不发生任何变化。
  */
 void MainWindow::showOriginDialog()
 {
@@ -1920,6 +1919,16 @@ void MainWindow::showOriginDialog()
         "border-radius:4px;padding:6px 8px;}"));
     mainLay->addWidget(lblPending);
 
+    // 待保存的新原点（点"设置机械原点"后生成，未点"保存"前不写 Flash）
+    QLabel* lblStaged = new QLabel(&dlg);
+    lblStaged->setWordWrap(true);
+    lblStaged->setStyleSheet(QStringLiteral(
+        "QLabel{font-family:Consolas,'Microsoft YaHei UI';font-size:12px;"
+        "color:#0d47a1;background:#e3f2fd;border:1px solid #90caf9;"
+        "border-radius:4px;padding:6px 8px;}"));
+    lblStaged->setText(QStringLiteral("尚未生成新原点：点“设置机械原点”生成预览，再点“保存”才写入 Flash"));
+    mainLay->addWidget(lblStaged);
+
     // 用当前 Flash 原点预填 SpinBox 并刷新只读显示
     auto fillCurrentOrigin = [this, spins, lblCurrent]() {
         QList<double> origin = m_robotController->getOriginPosition();
@@ -1933,30 +1942,34 @@ void MainWindow::showOriginDialog()
     };
     fillCurrentOrigin();
 
-    // 按钮行
+    // 按钮行：[设置机械原点]（生成待保存值） [保存]（写入Flash） [退出]
     QHBoxLayout* btnLay = new QHBoxLayout();
     QPushButton* btnSetOrigin = new QPushButton(QStringLiteral("设置机械原点"), &dlg);
-    QPushButton* btnDiscard   = new QPushButton(QStringLiteral("取消保存"), &dlg);
-    QPushButton* btnCancel    = new QPushButton(QStringLiteral("取消"), &dlg);
+    QPushButton* btnSave      = new QPushButton(QStringLiteral("保存"), &dlg);
+    QPushButton* btnExit      = new QPushButton(QStringLiteral("退出"), &dlg);
     btnSetOrigin->setStyleSheet(QStringLiteral(
         "QPushButton{background:#2e7d32;color:#fff;border:1px solid #1b5e20;"
         "border-radius:4px;font-weight:bold;padding:4px 14px;}"
         "QPushButton:hover{background:#1b5e20;}"
         "QPushButton:disabled{background:#9e9e9e;border-color:#757575;}"));
-    btnDiscard->setStyleSheet(QStringLiteral(
-        "QPushButton{background:#ef6c00;color:#fff;border:1px solid #b53d00;"
+    btnSave->setStyleSheet(QStringLiteral(
+        "QPushButton{background:#1565c0;color:#fff;border:1px solid #0d47a1;"
         "border-radius:4px;font-weight:bold;padding:4px 14px;}"
-        "QPushButton:hover{background:#b53d00;}"
+        "QPushButton:hover{background:#0d47a1;}"
         "QPushButton:disabled{background:#9e9e9e;border-color:#757575;}"));
+    btnExit->setStyleSheet(QStringLiteral(
+        "QPushButton{background:#616161;color:#fff;border:1px solid #424242;"
+        "border-radius:4px;font-weight:bold;padding:4px 14px;}"
+        "QPushButton:hover{background:#424242;}"));
+    btnSave->setEnabled(false);  // 尚未生成待保存值时不可点
     btnLay->addWidget(btnSetOrigin);
-    btnLay->addWidget(btnDiscard);
+    btnLay->addWidget(btnSave);
     btnLay->addStretch();
-    btnLay->addWidget(btnCancel);
+    btnLay->addWidget(btnExit);
     mainLay->addLayout(btnLay);
 
-    // 刷新"待保存偏移"显示，并据此决定 [取消保存] 是否可点
-    // （仅在有未保存偏移时可点：DPOS 全为 0 时置灰，避免误点）
-    auto refreshPending = [this, lblPending, btnDiscard]() {
+    // 刷新"待保存偏移"（当前 DPOS）显示
+    auto refreshPending = [this, lblPending]() {
         QList<double> dpos = m_robotController->getAllAxisPositions();
         QStringList parts;
         bool hasOffset = false;
@@ -1970,7 +1983,6 @@ void MainWindow::showOriginDialog()
         lblPending->setText(hasOffset
             ? QStringLiteral("待保存偏移（当前DPOS，点“设置机械原点”会被计入）：") + parts.join(QStringLiteral("  "))
             : QStringLiteral("待保存偏移：无（DPOS 全为 0）"));
-        btnDiscard->setEnabled(hasOffset);
     };
     refreshPending();
 
@@ -1980,72 +1992,91 @@ void MainWindow::showOriginDialog()
     connect(pendingTimer, &QTimer::timeout, refreshPending);
     pendingTimer->start();
 
-    // [取消保存]：放弃未保存的点动偏移 —— 只清 DPOS/MPOS，Flash 原点不动、机械臂不移动。
-    // 效果：这次点动（如 J1 -2）不会被算进以后的原点数据。
-    connect(btnDiscard, &QPushButton::clicked, &dlg, [this, &dlg, refreshPending]() {
-        QList<double> dpos = m_robotController->getAllAxisPositions();
-        QStringList parts;
-        for (int i = 0; i < 6; ++i) {
-            double v = (i < dpos.size()) ? dpos.at(i) : 0.0;
-            parts << QStringLiteral("J%1=%2").arg(i).arg(v, 0, 'f', 3);
-        }
+    // 暂存的新原点（点"设置机械原点"生成；点"保存"才写入 Flash）
+    QList<double> stagedOrigin;
+    bool hasStaged = false;
 
-        auto ret = QMessageBox::question(&dlg, QStringLiteral("取消保存"),
-            QStringLiteral("将放弃以下未保存的点动偏移（DPOS/MPOS 清零）：\n\n%1\n\n"
-                           "· Flash 原点保持不变\n"
-                           "· 机械臂不会移动，仅把坐标偏移归零\n"
-                           "· 之后再点“设置机械原点”写入的是原值，不含这次偏移\n\n"
-                           "确定继续？")
-                .arg(parts.join(QStringLiteral("  "))),
-            QMessageBox::Yes | QMessageBox::No, QMessageBox::No);
-        if (ret != QMessageBox::Yes) {
-            return;
-        }
-
-        QString err;
-        if (m_robotController->discardOriginOffset(&err)) {
-            refreshPending();
-            ui->statusbar->showMessage(QStringLiteral("已放弃未保存的点动偏移（Flash 原点未改动）"));
-        } else {
-            QMessageBox::warning(&dlg, QStringLiteral("取消保存"),
-                err.isEmpty() ? QStringLiteral("偏移清零失败，请检查控制器连接状态。") : err);
-        }
-    });
-
-    // [设置机械原点]：新原点 = 当前Flash原点 + 当前DPOS，点击即写入 Flash；
-    // 成功后按钮置灰，防止重复点击；想再改需取消后重新打开弹窗。
+    // [设置机械原点]：算出"新原点 = Flash原点 + 当前DPOS"并暂存为待保存值，
+    // **不写 Flash、不清 DPOS**（真正落盘在点 [保存] 时发生）。
+    // SpinBox 同步显示待保存的新原点，便于确认后再保存。
     connect(btnSetOrigin, &QPushButton::clicked, &dlg,
-            [this, btnSetOrigin, fillCurrentOrigin, &dlg]() {
+            [this, spins, &stagedOrigin, &hasStaged, lblStaged, btnSave]() {
         QList<double> origin = m_robotController->getOriginPosition();
         QList<double> dpos   = m_robotController->getAllAxisPositions();
-        QList<double> values;
+        stagedOrigin.clear();
         QStringList preview;
         for (int i = 0; i < 6; ++i) {
             double base = (i < origin.size()) ? origin.at(i) : 0.0;
             double off  = (i < dpos.size())   ? dpos.at(i)   : 0.0;
             double v = base + off;
-            values.append(v);
+            stagedOrigin.append(v);
             preview << QStringLiteral("J%1=%2").arg(i).arg(v, 0, 'f', 3);
+            spins[i]->setValue(v);
         }
+        hasStaged = true;
+        btnSave->setEnabled(true);
+        lblStaged->setText(QStringLiteral("待保存的新原点（尚未写入 Flash，请点“保存”）：")
+                           + preview.join(QStringLiteral("  ")));
+        ui->statusbar->showMessage(QStringLiteral("已生成待保存原点，请点“保存”写入 Flash"));
+    });
 
+    // [保存]：把暂存的新原点写入 Flash，并清零 DPOS/MPOS（DPOS=0 ↔ 新原点）
+    connect(btnSave, &QPushButton::clicked, &dlg,
+            [this, &stagedOrigin, &hasStaged, btnSave, lblStaged, fillCurrentOrigin, refreshPending, &dlg]() {
+        if (!hasStaged) {
+            return;
+        }
         QString err;
-        if (m_robotController->setOriginFromValues(values, &err)) {
+        if (m_robotController->setOriginFromValues(stagedOrigin, &err)) {
             // 设原点后复位 homing 标志，允许再次点击"回零"使新原点生效
             m_homingDone = false;
-            btnSetOrigin->setEnabled(false);  // 置灰，防重复点击
-            fillCurrentOrigin();              // 刷新显示为写入后的新值
+            hasStaged = false;
+            btnSave->setEnabled(false);
+            fillCurrentOrigin();   // 刷新显示为写入后的新 Flash 原点
+            refreshPending();      // DPOS 已清零，刷新偏移显示
+            lblStaged->setText(QStringLiteral("已保存到 Flash（DPOS/MPOS 已清零）"));
             ui->statusbar->showMessage(QStringLiteral("机械原点已写入Flash"));
-            QMessageBox::information(&dlg, QStringLiteral("原点设置"),
-                QStringLiteral("机械原点已写入控制器 Flash（断电保持）：\n\n%1\n\n"
-                               "当前 6 轴关节角度已清零（DPOS=0 ↔ 新原点）。")
-                    .arg(preview.join(QStringLiteral("  "))));
         } else {
-            QMessageBox::warning(&dlg, QStringLiteral("原点设置"),
+            QMessageBox::warning(&dlg, QStringLiteral("保存"),
                 err.isEmpty() ? QStringLiteral("原点写入失败，请检查控制器连接状态。") : err);
         }
     });
 
-    connect(btnCancel, &QPushButton::clicked, &dlg, &QDialog::reject);
+    // [退出]：若已生成待保存值但没保存，先弹提示三选一；
+    // "直接退出" = 本次"设置机械原点"作废：Flash 不写、DPOS 也不清零。
+    connect(btnExit, &QPushButton::clicked, &dlg,
+            [this, &stagedOrigin, &hasStaged, &dlg]() {
+        if (hasStaged) {
+            QMessageBox box(&dlg);
+            box.setWindowTitle(QStringLiteral("退出"));
+            box.setText(QStringLiteral("尚未保存原点修改"));
+            box.setInformativeText(QStringLiteral(
+                "你已点过“设置机械原点”，但还没有点“保存”。\n\n"
+                "· 保存并退出：把新原点写入 Flash，并清零 DPOS/MPOS\n"
+                "· 直接退出：本次设置作废，Flash 原点不变，DPOS 不会清零\n"
+                "· 返回：回到本窗口继续操作"));
+            QPushButton* btnSaveExit   = box.addButton(QStringLiteral("保存并退出"), QMessageBox::AcceptRole);
+            QPushButton* btnExitDirect = box.addButton(QStringLiteral("直接退出"),   QMessageBox::DestructiveRole);
+            QPushButton* btnBack       = box.addButton(QStringLiteral("返回"),       QMessageBox::RejectRole);
+            box.setDefaultButton(btnBack);
+            box.exec();
+
+            if (box.clickedButton() == btnBack) {
+                return;  // 返回继续编辑
+            }
+            if (box.clickedButton() == btnSaveExit) {
+                QString err;
+                if (!m_robotController->setOriginFromValues(stagedOrigin, &err)) {
+                    QMessageBox::warning(&dlg, QStringLiteral("保存"),
+                        err.isEmpty() ? QStringLiteral("原点写入失败，请检查控制器连接状态。") : err);
+                    return;  // 保存失败，留在窗口
+                }
+                m_homingDone = false;
+            }
+            // "直接退出"：什么都不做，本次设置作废
+        }
+        dlg.accept();
+    });
 
     dlg.exec();
 }
