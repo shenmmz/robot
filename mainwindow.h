@@ -19,6 +19,7 @@
 #include <QSet>
 #include <QPlainTextEdit>
 #include <QVariantMap>
+#include <QComboBox>          // 下拉选择框（机型选择）
 #include "src/models/RobotModelId.h"            // 机械臂型号枚举（Flash 型号管理）
 #include "src/draw/drawing_window.h"
 #include "src/draw/WorkPieceCoord.h"
@@ -108,6 +109,9 @@ void on_btnNail_released();//打钉子按钮：松开复位 DO0=0
     // 页面导航
     void onNavButtonClicked(int index);          // 导航栏按钮点击（切换功能页面）
 
+    // 机型选择
+    void onModelComboChanged(int index);  // 机型下拉框切换
+
     // RS485 测试（ZMC306X 直连 PWM 模块）
     void initRs485UI();                          // 初始化 RS485 调试界面控件
     void onRs485Send();                          // RS485 手动发送数据
@@ -186,6 +190,7 @@ private:
 
     QButtonGroup* m_navGroup;
     QLabel* m_labelModel = nullptr; // 顶部显示已识别机型（持久显示，不被状态覆盖）
+    QComboBox* m_modelCombo = nullptr; // 机型选择下拉框
     QTimer* m_jogResetTimerJoint = nullptr;   // 关节点动5s自动复位
     QTimer* m_jogResetTimerCart  = nullptr;   // 笛卡尔点动5s自动复位
     bool m_jogJointUserInput = false;          // 用户正在手动输入关节值

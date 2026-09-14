@@ -21,6 +21,7 @@
 #include "src/hardware/Rs485Controller.h"
 #include "src/hardware/ServoController.h"
 #include "src/vision/VisualRoboticArm/VisionController.h"
+#include "src/models/RobotModels.h"        // RobotModelRegistry::allModels()
 #include "src/models/RobotConfig.h"
 #include "library/zmotion.h"
 #include "src/utils/MathUtils.h"
@@ -136,7 +137,7 @@ MainWindow::MainWindow(QWidget *parent)
     m_labelModel->setStyleSheet(QStringLiteral(
         "color:#39d98a;font-size:13px;font-weight:600;"
         "padding:0;background:transparent;border:0;"));
-    m_labelModel->setText(QStringLiteral("机型: -"));
+    m_labelModel->setText(QStringLiteral("机型: %1").arg(robotModelName(RobotModelId::R01)));
     // 显式插入到 labelStatus 之后，避免占用 IP 区域
     if (ui->labelStatus && ui->labelStatus->parentWidget()) {
         QLayout* topLayout = ui->labelStatus->parentWidget()->layout();
@@ -162,6 +163,44 @@ MainWindow::MainWindow(QWidget *parent)
     } else if (ui->topBar && ui->topBar->layout()) {
         ui->topBar->layout()->addWidget(m_labelModel);
     }
+
+    // ===== 机型选择下拉框（顶部栏，IP 区域左侧）=====
+    m_modelCombo = new QComboBox(ui->topBar);
+    m_modelCombo->setMinimumWidth(100);
+    m_modelCombo->setMaximumWidth(140);
+    m_modelCombo->setMinimumHeight(28);
+    m_modelCombo->setStyleSheet(QStringLiteral(
+        "QComboBox{background:#2a3a4e;color:#eee;border:1px solid #4a5a6e;border-radius:4px;padding:2px 6px;font-size:12px;}"
+        "QComboBox:hover{border-color:#64b5f6;}"
+        "QComboBox::drop-down{border:none;width:20px;}"
+        "QComboBox::down-arrow{image:none;border-left:5px solid transparent;border-right:5px solid transparent;border-top:6px solid #90caf9;margin-top:3px;}"
+    ));
+    // 填充可用机型
+    for (RobotModelId id : RobotModelRegistry::allModels()) {
+        m_modelCombo->addItem(robotModelName(id), QVariant(static_cast<int>(id)));
+    }
+    m_modelCombo->setCurrentIndex(0); // 默认 R01
+    // 插入到 labelStatus 之后（与 m_labelModel 同一布局）
+    if (ui->labelStatus && ui->labelStatus->parentWidget()) {
+        QLayout* topLayout = ui->labelStatus->parentWidget()->layout();
+        if (topLayout) {
+            int insertPos = -1;
+            for (int i = 0; i < topLayout->count(); ++i) {
+                QWidget* w = topLayout->itemAt(i)->widget();
+                if (w == ui->labelStatus) { insertPos = i + 1; break; }
+            }
+            if (insertPos >= 0) {
+                QBoxLayout* box = qobject_cast<QBoxLayout*>(topLayout);
+                if (box) box->insertWidget(insertPos, m_modelCombo);
+                else topLayout->addWidget(m_modelCombo);
+            } else {
+                topLayout->addWidget(m_modelCombo);
+            }
+        }
+    }
+    // 连接机型切换信号
+    connect(m_modelCombo, QOverload<int>::of(&QComboBox::currentIndexChanged),
+            this, &MainWindow::onModelComboChanged);
 
     // 初始化位置显示面板
     initPositionDisplay();
@@ -441,6 +480,54 @@ void MainWindow::provisionModelIfRequested()
 }
 
 /**
+ * @brief 机型下拉框切换槽函数
+ *
+ * 用户在顶部栏手动选择机型时调用。未连接时仅更新内存配置；
+ * 已连接时同时更新配置并重新初始化控制器模型参数（TABLE）。
+ */
+void MainWindow::onModelComboChanged(int index)
+{
+    Q_UNUSED(index)
+    if (!m_robotController || !m_modelCombo) return;
+
+    bool ok = false;
+    RobotModelId id = static_cast<RobotModelId>(m_modelCombo->currentData().toInt(&ok));
+    if (!ok || id == RobotModelId::Unknown) return;
+
+    const QString name = robotModelName(id);
+    qInfo() << "[机型选择] 用户切换到机型:" << name;
+
+    // 更新机型显示标签
+    if (m_labelModel) {
+        m_labelModel->setText(QStringLiteral("机型: %1").arg(name));
+    }
+
+    // 连接前：仅更新内存配置
+    if (!m_robotController->isConnected()) {
+        m_robotController->initialize(id);
+        qInfo() << "[机型选择] 未连接，仅更新内存配置到" << name;
+        return;
+    }
+
+    // 已连接：更新配置 + 重新初始化控制器模型参数
+    if (m_robotController->applyModel(id)) {
+        qInfo() << "[机型选择] applyModel 切换到" << name;
+        // 重新写入 TABLE 到控制器（模型参数变更需要重建）
+        if (m_robotController->initRobotModel()) {
+            qInfo() << "[机型选择] 控制器模型参数已更新为" << name;
+        } else {
+            qWarning() << "[机型选择] 控制器模型参数更新失败";
+        }
+    } else {
+        qWarning() << "[机型选择] applyModel 失败";
+    }
+
+    if (m_uiController) {
+        m_uiController->appendConsole(QStringLiteral("切换机型: %1").arg(name));
+    }
+}
+
+/**
  * @brief 断开当前连接
  *
  * 调用 RobotController 断开硬件连接。
@@ -518,6 +605,13 @@ void MainWindow::onHardwareConnected()
             if (m_labelModel) {
                 m_labelModel->setText(QStringLiteral("机型: %1").arg(robotModelName(m_modelId)));
             }
+            // 同步更新机型下拉框（若 Flash 读到 Unknown 则保持第一个条目）
+            if (m_modelCombo) {
+                int idx = m_modelCombo->findText(robotModelName(m_modelId));
+                if (idx >= 0) {
+                    m_modelCombo->setCurrentIndex(idx);
+                }
+            }
             if (ui->labelIp) {
                 ui->labelIp->setText(QStringLiteral("IP:"));
             }
@@ -531,6 +625,13 @@ void MainWindow::onHardwareConnected()
             }
             if (m_labelModel) {
                 m_labelModel->setText(QStringLiteral("机型: 未设置"));
+            }
+            // 同步更新机型下拉框（Unknown 保持当前选择）
+            if (m_modelCombo) {
+                int idx = m_modelCombo->findText(robotModelName(m_modelId));
+                if (idx >= 0) {
+                    m_modelCombo->setCurrentIndex(idx);
+                }
             }
             if (ui->labelIp) {
                 ui->labelIp->setText(QStringLiteral("IP:"));
