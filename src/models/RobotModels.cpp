@@ -51,7 +51,7 @@ RobotModelSpec buildR01()
     HomeSpec J1{2,   -1,  4,  35,     0, 15, 80,  200, 0, 200, 1};  
     HomeSpec J2{3,   -1,  3, -35,     0, 15, 50,  100, 0, 200, 1};  
     HomeSpec J3{4,    5,  3, -10,  -200, 15, 80,  100, 0, 200, 1};  
-    HomeSpec J4{6,   -1,  4,  10,     0, 10, 80,  100, 0, 200, 1};  
+    HomeSpec J4{6,   -1,  4,  10,     0, 20, 80,  100, 0, 200, 1};  
     HomeSpec J5{7,    8,  3, -10,  -220, 60, 100, 200, 0, 200, 2};  
     // 列：pulsePerRev, reductionRatio, gearRatio, home
     s.axes = QList<AxisSpec>{

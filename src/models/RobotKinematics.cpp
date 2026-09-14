@@ -17,10 +17,10 @@ QVector<float> RobotKinematics::buildFrame6Table(const QList<double>& axisUnits)
 
     // ===== FRAME6 几何尺寸 =====
     table[0] = 307.5f;                 // LargeZ  (基座垂直高度)
-    table[1] = -80.87f;                // L1      (1轴到2轴X偏移)
+    table[1] = -80.97f;                // L1      (1轴到2轴X偏移)
     table[2] = 312.0f;                 // L2      (大臂长度)
-    table[3] = 85.0f;                  // L3      (3轴到4轴中心距离)
-    table[4] = 80.92f + 306.36f;       // L4      (4轴到5轴距离, 小臂总长 = 387.18)
+    table[3] = 84.96f;                  // L3      (3轴到4轴中心距离)
+    table[4] = 88.02f + 306.76f;       // L4      (4轴到5轴距离, 小臂总长 = 387.18)
     table[5] = 0.0f;                   // D5      (5轴转一圈时6轴转动圈数, 0=不关联)
 
     // ===== 脉冲数 (Units * 360) =====
