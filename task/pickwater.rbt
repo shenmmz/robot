@@ -1,0 +1,18 @@
+TARGET Target6 = { J0:-0.048, J1:93.191, J2:5.771, J3:-0.279, J4:-94.720, J5:266.335 }// 姿态转变
+TARGET Target2 = { X:306.345, Y:0.000, Z:-117.488, A:-94.251, B:-3.608, C:-89.732 }// 待抓取
+TARGET Target1 = { X:397.000, Y:0.000, Z:-117.488, A:-94.251, B:-3.608, C:-89.732 }// 抓取
+TARGET Target3 = { X:398.000, Y:0.000, Z:-67.488, A:-94.251, B:-3.608, C:-89.732 }// 抬起
+TARGET Target7 = { J0:0.000, J1:87.017, J2:-1.323, J3:0.000, J4:-89.000, J5:266.382 }// 到手
+TARGET Target4 = { X:398.000, Y:0.000, Z:41.644, A:-94.251, B:-3.608, C:-89.732 }// 抬起离开
+TARGET Target5 = { J0:79.972, J1:67.793, J2:14.508, J3:0.000, J4:-78.059, J5:266.382 }// 给水
+---
+MOVEJ(Target6, speed=25, acc=50, dec=60)// 姿态转变
+MOVEL(Target2, speed=25, acc=50, dec=60)// 待抓取
+MOVEL(Target1, speed=25, acc=50, dec=60)// 抓取
+MOVEL(Target3, speed=25, acc=50, dec=60)// 抬起
+MOVEJ(Target7, speed=25, acc=50, dec=60)// 到手
+SERVO(0=41:T10, 1=130:T10, 2=141:T5, 3=30:T5, 4=149:T5, 5=30:T5) // 夹紧
+MOVEL(Target4, speed=25, acc=50, dec=60)// 抬起离开
+MOVEJ(Target5, speed=25, acc=50, dec=60)// 给水
+SERVO(0=41:T50, 1=130:T50, 2=30:T50, 3=150:T50, 4=30:T50, 5=150:T50)
+

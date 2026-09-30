@@ -298,52 +298,7 @@ void UiController::init()
         });
     connect(targetSyncTimer, &QTimer::timeout, this, &UiController::onTargetEditorChanged);
 
-    // === 启动时自动加载 test.rbt 到编辑流程 ===
-    QTimer::singleShot(200, this, [this]() {
-        // 查找 task/test.rbt（与 locateOpScript 同级查找逻辑）
-        QString scriptPath;
-        QStringList searchPaths = {
-            QStringLiteral("task/test.rbt"),
-            QStringLiteral("../task/test.rbt"),
-            QStringLiteral("../../task/test.rbt"),
-            QStringLiteral("../../../task/test.rbt")
-        };
-        for (const auto& p : searchPaths) {
-            if (QFileInfo::exists(p)) { scriptPath = p; break; }
-        }
-        if (scriptPath.isEmpty()) return;
-
-        QFile file(scriptPath);
-        if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) return;
-        QString content = QTextStream(&file).readAll();
-        file.close();
-
-        auto* editor = getEditor();
-        if (!editor) return;
-        m_currentScriptPath = scriptPath;
-
-        auto* targetEd = getTargetEditor();
-        int sep = content.indexOf(QStringLiteral("\n---\n"));
-        if (sep >= 0 && targetEd) {
-            targetEd->setPlainText(content.left(sep).trimmed());
-            editor->setPlainText(content.mid(sep + 5).trimmed());
-        } else {
-            if (targetEd) targetEd->clear();
-            editor->setPlainText(content.trimmed());
-        }
-
-        m_targets.clear();
-        m_targetMotion.clear();
-        m_targetCounter = 0;
-        parseScript(content);
-        if (m_taskExecutor)
-            m_taskExecutor->setTargetMotion(m_targetMotion);
-
-        if (auto* lbl = m_mainWindow->findChild<QLabel*>(QStringLiteral("progFileName")))
-            lbl->setText(QStringLiteral("📄 %1").arg(QFileInfo(scriptPath).fileName()));
-        if (auto* sb = m_mainWindow->findChild<QStatusBar*>(QStringLiteral("statusbar")))
-            sb->showMessage(QStringLiteral("已加载: %1").arg(scriptPath));
-    });
+    // 启动不再自动加载任何流程脚本（原 task/test.rbt 默认加载已关闭，需手动"打开流程"）
 
     // 回零参数面板（机型化运行时覆盖；载入 config/robot_home.ini）
     buildHomeParamPanel();
@@ -381,7 +336,8 @@ void UiController::refreshIO()
     }
 
     // 读取 DI 状态（PNP型，高电平=触发=active），共 24 个（DI0~DI23）
-    // DI 使能掩码：DI0-8 接原点/限位传感器，DI9 接运行/恢复按钮，DI10 接暂停按钮
+    // DI 使能掩码：DI0-8 接原点/限位传感器，DI10 接暂停按钮
+    // （DI9 运行/恢复功能已移除，仅保留输入状态显示）
     // DI11-23 未接传感器，端子悬空会读到低电平（不触发），强制白色
     // DI9/DI10 接的是常闭型(NC)按钮：松开=0V(低)，按下=24V(高)，需反转显示
     static const QSet<int> enabledDIs = {0,1,2,3,4,5,6,7,8,9,10};
@@ -400,15 +356,11 @@ void UiController::refreshIO()
         }
     }
 
-    // IN9/IN10 物理按钮边沿检测（NC型：按下=1高电平，松开=0低电平，检测上升沿=按下）
-    // IN9 = 运行/恢复流程，IN10 = 暂停流程
-    bool in9Active = (api->getDI(9) == 1);
+    // IN10 物理按钮边沿检测（NC型：按下=1高电平，松开=0低电平，检测上升沿=按下）
+    // IN10 = 暂停流程（IN9 运行/恢复流程已移除，DI9 仅用于界面状态显示）
     bool in10Active = (api->getDI(10) == 1);
-    bool prevIn9 = m_ioStateCache.value(QStringLiteral("IN9"), false);
     bool prevIn10 = m_ioStateCache.value(QStringLiteral("IN10"), false);
-    if (in9Active && !prevIn9) emit opRunTriggered();
     if (in10Active && !prevIn10) emit opPauseTriggered();
-    m_ioStateCache[QStringLiteral("IN9")] = in9Active;
     m_ioStateCache[QStringLiteral("IN10")] = in10Active;
 
     // 读取 DO 状态（输出=1 视为 active），共 20 个（DO0~DO19）

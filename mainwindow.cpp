@@ -121,9 +121,7 @@ MainWindow::MainWindow(QWidget *parent)
     // 点动完成时立即刷新位置标签
     connect(m_uiController, &UiController::jogCompleted,
             this, &MainWindow::updatePositionDisplay);
-    // 物理按钮 IN9 = 运行/恢复流程，IN10 = 暂停流程
-    connect(m_uiController, &UiController::opRunTriggered,
-            this, &MainWindow::onBtnOpRun);
+    // 物理按钮 IN10 = 暂停流程（IN9 运行/恢复流程已移除）
     connect(m_uiController, &UiController::opPauseTriggered,
             this, &MainWindow::onBtnOpPause);
 
@@ -1486,54 +1484,6 @@ void MainWindow::onBtnShutdown()
 }
 
 /* ==================== 操作界面 ==================== */
-/**
- * @brief 操作界面 运行/恢复按钮：输入口 IN9
- *
- * 点击一次：
- *   - 若任务未运行 → 启动 test.rbt 流程
- *   - 若任务已暂停 → 从断点恢复继续执行
- */
-void MainWindow::onBtnOpRun()
-{
-    if (!m_robotController || !m_robotController->isConnected()) {
-        ui->statusbar->showMessage(QStringLiteral("运行：控制器未连接"));
-        return;
-    }
-
-    if (m_opPause) {
-        // 已暂停 → 恢复执行
-        m_opPause = false;
-        closeOpOverlay();
-        if (m_uiController) m_uiController->resumeTask();
-        qDebug() << "[操作界面] DI9 运行按钮：从暂停恢复执行";
-        ui->statusbar->showMessage(QStringLiteral("已恢复，任务继续执行"));
-        return;
-    }
-
-    if (m_uiController && m_uiController->isTaskRunning()) {
-        ui->statusbar->showMessage(QStringLiteral("任务正在运行中"));
-        return;
-    }
-
-    // 任务未运行 → 启动 test.rbt 流程
-    QString nailScript = m_opScriptPath;
-    if (nailScript.isEmpty()) {
-        nailScript = locateOpScript();
-    }
-    if (nailScript.isEmpty() || !m_uiController) {
-        QMessageBox::warning(this, QStringLiteral("运行流程"),
-            QStringLiteral("未找到流程文件 task/test.rbt，请确认工程目录结构"));
-        return;
-    }
-    if (!m_uiController->runScriptFile(nailScript)) {
-        ui->statusbar->showMessage(QStringLiteral("流程启动失败"));
-        return;
-    }
-    m_opScriptPath = nailScript;
-    qDebug() << "[操作界面] DI9 运行按钮：启动流程" << nailScript;
-    ui->statusbar->showMessage(QStringLiteral("流程已启动（DI9）"));
-}
-
 /**
  * @brief 操作界面 暂停按钮：输入口 IN10 电平切换
  *

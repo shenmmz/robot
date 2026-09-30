@@ -99,7 +99,6 @@ void on_btnNail_released();//打钉子按钮：松开复位 DO0=0
 
     // 操作者界面
     void onBtnOpPause();                         // 暂停按钮（输入口 IN10：暂停/恢复切换）
-    void onBtnOpRun();                           // 运行/恢复按钮（输入口 IN9：运行流程或从暂停恢复）
     void onBtnOpEStop();                         // 急停按钮（UI按钮：急停/解除并重新执行）
 
     // 编程页面

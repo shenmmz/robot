@@ -54,15 +54,17 @@ Desktop.ini
 # å…¶ä»–
 .codebuddy/
 .workbuddy/
+.workbuddy-ai/
 .trae/
 
 # Git å¤‡ä»½ç›®å½•
 .git_backup_*/
-# Claude ¹¤¾ß»º´æÄ¿Â¼.claude/
+# Claude ï¿½ï¿½ï¿½ß»ï¿½ï¿½ï¿½Ä¿Â¼
+.claude/
 
-# ĞÂÔöºöÂÔ£ºClaude ÅäÖÃÓë task ÁÙÊ±¸±±¾
+# ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ô£ï¿½Claude ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ task ï¿½ï¿½Ê±ï¿½ï¿½ï¿½ï¿½
 .claude/
 *copy*.rbt
-*¸±±¾*.rbt
+*ï¿½ï¿½ï¿½ï¿½*.rbt
 test_*.rbt
 
