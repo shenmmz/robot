@@ -325,14 +325,30 @@ void TaskExecutor::executeNext()
         if (ioVal == cmd.ioValue) {
             m_currentIdx++;
         } else {
-            int j = m_currentIdx + 1;
-            while (j < m_commands.size()) {
-                auto t = m_commands[j].type;
-                if (t == ScriptCmdType::Else) { m_currentIdx = j + 1; break; }
-                if (t == ScriptCmdType::EndIf) { m_currentIdx = j + 1; break; }
-                j++;
+            // 条件不满足：必须按“嵌套深度”找到属于本 IF 的 ELSE / END_IF，
+            // 不能停在内层嵌套 IF 的 ELSE/END_IF 上（否则外层为假会误跳进内层分支）。
+            const int endIf = m_loopEndMap.value(m_currentIdx, -1);
+            int target = -1;
+            if (endIf >= 0) {
+                int depth = 0;
+                for (int j = m_currentIdx + 1; j < endIf; ++j) {
+                    auto t = m_commands[j].type;
+                    if (t == ScriptCmdType::IfIO) depth++;
+                    else if (t == ScriptCmdType::EndIf) depth--;
+                    else if (t == ScriptCmdType::Else && depth == 0) { target = j + 1; break; }
+                }
+                if (target < 0) target = endIf + 1;   // 无同层 ELSE → 跳到本 IF 的 END_IF 之后
+            } else {
+                // 兜底：缺少 END_IF 映射时退回线性扫描（不推荐，脚本应补 END_IF）
+                int j = m_currentIdx + 1;
+                while (j < m_commands.size()) {
+                    auto t = m_commands[j].type;
+                    if (t == ScriptCmdType::Else || t == ScriptCmdType::EndIf) { target = j + 1; break; }
+                    j++;
+                }
+                if (target < 0) target = m_currentIdx + 1;
             }
-            if (j >= m_commands.size()) m_currentIdx++;
+            m_currentIdx = target;
         }
         scheduleNext();
         return;
@@ -340,8 +356,15 @@ void TaskExecutor::executeNext()
 
     // === ELSE 跳过 ===
     if (cmd.type == ScriptCmdType::Else) {
-        int j = m_currentIdx + 1;
-        while (j < m_commands.size() && m_commands[j].type != ScriptCmdType::EndIf) j++;
+        // if-true 分支跑完落到 ELSE：跳过 else-body，按嵌套深度找与本 IF 匹配的 END_IF，
+        // 忽略 else-body 内部的整段嵌套 IF...END_IF。
+        int j = m_currentIdx + 1, depth = 0;
+        while (j < m_commands.size()) {
+            auto t = m_commands[j].type;
+            if (t == ScriptCmdType::IfIO) depth++;
+            else if (t == ScriptCmdType::EndIf) { if (depth == 0) break; depth--; }
+            j++;
+        }
         m_currentIdx = (j < m_commands.size()) ? j + 1 : j;
         scheduleNext();
         return;
